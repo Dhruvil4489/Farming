@@ -14,6 +14,10 @@ import {
   Eye,
   Droplet,
   Bot,
+  TrendingUp,
+  Package,
+  BookOpen,
+  ShoppingBag,
   ShieldAlert,
 } from 'lucide-react';
 
@@ -24,6 +28,10 @@ const navItems = [
   { href: '/crops', label: 'Crops & Cycles', icon: Sprout },
   { href: '/tasks', label: 'Tasks & Activities', icon: CheckSquare },
   { href: '/weather', label: 'Weather', icon: CloudSun },
+  { href: '/market', label: 'Live Mandi Prices', icon: TrendingUp },
+  { href: '/fertilizers', label: 'Fertilizer Store', icon: Package },
+  { href: '/fertilizers/guide', label: 'Nutrient Guidance', icon: BookOpen },
+  { href: '/orders', label: 'My Orders', icon: ShoppingBag },
   { href: '/soil', label: 'Soil Health', icon: FlaskConical },
   { href: '/scouting', label: 'Scouting', icon: Eye },
   { href: '/irrigation', label: 'Irrigation', icon: Droplet },

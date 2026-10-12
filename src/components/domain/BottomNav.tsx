@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Tractor, Sprout, Bot, Menu, Plus } from 'lucide-react';
+import { LayoutDashboard, Tractor, Sprout, Bot, TrendingUp } from 'lucide-react';
 
 export const BottomNav: React.FC = () => {
   const pathname = usePathname();
@@ -11,9 +11,9 @@ export const BottomNav: React.FC = () => {
   const items = [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     { href: '/farms', label: 'My Farm', icon: Tractor },
+    { href: '/market', label: 'Mandi', icon: TrendingUp },
     { href: '/crops', label: 'Crops', icon: Sprout },
     { href: '/assistant', label: 'Assistant', icon: Bot },
-    { href: '/tasks', label: 'Tasks', icon: Menu },
   ];
 
   return (
