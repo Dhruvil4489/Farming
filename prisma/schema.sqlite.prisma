@@ -1,0 +1,735 @@
+// SmartFarm AI Prisma Database Schema
+// Supported DB: SQLite (Dev) / PostgreSQL (Prod)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// USER & AUTHENTICATION
+// -------------------------------------------------------------
+
+model User {
+  id                 String     @id @default(uuid())
+  name               String
+  email              String?    @unique
+  phone              String?    @unique
+  passwordHash       String?
+  preferredLanguage  String     @default("en")
+  state              String?
+  district           String?
+  village            String?
+  isDemo             Boolean    @default(false)
+  experienceMode     String     @default("simple") // simple | expert
+  onboardingStatus   String     @default("{}") // JSON string of step completion
+  emailVerifiedAt    DateTime?
+  phoneVerifiedAt    DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  deletedAt          DateTime?
+
+  roles              UserRole[]
+  farms              Farm[]
+  tasks              Task[]
+  observations       FarmObservation[]
+  notifications      Notification[]
+  notificationPrefs  NotificationPreference[]
+  files              File[]
+  cartItems          CartItem[]
+  orders             Order[]
+
+  @@index([state, district])
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique // FARMER, ADMIN, EXPERT, BUYER
+  label       String
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id    String           @id @default(uuid())
+  name  String           @unique // e.g. farm.manage, admin.content
+  group String
+  roles RolePermission[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+// -------------------------------------------------------------
+// FARM & FIELD MANAGEMENT
+// -------------------------------------------------------------
+
+model Farm {
+  id             String    @id @default(uuid())
+  userId         String
+  name           String
+  village        String?
+  district       String?
+  state          String?
+  country        String    @default("IN")
+  lat            Float?
+  lng            Float?
+  totalAreaHa    Float?
+  areaInputValue Float?
+  areaInputUnit  String?   @default("acre") // acre | hectare | bigha | guntha
+  farmType       String?   @default("irrigated") // irrigated | rainfed | mixed | orchard | greenhouse | other
+  waterSources   String?   @default("[]") // JSON string array
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fields         Field[]
+  tasks          Task[]
+  weatherRecords WeatherRecord[]
+
+  @@index([userId])
+}
+
+model Field {
+  id               String    @id @default(uuid())
+  farmId           String
+  name             String
+  areaHa           Float?
+  areaSource       String    @default("manual") // manual | computed
+  boundaryGeoJson  String?   // JSON string of polygon geometry
+  centroidLat      Float?
+  centroidLng      Float?
+  irrigationType   String?   @default("drip") // drip | sprinkler | flood | rainfed | other | unknown
+  soilType         String?   @default("unknown") // sandy | loamy | clay | black | red | alluvial | other | unknown
+  status           String    @default("empty") // empty | planned | active | fallow
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  farm              Farm               @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  cropCycles        CropCycle[]
+  tasks             Task[]
+  soilProfile       SoilProfile?
+  soilReports       SoilReport[]
+  soilTests         SoilTest[]
+  observations      FarmObservation[]
+  irrigationRecords IrrigationRecord[]
+
+  @@index([farmId])
+}
+
+// -------------------------------------------------------------
+// CROP MASTER & CYCLES
+// -------------------------------------------------------------
+
+model Crop {
+  id                  String            @id @default(uuid())
+  slug                String            @unique
+  category            String            @default("cereal") // cereal | pulse | oilseed | vegetable | fruit | cash_crop
+  seasons             String            @default("[]") // JSON string array e.g. ["kharif", "rabi"]
+  typicalDurationDays Int?
+  displayColor        String            @default("#2F7D4F")
+  icon                String?           @default("sprout")
+  status              String            @default("published") // draft | published | archived
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  translations        CropTranslation[]
+  varieties           CropVariety[]
+  stages              CropStage[]
+  cropCycles          CropCycle[]
+}
+
+model CropTranslation {
+  id          String   @id @default(uuid())
+  cropId      String
+  locale      String   // en | hi | gu
+  name        String
+  aliases     String   @default("[]") // JSON string array of local aliases
+  description String?
+
+  crop        Crop     @relation(fields: [cropId], references: [id], onDelete: Cascade)
+
+  @@unique([cropId, locale])
+}
+
+model CropVariety {
+  id           String      @id @default(uuid())
+  cropId       String
+  name         String
+  durationDays Int?
+  notes        String?
+  status       String      @default("published")
+
+  crop         Crop        @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  cropCycles   CropCycle[]
+}
+
+model CropStage {
+  id               String                 @id @default(uuid())
+  cropId           String
+  orderIndex       Int
+  code             String
+  startOffsetDays  Int
+  durationDays     Int
+  status           String                 @default("published")
+
+  crop             Crop                   @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  translations     CropStageTranslation[]
+  advisories       CropStageAdvisory[]
+  cycleStages      CycleStage[]
+
+  @@unique([cropId, orderIndex])
+}
+
+model CropStageTranslation {
+  id          String    @id @default(uuid())
+  stageId     String
+  locale      String
+  name        String
+  description String?
+
+  stage       CropStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  @@unique([stageId, locale])
+}
+
+model CropStageAdvisory {
+  id                        String                         @id @default(uuid())
+  stageId                   String
+  activityType              String                         // irrigation | fertilizer | spraying | scouting | custom
+  requiresLocalConfirmation Boolean                        @default(true)
+  status                    String                         @default("published")
+
+  stage                     CropStage                      @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  translations              CropStageAdvisoryTranslation[]
+}
+
+model CropStageAdvisoryTranslation {
+  id         String            @id @default(uuid())
+  advisoryId String
+  locale     String
+  text       String
+
+  advisory   CropStageAdvisory @relation(fields: [advisoryId], references: [id], onDelete: Cascade)
+
+  @@unique([advisoryId, locale])
+}
+
+model CropCycle {
+  id                     String      @id @default(uuid())
+  fieldId                String
+  cropId                 String
+  varietyId              String?
+  customCropName         String?
+  status                 String      @default("planned") // planned | sown | growing | flowering | fruiting | harvest_ready | harvested | completed
+  sowingDate             DateTime?
+  expectedHarvestDate    DateTime?
+  expectedHarvestBasis   String?     @default("estimate_from_master")
+  actualHarvestDate      DateTime?
+  areaHa                 Float?
+  irrigationType         String?
+  seedInfo               String?
+  quantityHarvested      Float?
+  quantityUnit           String?     @default("kg")
+  notes                  String?
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+  deletedAt              DateTime?
+
+  field                  Field       @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  crop                   Crop        @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  variety                CropVariety? @relation(fields: [varietyId], references: [id])
+  stages                 CycleStage[]
+  tasks                  Task[]
+  observations           FarmObservation[]
+  irrigationRecords      IrrigationRecord[]
+
+  @@index([fieldId, status])
+}
+
+model CycleStage {
+  id              String     @id @default(uuid())
+  cropCycleId     String
+  templateStageId String?
+  nameSnapshot    String
+  startDate       DateTime?
+  endDate         DateTime?
+  orderIndex      Int
+  status          String     @default("pending") // pending | current | done | skipped
+
+  cropCycle       CropCycle  @relation(fields: [cropCycleId], references: [id], onDelete: Cascade)
+  templateStage   CropStage? @relation(fields: [templateStageId], references: [id])
+
+  @@unique([cropCycleId, orderIndex])
+}
+
+// -------------------------------------------------------------
+// TASKS & ACTIVITIES
+// -------------------------------------------------------------
+
+model Task {
+  id                String    @id @default(uuid())
+  userId            String
+  farmId            String
+  fieldId           String?
+  cropCycleId       String?
+  type              String    @default("custom") // irrigation | fertilizer | scouting | spraying | sowing | harvesting | machinery | labour | custom
+  title             String
+  description       String?
+  dueAt             DateTime?
+  priority          String    @default("medium") // low | medium | high
+  status            String    @default("pending") // pending | in_progress | completed | skipped
+  source            String    @default("manual") // manual | suggested | system
+  recurrenceRule    String?
+  reminderMinutes   Int?
+  completedAt       DateTime?
+  completedBy       String?
+  completionDetails String?   // JSON string
+  skippedReason     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm              Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  field             Field?      @relation(fields: [fieldId], references: [id])
+  cropCycle         CropCycle? @relation(fields: [cropCycleId], references: [id])
+
+  @@index([userId, status])
+}
+
+// -------------------------------------------------------------
+// WEATHER & ADVISORIES
+// -------------------------------------------------------------
+
+model WeatherRecord {
+  id                String   @id @default(uuid())
+  farmId            String?
+  latRound          Float
+  lngRound          Float
+  kind              String   // current | hourly | daily
+  validAt           DateTime
+  payloadNormalized String   // JSON string
+  provider          String   @default("open-meteo")
+  fetchedAt         DateTime @default(now())
+
+  farm              Farm?    @relation(fields: [farmId], references: [id])
+
+  @@index([fetchedAt])
+}
+
+model AdvisoryRule {
+  id                 String   @id @default(uuid())
+  code               String   @unique
+  conditionJson      String   // JSON string of conditions
+  messageKey         String
+  appliesToTaskTypes String   // JSON array of types
+  status             String   @default("published")
+  createdAt          DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// SOIL HEALTH & REPORTS
+// -------------------------------------------------------------
+
+model SoilProfile {
+  id         String   @id @default(uuid())
+  fieldId    String   @unique
+  soilType   String   @default("unknown")
+  pathChosen String   @default("unknown") // health_card | report | known_type | unknown | test_requested | sensor
+  notes      String?
+
+  field      Field    @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+}
+
+model SoilReport {
+  id               String     @id @default(uuid())
+  fieldId          String
+  fileId           String?
+  reportType       String     @default("health_card") // health_card | lab_report
+  status           String     @default("uploaded") // uploaded | scanning | extracted | needs_confirmation | confirmed | failed
+  labName          String?
+  sampledOn        DateTime?
+  extractedPayload String?    // JSON string
+  confirmedAt      DateTime?
+  failureReason    String?
+  createdAt        DateTime   @default(now())
+
+  field            Field      @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  soilTests        SoilTest[]
+}
+
+model SoilTest {
+  id           String          @id @default(uuid())
+  soilReportId String?
+  fieldId      String
+  testedOn     DateTime        @default(now())
+  source       String          @default("farmer_report") // farmer_report | manual | sensor | lab
+  confirmed    Boolean         @default(true)
+
+  soilReport   SoilReport?     @relation(fields: [soilReportId], references: [id])
+  field        Field           @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  parameters   SoilParameter[]
+}
+
+model SoilParameter {
+  id         String   @id @default(uuid())
+  soilTestId String
+  code       String   // ph | ec | oc | n | p | k | s | zn | fe | cu | mn | b
+  value      Float
+  unit       String   // e.g. kg/ha, ppm, dS/m
+  rating     String?  // low | medium | high
+
+  soilTest   SoilTest @relation(fields: [soilTestId], references: [id], onDelete: Cascade)
+
+  @@unique([soilTestId, code])
+}
+
+// -------------------------------------------------------------
+// SCOUTING & IRRIGATION
+// -------------------------------------------------------------
+
+model FarmObservation {
+  id            String     @id @default(uuid())
+  userId        String
+  fieldId       String
+  cropCycleId   String?
+  observedAt    DateTime   @default(now())
+  category      String     @default("general") // pest | disease | weed | nutrient_issue | irrigation_issue | growth_issue | general
+  severity      Int        @default(1) // 1 to 3
+  lat           Float?
+  lng           Float?
+  stageSnapshot String?
+  notes         String?
+  photosJson    String     @default("[]") // JSON string array of file UUIDs
+  createdAt     DateTime   @default(now())
+
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  field         Field      @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  cropCycle     CropCycle? @relation(fields: [cropCycleId], references: [id])
+}
+
+model IrrigationRecord {
+  id              String     @id @default(uuid())
+  fieldId         String
+  cropCycleId     String?
+  irrigatedAt     DateTime   @default(now())
+  method          String     @default("drip") // drip | sprinkler | flood | rainfed | other
+  durationMinutes Int?
+  volumeL         Float?
+  waterSource     String?
+  moistureNote    String?    // dry | moist | wet
+  notes           String?
+  source          String     @default("manual") // manual | sensor
+  createdAt       DateTime   @default(now())
+
+  field           Field      @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  cropCycle       CropCycle? @relation(fields: [cropCycleId], references: [id])
+}
+
+// -------------------------------------------------------------
+// FILES, NOTIFICATIONS & AUDIT LOGS
+// -------------------------------------------------------------
+
+model File {
+  id                    String   @id @default(uuid())
+  ownerUserId           String
+  storageKey            String
+  originalNameSanitized String
+  mime                  String
+  sizeBytes             Int
+  sha256                String?
+  purpose               String   @default("general") // soil_report | scouting_photo | receipt | custom
+  attachableType        String?
+  attachableId          String?
+  createdAt             DateTime @default(now())
+
+  owner                 User     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  type      String    // weather | task | irrigation | disease | market | system
+  titleKey  String
+  bodyKey   String
+  paramsJson String   @default("{}")
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model NotificationPreference {
+  id      String  @id @default(uuid())
+  userId  String
+  type    String  // weather | task | irrigation | disease | market | system
+  channel String  @default("in_app") // in_app | email | sms | push
+  enabled Boolean @default(true)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, channel])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorId      String?
+  action       String
+  resourceType String
+  resourceId   String?
+  oldValues    String?  // JSON string
+  newValues    String?  // JSON string
+  ip           String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// LIVE MANDI & MARKET INTELLIGENCE
+// -------------------------------------------------------------
+
+model MarketCommodity {
+  id           String   @id @default(uuid())
+  name         String   // e.g. Wheat, Cotton, Groundnut, Cumin, Mustard, Soybean, Onion, Potato, Tomato, Gram
+  variety      String?  // e.g. Lokwan, Shankar-6, Desi, Hybrid
+  cropSlug     String?  // matches Crop.slug if mapped
+  category     String?  // Cereal, Fiber, Oilseed, Spice, Vegetable, Pulse
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  observations MarketPriceObservation[]
+
+  @@unique([name, variety])
+}
+
+model MarketLocation {
+  id        String   @id @default(uuid())
+  name      String   // Mandi / APMC Name e.g. Rajkot, Gondal, Unjha, Surat, Amreli, Mahuva, Dahod
+  state     String   // e.g. Gujarat, Maharashtra, Punjab, Madhya Pradesh, Rajasthan
+  district  String   // e.g. Rajkot, Mehsana, Surat, Amreli, Bhavnagar
+  lat       Float?
+  lng       Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  observations MarketPriceObservation[]
+
+  @@unique([name, state, district])
+  @@index([state, district])
+}
+
+model MarketPriceObservation {
+  id          String   @id @default(uuid())
+  locationId  String
+  commodityId String
+  minPrice    Float
+  maxPrice    Float
+  modalPrice  Float
+  unit        String   @default("₹/Quintal") // Normalized Agmarknet unit
+  priceDate   DateTime // Agmarknet reported trading date
+  source      String   @default("AGMARKNET / data.gov.in")
+  fetchedAt   DateTime @default(now())
+  isDemo      Boolean  @default(false)
+  notes       String?
+
+  location    MarketLocation  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  commodity   MarketCommodity @relation(fields: [commodityId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, commodityId, priceDate, source])
+  @@index([commodityId, priceDate])
+  @@index([locationId, priceDate])
+}
+
+model MarketSyncLog {
+  id                    String    @id @default(uuid())
+  provider              String    // agmarknet | demo
+  status                String    // success | failed | partial
+  recordsFetched        Int       @default(0)
+  recordsStored         Int       @default(0)
+  sourcePublicationDate DateTime?
+  errorMessage          String?
+  startedAt             DateTime  @default(now())
+  completedAt           DateTime?
+}
+
+// -------------------------------------------------------------
+// FERTILIZER KNOWLEDGE CENTER
+// -------------------------------------------------------------
+
+model FertilizerCategory {
+  id              String   @id @default(uuid())
+  name            String   // Urea, DAP, SSP, MOP / Potash, NPK 10:26:26, Water-Soluble 19:19:19, Organic Vermicompost, Biofertilizer, Zinc Sulphate
+  slug            String   @unique
+  nutrientProfile String   // e.g. "46% Nitrogen (N)", "18% N, 46% P2O5", "60% K2O"
+  description     String
+  applicationRole String   // Primary vegetative, Root initiation, Stress resistance, etc.
+  precautions     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  guidances       CropFertilizerGuidance[]
+}
+
+model CropFertilizerGuidance {
+  id                   String              @id @default(uuid())
+  cropSlug             String              // wheat, cotton, groundnut, rice, etc.
+  cropName             String              // Wheat, Cotton, etc.
+  state                String              @default("Gujarat & Western India")
+  cropStage            String              // Basal / Land Prep, Tillering, Flowering, Boll formation
+  nutrientRequirement  String              // Nitrogen (N), Phosphorus (P2O5), Potassium (K2O), Zinc (Zn)
+  fertilizerCategoryId String?
+  recommendedTiming    String              // e.g. "At sowing time / Land preparation", "20-25 days after sowing"
+  applicationMethod    String              // Deep placement, Band placement, Broadcasting before irrigation, Foliar spray
+  guidanceText         String              // Detailed agronomic instruction
+  whyItMatters         String              // Nutrient physiology reason
+  importantPrecautions String              // Soil testing reminder, salinity warning, avoid excessive N
+  sourceAuthority      String              // ICAR / Anand Agricultural University (AAU) / Junagadh Agricultural University (JAU)
+  sourceUrl            String?
+  lastVerifiedDate     DateTime            @default(now())
+  status               String              @default("verified") // verified | advisory
+
+  fertilizerCategory   FertilizerCategory? @relation(fields: [fertilizerCategoryId], references: [id])
+
+  @@index([cropSlug, cropStage])
+}
+
+// -------------------------------------------------------------
+// FERTILIZER E-COMMERCE STORE
+// -------------------------------------------------------------
+
+model ProductCategory {
+  id          String    @id @default(uuid())
+  name        String    // Chemical Fertilizers, Water-Soluble Fertilizers, Organic & Bio-Fertilizers, Micronutrients
+  slug        String    @unique
+  description String?
+  icon        String?   @default("package")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+}
+
+model ProductBrand {
+  id        String    @id @default(uuid())
+  name      String    @unique // IFFCO, GSFC, GNFC, KRIBHCO, Tata Paras, Coromandel
+  origin    String    @default("India")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  products  Product[]
+}
+
+model Product {
+  id                String          @id @default(uuid())
+  name              String
+  slug              String          @unique
+  brandId           String
+  categoryId        String
+  cropTarget        String?         // wheat,cotton,groundnut,all
+  description       String
+  composition       String?         // e.g. "46% N", "18-46-0", "19-19-19"
+  packSize          String          // "45 kg Bag", "50 kg Bag", "1 kg Pack", "5 kg Bucket"
+  price             Float           // Selling Price in INR
+  mrp               Float?          // Maximum Retail Price
+  stock             Int             @default(50)
+  imageUrl          String
+  isAvailable       Boolean         @default(true)
+  usageInstructions String?
+  safetyNotes       String?
+  sellerName        String          @default("SmartFarm Certified Agri-Input Cooperative")
+  sellerLicense     String?         @default("GJ-AGRI-COOP-2026-88")
+  isDemoProduct     Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  brand             ProductBrand    @relation(fields: [brandId], references: [id])
+  category          ProductCategory @relation(fields: [categoryId], references: [id])
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
+
+  @@index([categoryId])
+  @@index([brandId])
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+model Order {
+  id               String      @id @default(uuid())
+  orderNumber      String      @unique
+  userId           String
+  status           String      @default("confirmed") // pending | confirmed | processing | shipped | delivered | cancelled
+  subtotal         Float
+  deliveryFee      Float       @default(0)
+  discount         Float       @default(0)
+  totalAmount      Float
+  paymentMethod    String      @default("demo_checkout") // demo_checkout | cod | online_upi
+  paymentStatus    String      @default("test_paid") // pending | test_paid | awaiting_payment
+  isDemoOrder      Boolean     @default(true)
+  deliveryName     String
+  deliveryPhone    String
+  deliveryAddress  String
+  deliveryVillage  String?
+  deliveryDistrict String
+  deliveryState    String      @default("Gujarat")
+  deliveryPincode  String
+  notes            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items            OrderItem[]
+
+  @@index([userId, status])
+}
+
+model OrderItem {
+  id                  String   @id @default(uuid())
+  orderId             String
+  productId           String
+  productNameSnapshot String
+  unitPriceSnapshot   Float
+  packSizeSnapshot    String
+  quantity            Int
+  totalPrice          Float
+
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product             Product  @relation(fields: [productId], references: [id])
+}
+

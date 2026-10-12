@@ -9,6 +9,9 @@
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
+    "db:switch:postgres": "node scripts/switch-to-postgres.mjs",
+    "db:switch:sqlite": "node scripts/switch-to-sqlite.mjs",
+    "db:verify": "node scripts/migrate-sqlite-to-postgres.mjs",
     "seed": "node scripts/seed.mjs"
   },
   "dependencies": {
