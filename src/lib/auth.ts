@@ -3,8 +3,10 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { prisma } from './prisma';
 
+export { normalizeIdentifier, getSafeRedirect } from './auth-utils';
+
 const JWT_SECRET = process.env.JWT_SECRET || 'smartfarm_jwt_super_secret_key_2026';
-const TOKEN_NAME = 'smartfarm_token';
+export const TOKEN_NAME = 'smartfarm_token';
 
 export interface TokenPayload {
   userId: string;
@@ -34,34 +36,39 @@ export function verifyToken(token: string): TokenPayload | null {
 }
 
 export async function getAuthenticatedUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(TOKEN_NAME)?.value;
-  if (!token) return null;
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(TOKEN_NAME)?.value;
+    if (!token) return null;
 
-  const payload = verifyToken(token);
-  if (!payload?.userId) return null;
+    const payload = verifyToken(token);
+    if (!payload?.userId) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
-    include: {
-      roles: {
-        include: {
-          role: {
-            include: {
-              permissions: {
-                include: {
-                  permission: true,
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      include: {
+        roles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: true,
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-  });
+    });
 
-  if (!user || user.deletedAt) return null;
-  return user;
+    if (!user || user.deletedAt) return null;
+    return user;
+  } catch (err) {
+    console.error('[Auth] Failed to load authenticated user:', err);
+    return null;
+  }
 }
 
 export async function setAuthCookie(token: string) {
@@ -77,5 +84,12 @@ export async function setAuthCookie(token: string) {
 
 export async function clearAuthCookie() {
   const cookieStore = await cookies();
+  cookieStore.set(TOKEN_NAME, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 0,
+    path: '/',
+  });
   cookieStore.delete(TOKEN_NAME);
 }

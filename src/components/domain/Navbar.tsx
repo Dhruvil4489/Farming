@@ -15,8 +15,12 @@ export const Navbar: React.FC<NavbarProps> = ({ userName = 'Farmer', isDemo = fa
   const router = useRouter();
 
   const handleLogout = async () => {
-    await fetch('/api/v1/auth/logout', { method: 'POST' });
-    router.push('/login');
+    try {
+      await fetch('/api/v1/auth/logout', { method: 'POST' });
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+    window.location.href = '/login';
   };
 
   return (
@@ -60,8 +64,10 @@ export const Navbar: React.FC<NavbarProps> = ({ userName = 'Farmer', isDemo = fa
             </div>
             <span className="hidden md:inline text-xs font-semibold text-emerald-100">{userName}</span>
             <button
+              id="logout-button"
               onClick={handleLogout}
               title="Logout"
+              aria-label="Sign out"
               className="p-1.5 text-emerald-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
             >
               <LogOut size={16} />

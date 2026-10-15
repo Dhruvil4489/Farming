@@ -2,6 +2,26 @@ async function testCheckout() {
   console.log('Testing Store Checkout Workflow...');
 
   try {
+    // 0. Authenticate farmer
+    const loginRes = await fetch('http://localhost:3000/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: 'farmer@smartfarm.ai', password: 'farmer123456' }),
+    });
+    const setCookie = loginRes.headers.get('set-cookie');
+    const cookie = setCookie ? setCookie.split(';')[0] : '';
+
+    // Add product to cart first
+    const prodRes = await fetch('http://localhost:3000/api/v1/store/products');
+    const prodData = await prodRes.json();
+    if (prodData.data?.[0]?.id) {
+      await fetch('http://localhost:3000/api/v1/store/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: JSON.stringify({ productId: prodData.data[0].id, quantity: 1 }),
+      });
+    }
+
     const checkoutPayload = {
       deliveryName: 'Ramesh Patel',
       deliveryPhone: '+919876543211',
@@ -16,7 +36,7 @@ async function testCheckout() {
 
     const res = await fetch('http://localhost:3000/api/v1/store/checkout', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
       body: JSON.stringify(checkoutPayload),
     });
 
@@ -29,7 +49,9 @@ async function testCheckout() {
     console.log('   Payment Status:', json.data?.paymentStatus);
 
     // Verify order in user order history
-    const orderRes = await fetch('http://localhost:3000/api/v1/store/orders');
+    const orderRes = await fetch('http://localhost:3000/api/v1/store/orders', {
+      headers: { Cookie: cookie },
+    });
     const orderJson = await orderRes.json();
     console.log('✔ Orders List Count:', orderJson.data?.length);
 

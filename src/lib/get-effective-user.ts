@@ -1,16 +1,15 @@
 import { getAuthenticatedUser } from './auth';
-import { prisma } from './prisma';
 
+/**
+ * Returns the currently authenticated user's ID.
+ * In a secure production environment, unauthenticated visitors must NOT
+ * impersonate other users or demo accounts.
+ */
 export async function getEffectiveUserId(): Promise<string | null> {
   const authUser = await getAuthenticatedUser();
   if (authUser) {
     return authUser.id;
   }
 
-  // In development / demo environment, fallback to demo farmer for guest checkout & cart preview
-  const demoFarmer = await prisma.user.findFirst({
-    where: { email: 'farmer@smartfarm.ai' },
-  });
-
-  return demoFarmer ? demoFarmer.id : null;
+  return null;
 }
