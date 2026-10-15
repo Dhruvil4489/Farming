@@ -14,6 +14,12 @@ const PROTECTED_PREFIXES = [
   '/onboarding',
   '/orders',
   '/admin',
+  '/mandi',
+  '/weather',
+  '/soil',
+  '/soil-moisture',
+  '/store',
+  '/guidance',
 ];
 
 export function proxy(request: NextRequest) {

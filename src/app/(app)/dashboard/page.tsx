@@ -149,7 +149,7 @@ export default function DashboardPage() {
                 <Droplets size={14} className="mr-1 text-cyan-700" /> Soil Moisture
               </Button>
             </Link>
-            <Link href="/market">
+            <Link href="/mandi">
               <Button size="sm" variant="outline">
                 <TrendingUp size={14} className="mr-1" /> Mandi Rates
               </Button>
@@ -233,7 +233,7 @@ export default function DashboardPage() {
                   <TrendingUp size={20} className="text-[#2F7D4F]" />
                   <h3 className="font-bold text-stone-900 text-base">Live APMC Mandi Rates</h3>
                 </div>
-                <Link href="/market" className="text-xs font-bold text-[#2F7D4F] hover:underline flex items-center gap-1">
+                <Link href="/mandi" className="text-xs font-bold text-[#2F7D4F] hover:underline flex items-center gap-1">
                   All Mandis <ArrowRight size={14} />
                 </Link>
               </div>
@@ -475,13 +475,13 @@ export default function DashboardPage() {
               </p>
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <Link
-                  href="/fertilizers"
+                  href="/store"
                   className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-xl text-xs font-bold text-center transition-colors"
                 >
                   🛒 Fertilizer Store
                 </Link>
                 <Link
-                  href="/fertilizers/guide"
+                  href="/guidance"
                   className="p-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-bold text-center transition-colors"
                 >
                   📖 Nutrient Guide
