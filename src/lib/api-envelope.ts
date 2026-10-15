@@ -22,9 +22,10 @@ export function apiError(
   message: string,
   code = 'bad_request',
   status = 400,
-  details?: Record<string, string[]>
+  details?: Record<string, string[]>,
+  customRequestId?: string
 ) {
-  const requestId = `req_${Math.random().toString(36).substring(2, 9)}`;
+  const requestId = customRequestId || `req_${Math.random().toString(36).substring(2, 9)}`;
   return NextResponse.json(
     {
       error: {

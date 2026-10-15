@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import {
   hashPassword,
@@ -22,15 +22,68 @@ const registerSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const requestId = `req_${Math.random().toString(36).substring(2, 9)}`;
+  const acceptHeader = req.headers.get('accept') || '';
+  const isHtmlNavigation = acceptHeader.includes('text/html') && !acceptHeader.includes('application/json');
+
   try {
-    const body = await req.json();
-    const parsed = registerSchema.parse(body);
+    let rawBody: Record<string, any> = {};
+    const contentType = req.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      try {
+        rawBody = await req.json();
+      } catch {
+        return apiError('Malformed JSON payload received', 'invalid_json', 400, undefined, requestId);
+      }
+    } else if (
+      contentType.includes('application/x-www-form-urlencoded') ||
+      contentType.includes('multipart/form-data')
+    ) {
+      try {
+        const formData = await req.formData();
+        rawBody = {
+          name: formData.get('name')?.toString() || '',
+          email: formData.get('email')?.toString() || '',
+          phone: formData.get('phone')?.toString() || '',
+          password: formData.get('password')?.toString() || '',
+          state: formData.get('state')?.toString() || undefined,
+          district: formData.get('district')?.toString() || undefined,
+          village: formData.get('village')?.toString() || undefined,
+          preferredLanguage: formData.get('preferredLanguage')?.toString() || 'en',
+        };
+      } catch {
+        return apiError('Malformed form data received', 'invalid_form_data', 400, undefined, requestId);
+      }
+    } else {
+      try {
+        rawBody = await req.json();
+      } catch {
+        try {
+          const formData = await req.formData();
+          rawBody = {
+            name: formData.get('name')?.toString() || '',
+            email: formData.get('email')?.toString() || '',
+            phone: formData.get('phone')?.toString() || '',
+            password: formData.get('password')?.toString() || '',
+            state: formData.get('state')?.toString() || undefined,
+            district: formData.get('district')?.toString() || undefined,
+            village: formData.get('village')?.toString() || undefined,
+            preferredLanguage: formData.get('preferredLanguage')?.toString() || 'en',
+          };
+        } catch {
+          rawBody = {};
+        }
+      }
+    }
+
+    const parsed = registerSchema.parse(rawBody);
 
     const email = parsed.email ? parsed.email.toLowerCase() : null;
     const phone = parsed.phone ? parsed.phone.trim() : null;
 
     if (!email && !phone) {
-      return apiError('Either email or mobile number must be provided', 'validation_failed', 422);
+      return apiError('Either email or mobile number must be provided', 'validation_failed', 422, undefined, requestId);
     }
 
     // Check duplicate email
@@ -39,7 +92,7 @@ export async function POST(req: NextRequest) {
         where: { email, deletedAt: null },
       });
       if (existingEmail) {
-        return apiError('An account with this email already exists', 'duplicate_user', 409);
+        return apiError('An account with this email already exists', 'duplicate_user', 409, undefined, requestId);
       }
     }
 
@@ -53,7 +106,7 @@ export async function POST(req: NextRequest) {
         },
       });
       if (existingPhone) {
-        return apiError('An account with this phone number already exists', 'duplicate_user', 409);
+        return apiError('An account with this phone number already exists', 'duplicate_user', 409, undefined, requestId);
       }
     }
 
@@ -100,6 +153,19 @@ export async function POST(req: NextRequest) {
 
     await setAuthCookie(token);
 
+    if (isHtmlNavigation) {
+      const redirectUrl = new URL('/onboarding', req.url);
+      const htmlResponse = NextResponse.redirect(redirectUrl);
+      htmlResponse.cookies.set(TOKEN_NAME, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60,
+        path: '/',
+      });
+      return htmlResponse;
+    }
+
     const userData = {
       id: user.id,
       name: user.name,
@@ -136,9 +202,9 @@ export async function POST(req: NextRequest) {
         fieldErrors.password?.[0] ||
         fieldErrors.email?.[0] ||
         'Validation failed';
-      return apiError(firstErrorMessage, 'validation_failed', 422, fieldErrors as any);
+      return apiError(firstErrorMessage, 'validation_failed', 422, fieldErrors as any, requestId);
     }
-    console.error('[Registration error]:', err);
-    return apiError('Internal server error during registration', 'server_error', 500);
+    console.error(`[API Registration Error ${requestId}]:`, err?.name, err?.message);
+    return apiError('Internal server error during registration', 'server_error', 500, undefined, requestId);
   }
 }
