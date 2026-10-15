@@ -29,6 +29,7 @@ export class MarketDataService {
     market?: string;
     commodity?: string;
     date?: string;
+    limit?: number;
   }) {
     // 1. Build where clause
     const where: any = {};
@@ -79,6 +80,7 @@ export class MarketDataService {
         location: true,
       },
       orderBy: [{ location: { state: 'asc' } }, { commodity: { name: 'asc' } }],
+      take: params.limit && params.limit > 0 ? params.limit : undefined,
     });
 
     // For each observation, find the previous available trading-day record for the SAME location and commodity

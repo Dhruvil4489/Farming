@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { FlaskConical, Upload, FileText, HelpCircle, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -49,7 +50,31 @@ export default function SoilPage() {
           <h1 className="text-2xl font-extrabold text-[#143D2A] tracking-tight">Soil Health</h1>
           <p className="text-xs text-stone-600 mt-1">Flexible soil paths — No mandatory chemical inputs required</p>
         </div>
-        <ProvenanceChip type="user_entered" />
+        <div className="flex items-center gap-2">
+          <Link href="/soil-moisture">
+            <Button size="sm" variant="outline" className="border-cyan-300 text-cyan-800 bg-cyan-50/50 hover:bg-cyan-100">
+              💧 Live Soil Moisture →
+            </Button>
+          </Link>
+          <ProvenanceChip type="user_entered" />
+        </div>
+      </div>
+
+      <div className="p-4 bg-gradient-to-r from-cyan-900 to-[#143D2A] text-white rounded-2xl flex items-center justify-between gap-4 shadow-sm">
+        <div className="space-y-1">
+          <span className="text-xs font-black uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            Official Government Soil Moisture (NRSC VIC Model)
+          </span>
+          <p className="text-xs text-stone-200">
+            Monitor daily root-zone volumetric soil moisture estimates across Gujarat districts or check physical field probe telemetry.
+          </p>
+        </div>
+        <Link href="/soil-moisture">
+          <Button size="sm" className="bg-white text-[#143D2A] hover:bg-stone-100 shrink-0 font-bold">
+            Open Moisture Dashboard →
+          </Button>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

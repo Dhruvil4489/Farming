@@ -58,9 +58,10 @@ export async function POST(req: NextRequest) {
       roles: user.roles.map((r) => r.role.name),
     });
   } catch (err: any) {
+    console.error('[API Login Error]:', err);
     if (err instanceof z.ZodError) {
       return apiError('Validation failed', 'validation_failed', 422, err.flatten().fieldErrors as any);
     }
-    return apiError('Internal server error', 'server_error', 500);
+    return apiError(err.message || 'Internal server error', 'server_error', 500);
   }
 }

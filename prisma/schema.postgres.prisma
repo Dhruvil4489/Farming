@@ -137,6 +137,7 @@ model Field {
   soilTests         SoilTest[]
   observations      FarmObservation[]
   irrigationRecords IrrigationRecord[]
+  sensorMoistures   FarmSensorMoisture[]
 
   @@index([farmId])
 }
@@ -732,4 +733,53 @@ model OrderItem {
   order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product             Product  @relation(fields: [productId], references: [id])
 }
+
+// -------------------------------------------------------------
+// SOIL MOISTURE INTELLIGENCE (GOVERNMENT NRSC VIC & SENSORS)
+// -------------------------------------------------------------
+
+model SoilMoistureObservation {
+  id                   String   @id @default(uuid())
+  state                String   // e.g. Gujarat
+  district             String   // e.g. Vadodara, Rajkot, Ahmedabad, Anand, Surat
+  observationDate      DateTime // Model observation date
+  moistureValue        Float    // Volumetric soil moisture (e.g. 0.28 m3/m3)
+  originalUnit         String   @default("m3/m3")
+  normalizedPercentage Float    // Converted to percentage (0-100%)
+  depthRangeCm         String   @default("0-50 cm")
+  spatialResolution    String   @default("district_level_vic_model")
+  modelProvider        String   @default("NRSC / ISRO Hydrological VIC Model")
+  datasetCatalog       String   @default("Open Government Data (data.gov.in / daily-data-soil-moisture)")
+  resourceId           String?
+  sourceUrl            String   @default("https://data.gov.in/catalog/daily-data-soil-moisture")
+  fetchedAt            DateTime @default(now())
+  qualityStatus        String   @default("verified_model_estimate")
+  isDemo               Boolean  @default(false)
+  notes                String?
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([state, district, observationDate, spatialResolution])
+  @@index([state, district, observationDate])
+  @@index([observationDate])
+}
+
+model FarmSensorMoisture {
+  id           String    @id @default(uuid())
+  fieldId      String
+  sensorId     String?   // e.g. SN-SOIL-GJ-041
+  hardwareType String?   // e.g. Capacitive FDR / TDR Sensor
+  readingAt    DateTime  @default(now())
+  depthCm      Int       @default(15)
+  moisturePct  Float     // Measured %
+  temperatureC Float?
+  batteryPct   Float?
+  status       String    @default("active") // active | disconnected | low_battery
+
+  field        Field     @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([fieldId, readingAt])
+}
+
 

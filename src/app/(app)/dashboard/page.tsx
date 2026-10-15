@@ -14,9 +14,9 @@ import {
   TrendingUp,
   TrendingDown,
   Package,
-  ShoppingBag,
   BookOpen,
   ShieldCheck,
+  Droplets,
 } from 'lucide-react';
 import { DataState } from '@/components/ui/DataState';
 import { Card } from '@/components/ui/Card';
@@ -30,42 +30,78 @@ export default function DashboardPage() {
   const [advisories, setAdvisories] = useState<any[]>([]);
   const [mandiPrices, setMandiPrices] = useState<any[]>([]);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [soilMoisture, setSoilMoisture] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const fetchDashboardData = async () => {
     setLoading(true);
     setError('');
-    try {
-      const [sumRes, weaRes, advRes, mandiRes, orderRes] = await Promise.all([
-        fetch('/api/v1/dashboard/summary'),
-        fetch('/api/v1/weather'),
-        fetch('/api/v1/advisories'),
-        fetch('/api/v1/market/prices?state=Gujarat'),
-        fetch('/api/v1/store/orders'),
-      ]);
 
-      if (!sumRes.ok) throw new Error('Failed to load dashboard summary');
+    try {
+      // 1. Fetch core dashboard summary (Protected Farmer Data)
+      const sumController = new AbortController();
+      const sumTimeout = setTimeout(() => sumController.abort(), 8000);
+
+      const sumRes = await fetch('/api/v1/dashboard/summary', {
+        signal: sumController.signal,
+        headers: { Accept: 'application/json' },
+      });
+      clearTimeout(sumTimeout);
+
+      if (sumRes.status === 401) {
+        // Unauthenticated visitor attempting to access protected dashboard -> redirect to login
+        window.location.href = '/login?redirect=/dashboard';
+        return;
+      }
+
+      if (!sumRes.ok) {
+        throw new Error(`Failed to load dashboard summary (HTTP ${sumRes.status})`);
+      }
 
       const sumData = await sumRes.json();
-      const weaData = await weaRes.json();
-      const advData = await advRes.json();
+      setSummary(sumData.data || null);
 
-      setSummary(sumData.data);
-      setWeather(weaData.data);
-      setAdvisories(advData.data || []);
+      // 2. Fetch ancillary widgets concurrently using allSettled so one failing widget never breaks the dashboard
+      const fetchWithTimeout = async (url: string, ms = 6000) => {
+        const c = new AbortController();
+        const t = setTimeout(() => c.abort(), ms);
+        try {
+          const res = await fetch(url, { signal: c.signal, headers: { Accept: 'application/json' } });
+          return res.ok ? await res.json() : null;
+        } catch {
+          return null;
+        } finally {
+          clearTimeout(t);
+        }
+      };
 
-      if (mandiRes.ok) {
-        const mJson = await mandiRes.json();
-        setMandiPrices(mJson.data?.slice(0, 3) || []);
+      const [weaRes, advRes, mandiRes, orderRes, soilRes] = await Promise.allSettled([
+        fetchWithTimeout('/api/v1/weather'),
+        fetchWithTimeout('/api/v1/advisories'),
+        fetchWithTimeout('/api/v1/market/prices?limit=3'),
+        fetchWithTimeout('/api/v1/store/orders'),
+        fetchWithTimeout('/api/v1/soil-moisture?state=Gujarat'),
+      ]);
+
+      if (weaRes.status === 'fulfilled' && weaRes.value?.data) {
+        setWeather(weaRes.value.data);
       }
-
-      if (orderRes.ok) {
-        const oJson = await orderRes.json();
-        setRecentOrders(oJson.data?.slice(0, 1) || []);
+      if (advRes.status === 'fulfilled' && Array.isArray(advRes.value?.data)) {
+        setAdvisories(advRes.value.data);
+      }
+      if (mandiRes.status === 'fulfilled' && Array.isArray(mandiRes.value?.data)) {
+        setMandiPrices(mandiRes.value.data.slice(0, 3));
+      }
+      if (orderRes.status === 'fulfilled' && Array.isArray(orderRes.value?.data)) {
+        setRecentOrders(orderRes.value.data.slice(0, 1));
+      }
+      if (soilRes.status === 'fulfilled' && soilRes.value?.observations?.[0]) {
+        setSoilMoisture(soilRes.value.observations[0]);
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error('[Dashboard] Error loading data:', err);
+      setError(err.name === 'AbortError' ? 'Connection timed out while loading your dashboard.' : err.message || 'Unable to load dashboard.');
     } finally {
       setLoading(false);
     }
@@ -106,6 +142,11 @@ export default function DashboardPage() {
             <Link href="/crops/new-cycle">
               <Button size="sm">
                 <Plus size={14} className="mr-1" /> Start Crop Cycle
+              </Button>
+            </Link>
+            <Link href="/soil-moisture">
+              <Button size="sm" variant="outline">
+                <Droplets size={14} className="mr-1 text-cyan-700" /> Soil Moisture
               </Button>
             </Link>
             <Link href="/market">
@@ -271,6 +312,53 @@ export default function DashboardPage() {
                 </div>
               )}
             </Card>
+
+            {/* Government Soil Moisture Baseline Widget */}
+            {soilMoisture && (
+              <Card className="space-y-4 rounded-3xl p-6 border border-cyan-200/70 bg-gradient-to-br from-white via-cyan-50/20 to-white shadow-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Droplets size={20} className="text-cyan-700" />
+                    <div>
+                      <h3 className="font-bold text-stone-900 text-base">District Soil Moisture Baseline</h3>
+                      <p className="text-[11px] text-stone-500">Official NRSC VIC Model (0–50 cm Root Zone)</p>
+                    </div>
+                  </div>
+                  <Link href="/soil-moisture" className="text-xs font-bold text-cyan-800 hover:underline flex items-center gap-1">
+                    Details & Sensors <ArrowRight size={14} />
+                  </Link>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-4 rounded-2xl border border-cyan-100 text-center">
+                  <div>
+                    <span className="text-[11px] text-stone-500 font-medium">District</span>
+                    <p className="text-base font-extrabold text-stone-900">{soilMoisture.district}</p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-stone-500 font-medium">Volumetric (VWC)</span>
+                    <p className="text-xl font-black text-cyan-800">{soilMoisture.normalizedPercentage}%</p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-stone-500 font-medium">Model Value</span>
+                    <p className="text-xs font-mono font-bold text-stone-700 mt-1">{soilMoisture.moistureValue} m³/m³</p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-stone-500 font-medium">Agronomic Level</span>
+                    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border mt-1 ${soilMoisture.category?.badgeClass}`}>
+                      {soilMoisture.category?.label?.split('/')[0] || 'Optimal'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-stone-500 pt-1">
+                  <span>Observation Date: <strong>{soilMoisture.observationDate}</strong></span>
+                  <span className="text-cyan-800 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                    NRSC ISRO VIC Model Estimate
+                  </span>
+                </div>
+              </Card>
+            )}
 
             {/* Farm & Field Overview */}
             <div className="space-y-3">

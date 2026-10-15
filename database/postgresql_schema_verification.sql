@@ -6,13 +6,13 @@
 -- =====================================================================================
 
 -- -------------------------------------------------------------------------------------
--- TEST 1: VERIFY TOTAL APPLICATION TABLE COUNT (Expected: 41 tables in public schema)
+-- TEST 1: VERIFY TOTAL APPLICATION TABLE COUNT (Expected: 43 tables in public schema)
 -- -------------------------------------------------------------------------------------
 SELECT 
     COUNT(*) AS total_tables_created,
     CASE 
-        WHEN COUNT(*) >= 41 THEN '✔ PASS - All 41 SmartFarm AI tables detected'
-        ELSE '❌ INCOMPLETE - Less than 41 tables found'
+        WHEN COUNT(*) >= 43 THEN '✔ PASS - All 43 SmartFarm AI tables detected'
+        ELSE '❌ INCOMPLETE - Less than 43 tables found'
     END AS status
 FROM information_schema.tables 
 WHERE table_schema = 'public' 
@@ -122,6 +122,10 @@ UNION ALL
 SELECT 'Order', COUNT(*) FROM "Order"
 UNION ALL
 SELECT 'OrderItem', COUNT(*) FROM "OrderItem"
+UNION ALL
+SELECT 'SoilMoistureObservation', COUNT(*) FROM "SoilMoistureObservation"
+UNION ALL
+SELECT 'FarmSensorMoisture', COUNT(*) FROM "FarmSensorMoisture"
 ORDER BY table_name;
 
 -- -------------------------------------------------------------------------------------
@@ -154,3 +158,8 @@ SELECT COUNT(*) AS orphan_market_observations FROM "MarketPriceObservation" mpo
 LEFT JOIN "MarketLocation" ml ON mpo."locationId" = ml."id"
 LEFT JOIN "MarketCommodity" mc ON mpo."commodityId" = mc."id"
 WHERE ml."id" IS NULL OR mc."id" IS NULL;
+
+-- 7f. FarmSensorMoisture records without valid fields
+SELECT COUNT(*) AS orphan_sensor_moistures FROM "FarmSensorMoisture" fsm
+LEFT JOIN "Field" f ON fsm."fieldId" = f."id"
+WHERE f."id" IS NULL;

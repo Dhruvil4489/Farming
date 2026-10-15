@@ -10,6 +10,8 @@ export async function GET(request: NextRequest) {
     const market = searchParams.get('market') || undefined;
     const commodity = searchParams.get('commodity') || undefined;
     const date = searchParams.get('date') || undefined;
+    const limitParam = searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
 
     const data = await MarketDataService.getPricesWithComparison({
       state,
@@ -17,6 +19,7 @@ export async function GET(request: NextRequest) {
       market,
       commodity,
       date,
+      limit: limit && !isNaN(limit) ? limit : undefined,
     });
 
     return apiSuccess(data.records, {

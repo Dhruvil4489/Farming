@@ -14,6 +14,7 @@ import {
   Calendar,
   CheckSquare,
   Droplet,
+  Droplets,
   Bot,
   Bug,
   Layers,
@@ -176,6 +177,11 @@ export function SiteHeader() {
                         <li>
                           <Link href="/soil" className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-colors text-stone-200 hover:text-white">
                             <Layers size={14} className="text-amber-400" /> Soil Health & Testing
+                          </Link>
+                        </li>
+                        <li>
+                          <Link href="/soil-moisture" className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-colors text-stone-200 hover:text-white">
+                            <Droplets size={14} className="text-cyan-400" /> District Soil Moisture
                           </Link>
                         </li>
                         <li>

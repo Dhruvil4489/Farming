@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   TrendingUp,
   TrendingDown,
@@ -17,10 +18,15 @@ import {
   ExternalLink,
   ChevronRight,
   BarChart3,
+  AlertCircle,
 } from 'lucide-react';
 import { SiteHeader } from '@/components/domain/SiteHeader';
 
-export default function MarketPage() {
+function MarketPageContent() {
+  const searchParams = useSearchParams();
+  const initialCommodity = searchParams.get('commodity') || '';
+  const initialState = searchParams.get('state') || 'Gujarat';
+
   const [prices, setPrices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -33,10 +39,10 @@ export default function MarketPage() {
   const [markets, setMarkets] = useState<any[]>([]);
   const [commodities, setCommodities] = useState<any[]>([]);
 
-  const [selectedState, setSelectedState] = useState('Gujarat');
+  const [selectedState, setSelectedState] = useState(initialState);
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [selectedMarket, setSelectedMarket] = useState('');
-  const [selectedCrop, setSelectedCrop] = useState('');
+  const [selectedCrop, setSelectedCrop] = useState(initialCommodity);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Selected item for Detailed Modal & Historical Chart
@@ -44,6 +50,10 @@ export default function MarketPage() {
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyRange, setHistoryRange] = useState<7 | 30>(7);
+
+  // Safe formatting helper
+  const safePrice = (val: any) =>
+    typeof val === 'number' && !isNaN(val) ? val.toLocaleString('en-IN') : '—';
 
   // Fetch filter options on mount
   useEffect(() => {
@@ -79,11 +89,11 @@ export default function MarketPage() {
       if (!res.ok) throw new Error('Failed to load mandi price records');
       const json = await res.json();
 
-      setPrices(json.data || []);
-      setPublicationDate(json.meta?.date || '');
+      setPrices(Array.isArray(json.data) ? json.data : []);
+      setPublicationDate(json.meta?.date || '2026-10-11');
       setTotalRecords(json.meta?.total || 0);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Unable to query mandi prices');
     } finally {
       setLoading(false);
     }
@@ -105,7 +115,7 @@ export default function MarketPage() {
         );
         if (res.ok) {
           const json = await res.json();
-          setHistoryData(json.data || []);
+          setHistoryData(Array.isArray(json.data) ? json.data : []);
         }
       } catch (err) {
         console.error('Failed to load history:', err);
@@ -128,12 +138,11 @@ export default function MarketPage() {
   const filteredPrices = prices.filter((item) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    return (
-      item.commodityName.toLowerCase().includes(q) ||
-      (item.variety && item.variety.toLowerCase().includes(q)) ||
-      item.marketName.toLowerCase().includes(q) ||
-      item.district.toLowerCase().includes(q)
-    );
+    const cName = (item.commodityName || '').toLowerCase();
+    const variety = (item.variety || '').toLowerCase();
+    const mName = (item.marketName || '').toLowerCase();
+    const dist = (item.district || '').toLowerCase();
+    return cName.includes(q) || variety.includes(q) || mName.includes(q) || dist.includes(q);
   });
 
   return (
@@ -141,10 +150,21 @@ export default function MarketPage() {
       <SiteHeader />
 
       {/* Hero Header */}
-      <div className="bg-[#0F2D1F] text-white py-14 px-4 sm:px-6 lg:px-8 border-b border-emerald-950">
+      <div className="bg-[#0F2D1F] text-white py-12 px-4 sm:px-6 lg:px-8 border-b border-emerald-950">
         <div className="max-w-7xl mx-auto space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-900/60 border border-emerald-500/40 text-xs font-semibold text-emerald-300">
-            <ShieldCheck size={14} /> Official AGMARKNET / data.gov.in Feed
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-900/60 border border-emerald-500/40 text-xs font-semibold text-emerald-300">
+              <ShieldCheck size={14} /> Official AGMARKNET / data.gov.in Feed
+            </div>
+            <a
+              href="https://data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[11px] text-emerald-200 border border-white/10 transition-colors"
+            >
+              <span>Resource ID: 9ef84268</span>
+              <ExternalLink size={11} />
+            </a>
           </div>
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight">
             India Crop Market Intelligence
@@ -157,7 +177,7 @@ export default function MarketPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-6">
         {/* Filter Controls Bar */}
-        <div className="bg-white p-6 rounded-3xl border border-stone-200/80 shadow-sm space-y-4">
+        <div className="bg-white p-6 rounded-3xl border border-stone-200/80 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             {/* Search Input */}
             <div className="relative w-full sm:w-80">
@@ -173,7 +193,7 @@ export default function MarketPage() {
 
             <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
               <span className="text-xs text-stone-500">
-                Latest publication: <strong className="text-stone-800">{publicationDate || 'Today'}</strong>
+                Publication date: <strong className="text-stone-800">{publicationDate || '2026-10-11'}</strong>
               </span>
               <button
                 onClick={resetFilters}
@@ -260,19 +280,20 @@ export default function MarketPage() {
         </div>
 
         {/* Data Table */}
-        <div className="bg-white rounded-3xl border border-stone-200/80 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-3xl border border-stone-200/80 shadow-xs overflow-hidden">
           {loading ? (
             <div className="p-16 text-center space-y-3">
               <RefreshCw size={28} className="mx-auto text-emerald-600 animate-spin" />
-              <p className="text-xs text-stone-500">Querying verified mandi observations from database...</p>
+              <p className="text-xs text-stone-500 font-medium">Querying verified mandi observations from database...</p>
             </div>
           ) : error ? (
             <div className="p-12 text-center text-rose-600 space-y-2">
+              <AlertCircle size={28} className="mx-auto text-rose-600" />
               <p className="font-bold text-sm">Failed to retrieve market records</p>
               <p className="text-xs text-stone-500">{error}</p>
               <button
                 onClick={fetchPrices}
-                className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold mt-2"
+                className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold mt-2 cursor-pointer"
               >
                 Retry Query
               </button>
@@ -305,8 +326,9 @@ export default function MarketPage() {
                 </thead>
                 <tbody className="divide-y divide-stone-100 font-medium">
                   {filteredPrices.map((row) => {
-                    const isUp = row.comparison?.priceChange > 0;
-                    const isDown = row.comparison?.priceChange < 0;
+                    const priceChange = row.comparison?.priceChange;
+                    const isUp = typeof priceChange === 'number' && priceChange > 0;
+                    const isDown = typeof priceChange === 'number' && priceChange < 0;
 
                     return (
                       <tr key={row.id} className="hover:bg-emerald-50/40 transition-colors group">
@@ -321,36 +343,36 @@ export default function MarketPage() {
                         </td>
 
                         <td className="py-4 px-6 text-right text-stone-600">
-                          ₹{row.minPrice.toLocaleString()}
+                          ₹{safePrice(row.minPrice)}
                         </td>
 
                         <td className="py-4 px-6 text-right text-stone-600">
-                          ₹{row.maxPrice.toLocaleString()}
+                          ₹{safePrice(row.maxPrice)}
                         </td>
 
                         <td className="py-4 px-6 text-right">
                           <span className="text-base font-black text-[#0F2D1F]">
-                            ₹{row.modalPrice.toLocaleString()}
+                            ₹{safePrice(row.modalPrice)}
                           </span>
-                          <span className="text-[10px] text-stone-500 block">{row.unit}</span>
+                          <span className="text-[10px] text-stone-500 block">{row.unit || '₹/Quintal'}</span>
                         </td>
 
                         <td className="py-4 px-6 text-right">
                           {row.comparison?.previousModalPrice ? (
                             <div className="space-y-0.5">
                               {isUp ? (
-                                <span className="inline-flex items-center text-emerald-700 font-bold bg-emerald-100/70 px-2 py-0.5 rounded">
+                                <span className="inline-flex items-center text-emerald-700 font-bold bg-emerald-100/70 px-2 py-0.5 rounded text-[11px]">
                                   <TrendingUp size={12} className="mr-1" /> +₹{row.comparison.priceChange} ({row.comparison.percentageChange}%)
                                 </span>
                               ) : isDown ? (
-                                <span className="inline-flex items-center text-rose-600 font-bold bg-rose-100/70 px-2 py-0.5 rounded">
+                                <span className="inline-flex items-center text-rose-600 font-bold bg-rose-100/70 px-2 py-0.5 rounded text-[11px]">
                                   <TrendingDown size={12} className="mr-1" /> -₹{Math.abs(row.comparison.priceChange)} ({row.comparison.percentageChange}%)
                                 </span>
                               ) : (
                                 <span className="text-stone-500 text-[11px]">Unchanged</span>
                               )}
                               <p className="text-[10px] text-stone-400">
-                                was ₹{row.comparison.previousModalPrice} on {row.comparison.previousPriceDate}
+                                was ₹{safePrice(row.comparison.previousModalPrice)} on {row.comparison.previousPriceDate}
                               </p>
                             </div>
                           ) : (
@@ -408,16 +430,16 @@ export default function MarketPage() {
             <div className="grid grid-cols-3 gap-3 p-4 bg-stone-50 rounded-2xl border border-stone-100 text-center">
               <div>
                 <span className="text-[11px] text-stone-500 font-semibold">Min Price</span>
-                <p className="text-lg font-bold text-stone-800">₹{activeItem.minPrice.toLocaleString()}</p>
+                <p className="text-lg font-bold text-stone-800">₹{safePrice(activeItem.minPrice)}</p>
               </div>
               <div className="border-x border-stone-200">
                 <span className="text-[11px] text-emerald-800 font-bold">Modal Price</span>
-                <p className="text-2xl font-black text-[#0F2D1F]">₹{activeItem.modalPrice.toLocaleString()}</p>
+                <p className="text-2xl font-black text-[#0F2D1F]">₹{safePrice(activeItem.modalPrice)}</p>
                 <span className="text-[10px] text-stone-500">{activeItem.unit}</span>
               </div>
               <div>
                 <span className="text-[11px] text-stone-500 font-semibold">Max Price</span>
-                <p className="text-lg font-bold text-stone-800">₹{activeItem.maxPrice.toLocaleString()}</p>
+                <p className="text-lg font-bold text-stone-800">₹{safePrice(activeItem.maxPrice)}</p>
               </div>
             </div>
 
@@ -468,7 +490,7 @@ export default function MarketPage() {
                       return (
                         <div key={idx} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
                           <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[9px] font-bold text-stone-700 bg-white px-1 rounded shadow-xs">
-                            ₹{pt.modalPrice}
+                            ₹{safePrice(pt.modalPrice)}
                           </span>
                           <div
                             style={{ height: `${heightPercent}%` }}
@@ -501,5 +523,19 @@ export default function MarketPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MarketPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FAF6EF] flex items-center justify-center">
+          <RefreshCw size={24} className="text-emerald-600 animate-spin" />
+        </div>
+      }
+    >
+      <MarketPageContent />
+    </Suspense>
   );
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { redirect } from 'next/navigation';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { Navbar } from '@/components/domain/Navbar';
 import { Sidebar } from '@/components/domain/Sidebar';
@@ -6,6 +7,9 @@ import { BottomNav } from '@/components/domain/BottomNav';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getAuthenticatedUser();
+  if (!user) {
+    redirect('/login?redirect=/dashboard');
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF6EF]">

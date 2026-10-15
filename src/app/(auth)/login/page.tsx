@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Sprout, LogIn, KeyRound } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Sprout, LogIn, KeyRound, Lock } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTarget = searchParams.get('redirect') || '/dashboard';
+
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -31,10 +34,10 @@ export default function LoginPage() {
         throw new Error(data.error?.message || 'Login failed');
       }
 
-      router.push('/dashboard');
+      // Hard redirect to refresh server layout with active auth session
+      window.location.href = redirectTarget;
     } catch (err: any) {
       setError(err.message);
-    } finally {
       setLoading(false);
     }
   };
@@ -49,74 +52,91 @@ export default function LoginPage() {
     setPassword('admin123456');
   };
 
+  const isProtectedRedirect = redirectTarget && redirectTarget !== '/dashboard';
+
+  return (
+    <div className="w-full max-w-md bg-white rounded-2xl border border-stone-200 shadow-xl p-8 space-y-6">
+      <div className="text-center space-y-2">
+        <div className="w-12 h-12 bg-[#2F7D4F] text-white rounded-xl mx-auto flex items-center justify-center shadow-md">
+          <Sprout size={28} />
+        </div>
+        <h1 className="text-2xl font-extrabold text-[#143D2A]">Sign In to SmartFarm AI</h1>
+        <p className="text-xs text-stone-500">Access your digital farming dashboard</p>
+      </div>
+
+      {isProtectedRedirect && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs font-medium text-amber-900 flex items-center gap-2">
+          <Lock size={15} className="text-amber-600 shrink-0" />
+          <span>Please sign in to access the protected farmer portal.</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs font-medium text-red-700">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label="Mobile Number or Email"
+          type="text"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          placeholder="e.g. +919876543211 or farmer@smartfarm.ai"
+          required
+        />
+
+        <Input
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="••••••••"
+          required
+        />
+
+        <Button type="submit" isLoading={loading} className="w-full">
+          <LogIn size={16} className="mr-2" /> Sign In
+        </Button>
+      </form>
+
+      <div className="pt-4 border-t border-stone-200 space-y-2 text-center">
+        <p className="text-xs text-stone-500 font-semibold mb-2">Quick Demo Sign In Options:</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={fillDemoFarmer}
+            type="button"
+            className="px-3 py-2 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors cursor-pointer"
+          >
+            Demo Farmer Account
+          </button>
+          <button
+            onClick={fillDemoAdmin}
+            type="button"
+            className="px-3 py-2 bg-stone-100 border border-stone-300 text-stone-900 rounded-lg text-xs font-semibold hover:bg-stone-200 transition-colors cursor-pointer"
+          >
+            Demo Admin Account
+          </button>
+        </div>
+      </div>
+
+      <p className="text-center text-xs text-stone-600 pt-2">
+        Don't have an account?{' '}
+        <Link href={`/register${redirectTarget ? `?redirect=${encodeURIComponent(redirectTarget)}` : ''}`} className="font-bold text-[#2F7D4F] hover:underline">
+          Register as Farmer
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#FAF6EF] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl border border-stone-200 shadow-xl p-8 space-y-6">
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-[#2F7D4F] text-white rounded-xl mx-auto flex items-center justify-center shadow-md">
-            <Sprout size={28} />
-          </div>
-          <h1 className="text-2xl font-extrabold text-[#143D2A]">Sign In to SmartFarm AI</h1>
-          <p className="text-xs text-stone-500">Access your digital farming dashboard</p>
-        </div>
-
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs font-medium text-red-700">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Mobile Number or Email"
-            type="text"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            placeholder="e.g. +919876543211 or farmer@smartfarm.ai"
-            required
-          />
-
-          <Input
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            required
-          />
-
-          <Button type="submit" isLoading={loading} className="w-full">
-            <LogIn size={16} className="mr-2" /> Sign In
-          </Button>
-        </form>
-
-        <div className="pt-4 border-t border-stone-200 space-y-2 text-center">
-          <p className="text-xs text-stone-500 font-semibold mb-2">Quick Demo Sign In Options:</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={fillDemoFarmer}
-              type="button"
-              className="px-3 py-2 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors"
-            >
-              Demo Farmer Account
-            </button>
-            <button
-              onClick={fillDemoAdmin}
-              type="button"
-              className="px-3 py-2 bg-stone-100 border border-stone-300 text-stone-900 rounded-lg text-xs font-semibold hover:bg-stone-200 transition-colors"
-            >
-              Demo Admin Account
-            </button>
-          </div>
-        </div>
-
-        <p className="text-center text-xs text-stone-600 pt-2">
-          Don't have an account?{' '}
-          <Link href="/register" className="font-bold text-[#2F7D4F] hover:underline">
-            Register as Farmer
-          </Link>
-        </p>
-      </div>
+      <Suspense fallback={<div className="p-8 text-center text-xs text-stone-500">Loading sign in...</div>}>
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }

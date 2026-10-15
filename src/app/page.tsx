@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { SiteHeader } from '@/components/domain/SiteHeader';
 import { CinematicVideoHero } from '@/components/domain/CinematicVideoHero';
+import { MarketSnapshotSection } from '@/components/market/MarketSnapshotSection';
 
 // Lifecycle stage descriptions
 const LIFECYCLE_STAGES = [
@@ -89,39 +90,29 @@ const LIFECYCLE_STAGES = [
 
 export default function HomePage() {
   const [activeStage, setActiveStage] = useState(0);
-  const [marketPrices, setMarketPrices] = useState<any[]>([]);
-  const [marketDate, setMarketDate] = useState<string>('');
-  const [marketLoading, setMarketLoading] = useState(true);
   const [storeProducts, setStoreProducts] = useState<any[]>([]);
   const [cartAdding, setCartAdding] = useState<string | null>(null);
 
-  // Fetch live market snapshot and products preview
+  // Fetch store products preview safely without blocking other modules
   useEffect(() => {
-    const fetchData = async () => {
+    let isMounted = true;
+    const fetchStore = async () => {
       try {
-        const [marketRes, prodRes] = await Promise.all([
-          fetch('/api/v1/market/prices'),
-          fetch('/api/v1/store/products'),
-        ]);
-
-        if (marketRes.ok) {
-          const mJson = await marketRes.json();
-          setMarketPrices(mJson.data?.slice(0, 4) || []);
-          setMarketDate(mJson.meta?.date || '2026-10-11');
+        const res = await fetch('/api/v1/store/products');
+        if (res.ok) {
+          const json = await res.json();
+          if (isMounted) {
+            setStoreProducts(Array.isArray(json.data) ? json.data.slice(0, 4) : []);
+          }
         }
-
-        if (prodRes.ok) {
-          const pJson = await prodRes.json();
-          setStoreProducts(pJson.data?.slice(0, 4) || []);
-        }
-      } catch (e) {
-        console.error('Failed to load homepage data:', e);
-      } finally {
-        setMarketLoading(false);
+      } catch (err) {
+        console.warn('Store preview fetch note:', err);
       }
     };
-
-    fetchData();
+    fetchStore();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleAddToCart = async (productId: string) => {
@@ -201,104 +192,8 @@ export default function HomePage() {
         </div>
       </CinematicVideoHero>
 
-      {/* SECTION B — LIVE MARKET SNAPSHOT */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full -mt-10 relative z-20">
-        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-stone-200/80 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <h2 className="text-xl sm:text-2xl font-extrabold text-[#0F2D1F] tracking-tight">
-                  Live Mandi Market Snapshot
-                </h2>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">
-                  Official AGMARKNET Data
-                </span>
-              </div>
-              <p className="text-xs text-stone-500 mt-1">
-                Data published on {marketDate} • Modal rates compared against previous trading day
-              </p>
-            </div>
-            <Link
-              href="/market"
-              className="text-xs sm:text-sm font-bold text-[#2F7D4F] hover:text-[#143D2A] flex items-center gap-1 group"
-            >
-              View All 15+ Gujarat & National Mandis <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
-
-          {marketLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map((n) => (
-                <div key={n} className="h-32 bg-stone-100 rounded-2xl animate-pulse" />
-              ))}
-            </div>
-          ) : marketPrices.length === 0 ? (
-            <div className="p-8 text-center text-stone-500 text-sm bg-stone-50 rounded-2xl">
-              Market data currently being refreshed from AGMARKNET servers.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {marketPrices.map((item) => {
-                const isUp = item.comparison?.priceChange > 0;
-                const isDown = item.comparison?.priceChange < 0;
-
-                return (
-                  <div
-                    key={item.id}
-                    className="p-5 rounded-2xl bg-stone-50/80 hover:bg-stone-50 border border-stone-200 hover:border-emerald-300 transition-all agri-card space-y-3"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-extrabold text-stone-900 text-base">{item.commodityName}</h3>
-                        <p className="text-xs text-stone-500">
-                          {item.variety ? `${item.variety} • ` : ''}{item.marketName}
-                        </p>
-                      </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-stone-200 text-stone-700 font-semibold uppercase">
-                        {item.state}
-                      </span>
-                    </div>
-
-                    <div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-black text-[#0F2D1F]">₹{item.modalPrice.toLocaleString()}</span>
-                        <span className="text-xs text-stone-500">/{item.unit.replace('₹/', '')}</span>
-                      </div>
-
-                      {item.comparison?.previousModalPrice ? (
-                        <div className="flex items-center gap-1.5 mt-1 text-xs">
-                          {isUp ? (
-                            <span className="flex items-center text-emerald-700 font-bold">
-                              <TrendingUp size={14} className="mr-0.5" /> +₹{item.comparison.priceChange} ({item.comparison.percentageChange}%)
-                            </span>
-                          ) : isDown ? (
-                            <span className="flex items-center text-rose-600 font-bold">
-                              <TrendingDown size={14} className="mr-0.5" /> -₹{Math.abs(item.comparison.priceChange)} ({item.comparison.percentageChange}%)
-                            </span>
-                          ) : (
-                            <span className="text-stone-500 font-medium">No change from yesterday</span>
-                          )}
-                          <span className="text-[10px] text-stone-400">vs yesterday</span>
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-stone-400 mt-1">Previous price unavailable</p>
-                      )}
-                    </div>
-
-                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between text-[11px] text-stone-500">
-                      <span>Range: ₹{item.minPrice} - ₹{item.maxPrice}</span>
-                      <Link href="/market" className="font-semibold text-[#2F7D4F] hover:underline">
-                        Details →
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
+      {/* SECTION B — LIVE MANDI MARKET SNAPSHOT (ROBUST STATE MACHINE & RETRY) */}
+      <MarketSnapshotSection />
 
       {/* SECTION C — FARMING INTELLIGENCE (8 MODULE CARDS) */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-12">
