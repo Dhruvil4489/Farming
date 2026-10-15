@@ -7,15 +7,18 @@ import { DemoWeatherProvider } from '@/providers/weather/DemoWeatherProvider';
 
 export async function GET(req: NextRequest) {
   const user = await getAuthenticatedUser();
-  if (!user) return apiError('Unauthorized', 'unauthorized', 401);
-
   const { searchParams } = new URL(req.url);
   const farmId = searchParams.get('farm_id');
+  const latParam = searchParams.get('lat');
+  const lngParam = searchParams.get('lng');
 
-  let lat = 22.2405;
-  let lng = 73.0848;
+  let lat = latParam ? parseFloat(latParam) : 22.2405;
+  let lng = lngParam ? parseFloat(lngParam) : 73.0848;
 
   if (farmId) {
+    if (!user) {
+      return apiError('Unauthorized farm lookup', 'unauthorized', 401);
+    }
     const farm = await prisma.farm.findFirst({
       where: { id: farmId, userId: user.id },
     });

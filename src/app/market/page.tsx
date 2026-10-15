@@ -74,10 +74,13 @@ function MarketPageContent() {
     fetchFilters();
   }, []);
 
-  // Fetch prices with comparison
+  // Fetch prices with comparison and bounded timeout
   const fetchPrices = async () => {
     setLoading(true);
     setError('');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s bounded timeout
+
     try {
       const params = new URLSearchParams();
       if (selectedState) params.append('state', selectedState);
@@ -85,16 +88,29 @@ function MarketPageContent() {
       if (selectedMarket) params.append('market', selectedMarket);
       if (selectedCrop) params.append('commodity', selectedCrop);
 
-      const res = await fetch(`/api/v1/market/prices?${params.toString()}`);
-      if (!res.ok) throw new Error('Failed to load mandi price records');
+      const res = await fetch(`/api/v1/market/prices?${params.toString()}`, {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: Failed to load mandi price records`);
+      }
       const json = await res.json();
 
-      setPrices(Array.isArray(json.data) ? json.data : []);
-      setPublicationDate(json.meta?.date || '2026-10-11');
-      setTotalRecords(json.meta?.total || 0);
+      const records = Array.isArray(json.data) ? json.data : [];
+      setPrices(records);
+      setPublicationDate(json.meta?.date || records[0]?.priceDate || '2026-10-11');
+      setTotalRecords(json.meta?.total || records.length);
     } catch (err: any) {
-      setError(err.message || 'Unable to query mandi prices');
+      if (err.name === 'AbortError') {
+        setError('Market price query timed out. The server or database took longer than 8 seconds to respond.');
+      } else {
+        setError(err.message || 'Unable to query mandi prices from the database.');
+      }
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };

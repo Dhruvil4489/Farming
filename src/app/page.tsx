@@ -395,36 +395,66 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Interactive Stage Tabs */}
-          <div className="flex items-center justify-between gap-2 overflow-x-auto pb-4 scrollbar-none">
+          {/* Interactive Stage Tabs with Accessible Semantics */}
+          <div
+            role="tablist"
+            aria-label="Crop Lifecycle Stages"
+            className="flex items-center justify-between gap-2 overflow-x-auto pb-4 scrollbar-none focus-visible:outline-none"
+          >
             {LIFECYCLE_STAGES.map((st, idx) => {
               const selected = activeStage === idx;
               return (
                 <button
                   key={st.key}
+                  id={`stage-tab-${st.key}`}
+                  role="tab"
+                  type="button"
+                  aria-selected={selected}
+                  aria-controls={`stage-panel-${st.key}`}
+                  tabIndex={selected ? 0 : -1}
                   onClick={() => setActiveStage(idx)}
-                  className={`px-4 py-3 rounded-2xl text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-2 border ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowRight') {
+                      e.preventDefault();
+                      const next = (idx + 1) % LIFECYCLE_STAGES.length;
+                      setActiveStage(next);
+                      document.getElementById(`stage-tab-${LIFECYCLE_STAGES[next].key}`)?.focus();
+                    } else if (e.key === 'ArrowLeft') {
+                      e.preventDefault();
+                      const prev = (idx - 1 + LIFECYCLE_STAGES.length) % LIFECYCLE_STAGES.length;
+                      setActiveStage(prev);
+                      document.getElementById(`stage-tab-${LIFECYCLE_STAGES[prev].key}`)?.focus();
+                    }
+                  }}
+                  className={`px-4 py-3 rounded-2xl text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-2 border focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-[#0F2D1F] ${
                     selected
-                      ? 'bg-[#2F7D4F] text-white border-emerald-400 shadow-lg scale-105'
+                      ? 'bg-[#2F7D4F] text-white border-emerald-400 shadow-lg scale-105 ring-1 ring-emerald-300/50'
                       : 'bg-white/5 text-emerald-200/70 border-white/10 hover:bg-white/10 hover:text-white'
                   }`}
                 >
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
-                    selected ? 'bg-white text-[#2F7D4F]' : 'bg-white/20 text-white'
-                  }`}>
+                  <span
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-colors ${
+                      selected ? 'bg-white text-[#2F7D4F]' : 'bg-white/20 text-white'
+                    }`}
+                  >
                     {idx + 1}
                   </span>
-                  {st.title.replace(`${idx + 1}. `, '')}
+                  <span>{st.title.replace(`${idx + 1}. `, '')}</span>
                 </button>
               );
             })}
           </div>
 
-          {/* Active Stage Details Card */}
-          <div className="bg-[#143D2A] border border-emerald-700/60 rounded-3xl p-8 sm:p-12 shadow-2xl grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+          {/* Active Stage Details Card with Tabpanel Semantics */}
+          <div
+            id={`stage-panel-${LIFECYCLE_STAGES[activeStage].key}`}
+            role="tabpanel"
+            aria-labelledby={`stage-tab-${LIFECYCLE_STAGES[activeStage].key}`}
+            className="bg-[#143D2A] border border-emerald-700/60 rounded-3xl p-8 sm:p-12 shadow-2xl grid grid-cols-1 lg:grid-cols-3 gap-8 items-center transition-all animate-in fade-in duration-200"
+          >
             <div className="lg:col-span-2 space-y-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                Phase {activeStage + 1} • {LIFECYCLE_STAGES[activeStage].subtitle}
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-300 bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20 inline-block">
+                Phase {activeStage + 1} of 7 • {LIFECYCLE_STAGES[activeStage].subtitle}
               </span>
               <h3 className="text-2xl sm:text-3xl font-extrabold text-white">
                 {LIFECYCLE_STAGES[activeStage].title}
@@ -433,7 +463,8 @@ export default function HomePage() {
                 {LIFECYCLE_STAGES[activeStage].description}
               </p>
               <div className="pt-2 flex items-center gap-2 text-xs text-emerald-300">
-                <CheckCircle2 size={16} /> Integrated with: <strong className="text-white">{LIFECYCLE_STAGES[activeStage].feature}</strong>
+                <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                <span>Integrated with: <strong className="text-white">{LIFECYCLE_STAGES[activeStage].feature}</strong></span>
               </div>
             </div>
 
@@ -444,7 +475,7 @@ export default function HomePage() {
               </p>
               <Link
                 href={LIFECYCLE_STAGES[activeStage].route}
-                className="inline-flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-[#2F7D4F] hover:bg-[#25663f] text-white font-bold text-xs transition-colors shadow-md"
+                className="inline-flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-[#2F7D4F] hover:bg-[#25663f] text-white font-bold text-xs transition-all shadow-md hover:scale-[1.02]"
               >
                 Open {LIFECYCLE_STAGES[activeStage].title.replace(`${activeStage + 1}. `, '')} Module <ArrowRight size={14} />
               </Link>
