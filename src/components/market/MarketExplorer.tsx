@@ -19,6 +19,7 @@ import {
   Clock,
   Sparkles,
 } from 'lucide-react';
+import { ProvenanceChip } from '@/components/ui/ProvenanceChip';
 
 export interface MarketExplorerProps {
   variant?: 'public' | 'portal';
@@ -39,6 +40,9 @@ export function MarketExplorer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [publicationDate, setPublicationDate] = useState('');
+  const [latestArrivalDate, setLatestArrivalDate] = useState('');
+  const [lastSyncedAt, setLastSyncedAt] = useState('');
+  const [cadenceNotice, setCadenceNotice] = useState('');
   const [totalRecords, setTotalRecords] = useState(0);
 
   // Filters
@@ -62,6 +66,23 @@ export function MarketExplorer({
   // Safe formatting helper
   const safePrice = (val: any) =>
     typeof val === 'number' && !isNaN(val) ? val.toLocaleString('en-IN') : '—';
+
+  // Format ISO timestamp for sync display
+  const formatSyncTime = (iso?: string) => {
+    if (!iso) return 'Recent';
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      return d.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return iso;
+    }
+  };
 
   // Fetch filter options on mount
   useEffect(() => {
@@ -109,7 +130,10 @@ export function MarketExplorer({
 
       const records = Array.isArray(json.data) ? json.data : [];
       setPrices(records);
-      setPublicationDate(json.meta?.date || records[0]?.priceDate || '2026-10-11');
+      setPublicationDate(json.meta?.arrival_date || json.meta?.date || records[0]?.arrival_date || records[0]?.priceDate || '2026-10-11');
+      setLatestArrivalDate(json.meta?.latestArrivalDate || json.meta?.arrival_date || records[0]?.arrival_date || records[0]?.priceDate || '');
+      setLastSyncedAt(json.meta?.lastSyncedAt || records[0]?.lastSyncedAt || records[0]?.fetchedAt || '');
+      setCadenceNotice(json.meta?.cadenceNotice || '');
       setTotalRecords(json.meta?.total || records.length);
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -179,19 +203,27 @@ export function MarketExplorer({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-extrabold text-[#143D2A] tracking-tight">Live Mandi Prices</h1>
+              <h1 className="text-2xl font-extrabold text-[#143D2A] tracking-tight">Latest Reported Mandi Prices</h1>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100/90 border border-emerald-300 text-[11px] font-bold text-emerald-800">
                 <ShieldCheck size={13} className="text-emerald-700" /> AGMARKNET Verified
               </span>
             </div>
             <p className="text-xs text-stone-600 mt-1">
-              Real-time APMC wholesale commodity rates, daily modal values, and historical price comparisons
+              Latest reported APMC wholesale commodity rates, daily modal values, and historical price comparisons
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-stone-500 font-medium hidden sm:inline">
-              Publication Date: <strong className="text-stone-800">{publicationDate || '2026-10-11'}</strong>
-            </span>
+            <div className="text-right hidden sm:block space-y-0.5">
+              <span className="text-xs text-stone-600 font-medium block">
+                Reported Arrival Date: <strong className="text-stone-800 font-bold">{publicationDate || '2026-10-11'}</strong>
+              </span>
+              {lastSyncedAt && (
+                <span className="text-[11px] text-stone-400 font-medium flex items-center justify-end gap-1">
+                  <Clock size={11} className="text-emerald-600" />
+                  <span>Feed Last Synced: <strong className="text-stone-600 font-semibold">{formatSyncTime(lastSyncedAt)}</strong></span>
+                </span>
+              )}
+            </div>
             <button
               onClick={fetchPrices}
               disabled={loading}
@@ -233,6 +265,27 @@ export function MarketExplorer({
 
       {/* MAIN BODY CONTAINER */}
       <div className={isPortal ? 'space-y-6' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-6'}>
+        {/* Cadence & Freshness Transparency Notice */}
+        <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
+          <div className="flex items-start gap-3">
+            <Info size={16} className="text-amber-700 shrink-0 mt-0.5" />
+            <div className="space-y-0.5 leading-relaxed">
+              <p className="font-bold text-amber-900">
+                Official AGMARKNET Daily Wholesale Cadence Notice
+              </p>
+              <p className="text-[11px] text-amber-800/90">
+                Prices reflect daily wholesale auction arrivals reported by each APMC at the conclusion of trade, not second-by-second exchange tickers. Automatic polling keeps our database fresh, but not every crop-market combination trades or reports every day.
+              </p>
+            </div>
+          </div>
+          {lastSyncedAt && (
+            <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-100/70 border border-amber-300/50 text-[11px] font-semibold text-amber-900 self-start sm:self-auto">
+              <Clock size={12} className="text-amber-700" />
+              <span>Feed Synced: {formatSyncTime(lastSyncedAt)}</span>
+            </div>
+          )}
+        </div>
+
         {/* Filter Controls Bar */}
         <div className="bg-white p-5 sm:p-6 rounded-3xl border border-stone-200/80 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
@@ -377,7 +430,15 @@ export function MarketExplorer({
                     <th className="py-4 px-6 text-right">Max Price</th>
                     <th className="py-4 px-6 text-right">Modal Rate</th>
                     <th className="py-4 px-6 text-right">vs Previous Trading Day</th>
-                    <th className="py-4 px-6 text-center">Date</th>
+                    <th className="py-4 px-4 text-center">
+                      <div>Arrival Date</div>
+                      <div className="text-[9px] font-normal lowercase tracking-normal text-stone-400">reported trade</div>
+                    </th>
+                    <th className="py-4 px-4 text-center">
+                      <div>Last Synced</div>
+                      <div className="text-[9px] font-normal lowercase tracking-normal text-stone-400">feed polled</div>
+                    </th>
+                    <th className="py-4 px-4 text-center">Source</th>
                     <th className="py-4 px-6 text-center">Trend & Details</th>
                   </tr>
                 </thead>
@@ -437,8 +498,31 @@ export function MarketExplorer({
                           )}
                         </td>
 
-                        <td className="py-4 px-6 text-center text-stone-500 whitespace-nowrap">
-                          {row.priceDate}
+                        <td className="py-4 px-4 text-center text-stone-700 whitespace-nowrap">
+                          <div className="flex flex-col items-center">
+                            <span className="font-bold text-stone-800 text-xs flex items-center gap-1">
+                              <Calendar size={12} className="text-stone-400" />
+                              {row.arrival_date || row.priceDate}
+                            </span>
+                            <span className="text-[10px] text-stone-400">reported trade</span>
+                          </div>
+                        </td>
+
+                        <td className="py-4 px-4 text-center text-stone-600 whitespace-nowrap">
+                          <div className="flex flex-col items-center">
+                            <span className="text-[11px] font-semibold text-stone-700 flex items-center gap-1">
+                              <Clock size={11} className="text-emerald-600" />
+                              {formatSyncTime(row.lastSyncedAt || row.fetchedAt)}
+                            </span>
+                            <span className="text-[10px] text-stone-400">feed polled</span>
+                          </div>
+                        </td>
+
+                        <td className="py-4 px-6 text-center">
+                          <ProvenanceChip
+                            type={row.isDemo ? 'simulated' : 'official_market'}
+                            size="xs"
+                          />
                         </td>
 
                         <td className="py-4 px-6 text-center">
@@ -565,15 +649,25 @@ export function MarketExplorer({
             </div>
 
             {/* Provenance and Data Source Audit */}
-            <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-100 space-y-1.5 text-xs text-emerald-950">
+            <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-100 space-y-2 text-xs text-emerald-950">
               <div className="flex items-center gap-1.5 font-bold text-emerald-900">
-                <Info size={14} /> Official Data Source & Provenance
+                <Info size={14} /> Official Data Source & Cadence Audit
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 bg-white/70 rounded-xl border border-emerald-200/50 text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <Calendar size={13} className="text-emerald-700 shrink-0" />
+                  <span>Reported Arrival Date: <strong>{activeItem.arrival_date || activeItem.priceDate}</strong></span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Clock size={13} className="text-emerald-700 shrink-0" />
+                  <span>Feed Last Synced: <strong>{formatSyncTime(activeItem.lastSyncedAt || activeItem.fetchedAt)}</strong></span>
+                </div>
               </div>
               <p className="text-[11px] leading-relaxed">
-                Published by: <strong>{activeItem.source}</strong>. Recorded on trading date: <strong>{activeItem.priceDate}</strong>.
+                Published by: <strong>{activeItem.source}</strong> {activeItem.sourceResourceId && <span>(Resource: <code className="bg-white/80 px-1 py-0.5 rounded text-[10px]">{activeItem.sourceResourceId.slice(0, 8)}...</code>)</span>}.
               </p>
               <p className="text-[10px] text-stone-500 italic">
-                Units reported strictly as per market board standards (1 Quintal = 100 Kilograms). Modal rates represent the most frequently occurring wholesale transaction value of the trading session.
+                Official AGMARKNET feeds publish daily wholesale auction rates once trading sessions conclude. Automatic polling keeps the database fresh, but prices represent daily wholesale arrivals rather than live exchange tickers. Not every crop-mandi combination trades or reports every day.
               </p>
             </div>
           </div>

@@ -400,11 +400,12 @@ async function main() {
     // Today observation
     await prisma.marketPriceObservation.upsert({
       where: {
-        locationId_commodityId_priceDate_source: {
+        locationId_commodityId_priceDate_source_grade: {
           locationId,
           commodityId,
           priceDate: today,
-          source: 'AGMARKNET / data.gov.in',
+          source: 'Demo — AGMARKNET Reference',
+          grade: '',
         },
       },
       update: {
@@ -415,24 +416,27 @@ async function main() {
       create: {
         locationId,
         commodityId,
+        grade: '',
         priceDate: today,
         minPrice: item.today.min,
         maxPrice: item.today.max,
         modalPrice: item.today.modal,
         unit: '₹/Quintal',
-        source: 'AGMARKNET / data.gov.in',
-        isDemo: false,
+        source: 'Demo — AGMARKNET Reference',
+        isDemo: true,
+        qualityStatus: 'ok',
       },
     });
 
     // Yesterday observation
     await prisma.marketPriceObservation.upsert({
       where: {
-        locationId_commodityId_priceDate_source: {
+        locationId_commodityId_priceDate_source_grade: {
           locationId,
           commodityId,
           priceDate: yesterday,
-          source: 'AGMARKNET / data.gov.in',
+          source: 'Demo — AGMARKNET Reference',
+          grade: '',
         },
       },
       update: {
@@ -443,13 +447,15 @@ async function main() {
       create: {
         locationId,
         commodityId,
+        grade: '',
         priceDate: yesterday,
         minPrice: item.yesterday.min,
         maxPrice: item.yesterday.max,
         modalPrice: item.yesterday.modal,
         unit: '₹/Quintal',
-        source: 'AGMARKNET / data.gov.in',
-        isDemo: false,
+        source: 'Demo — AGMARKNET Reference',
+        isDemo: true,
+        qualityStatus: 'ok',
       },
     });
 
@@ -460,24 +466,27 @@ async function main() {
       const histPrice = item.history[dayIdx];
       await prisma.marketPriceObservation.upsert({
         where: {
-          locationId_commodityId_priceDate_source: {
+          locationId_commodityId_priceDate_source_grade: {
             locationId,
             commodityId,
             priceDate: histDate,
-            source: 'AGMARKNET / data.gov.in',
+            source: 'Demo — AGMARKNET Reference',
+            grade: '',
           },
         },
         update: { modalPrice: histPrice },
         create: {
           locationId,
           commodityId,
+          grade: '',
           priceDate: histDate,
           minPrice: histPrice - 200,
           maxPrice: histPrice + 250,
           modalPrice: histPrice,
           unit: '₹/Quintal',
-          source: 'AGMARKNET / data.gov.in',
-          isDemo: false,
+          source: 'Demo — AGMARKNET Reference',
+          isDemo: true,
+          qualityStatus: 'ok',
         },
       });
     }

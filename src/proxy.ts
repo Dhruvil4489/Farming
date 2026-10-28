@@ -20,6 +20,7 @@ const PROTECTED_PREFIXES = [
   '/soil-moisture',
   '/store',
   '/guidance',
+  '/diagnosis',
 ];
 
 export function proxy(request: NextRequest) {

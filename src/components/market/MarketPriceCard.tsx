@@ -2,7 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Minus, MapPin, Calendar, ArrowRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, MapPin, Calendar, Clock, ArrowRight } from 'lucide-react';
+import { ProvenanceChip } from '@/components/ui/ProvenanceChip';
 
 export interface MarketPriceRecord {
   id: string;
@@ -19,6 +20,9 @@ export interface MarketPriceRecord {
   modalPrice: number;
   unit: string;
   priceDate: string;
+  arrival_date?: string;
+  arrivalDate?: string;
+  lastSyncedAt?: string;
   fetchedAt?: string;
   source?: string;
   isDemo?: boolean;
@@ -73,9 +77,15 @@ export function MarketPriceCard({ item, onSelect }: MarketPriceCardProps) {
             {variety && <span className="text-stone-400">• {variety}</span>}
           </p>
         </div>
-        <span className="text-[10px] px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 font-bold uppercase tracking-wider shrink-0 border border-stone-200/60">
-          {state}
-        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <ProvenanceChip
+            type={item.isDemo ? 'simulated' : 'official_market'}
+            size="xs"
+          />
+          <span className="text-[10px] px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 font-bold uppercase tracking-wider border border-stone-200/60">
+            {state}
+          </span>
+        </div>
       </div>
 
       {/* Main Metric: Modal Price & Comparison */}
@@ -117,8 +127,22 @@ export function MarketPriceCard({ item, onSelect }: MarketPriceCardProps) {
         </div>
       </div>
 
+      {/* Cadence Badges: Arrival Date vs Last Synced */}
+      <div className="pt-2 border-t border-stone-100 flex flex-wrap items-center justify-between gap-1 text-[10px] text-stone-500">
+        <span className="inline-flex items-center gap-1 font-medium text-stone-600" title="Reported APMC Mandi Auction Date">
+          <Calendar size={11} className="text-stone-400 shrink-0" />
+          <span>Arrival: <strong className="text-stone-800 font-semibold">{item.arrival_date || item.priceDate}</strong></span>
+        </span>
+        {(item.lastSyncedAt || item.fetchedAt) && (
+          <span className="inline-flex items-center gap-1 text-stone-500 text-[10px]" title={`Feed synchronized: ${item.lastSyncedAt || item.fetchedAt}`}>
+            <Clock size={10} className="text-emerald-600 shrink-0" />
+            <span>Synced: <strong className="text-stone-700">{new Date(item.lastSyncedAt || item.fetchedAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
+          </span>
+        )}
+      </div>
+
       {/* Footer: Daily Price Range & Navigation */}
-      <div className="pt-2.5 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500">
+      <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500">
         <span className="font-medium text-stone-600">
           Range: <strong className="text-stone-800 font-semibold">₹{minPrice.toLocaleString('en-IN')}</strong> - <strong className="text-stone-800 font-semibold">₹{maxPrice.toLocaleString('en-IN')}</strong>
         </span>

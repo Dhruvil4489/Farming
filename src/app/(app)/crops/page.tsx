@@ -12,20 +12,39 @@ export default function CropsPage() {
   const [cycles, setCycles] = useState<any[]>([]);
   const [cropsCatalog, setCropsCatalog] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchCropsData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [cycRes, cropRes] = await Promise.all([
+        fetch('/api/v1/crop-cycles'),
+        fetch('/api/v1/crops'),
+      ]);
+      if (!cycRes.ok || !cropRes.ok) {
+        throw new Error(`Failed to load crop records (HTTP ${cycRes.status}/${cropRes.status})`);
+      }
+      const [cycJson, cropJson] = await Promise.all([cycRes.json(), cropRes.json()]);
+      setCycles(cycJson.data || []);
+      setCropsCatalog(cropJson.data || []);
+    } catch (err: any) {
+      setError(err.message || 'Unable to load crop cycles');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/v1/crop-cycles').then((r) => r.json()),
-      fetch('/api/v1/crops').then((r) => r.json()),
-    ]).then(([cycRes, cropRes]) => {
-      setCycles(cycRes.data || []);
-      setCropsCatalog(cropRes.data || []);
-      setLoading(false);
-    });
+    fetchCropsData();
   }, []);
 
   return (
-    <DataState status={loading ? 'loading' : 'success'}>
+    <DataState
+      status={loading ? 'loading' : error ? 'error' : 'success'}
+      errorMessage={error || undefined}
+      onRetry={fetchCropsData}
+    >
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>

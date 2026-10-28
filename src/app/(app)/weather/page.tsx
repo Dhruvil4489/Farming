@@ -9,28 +9,53 @@ import { ProvenanceChip } from '@/components/ui/ProvenanceChip';
 export default function WeatherPage() {
   const [weatherData, setWeatherData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchWeather = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/v1/weather');
+      if (!res.ok) {
+        throw new Error(`Weather service responded with status ${res.status}`);
+      }
+      const data = await res.json();
+      setWeatherData(data.data);
+    } catch (err: any) {
+      setError(err.message || 'Unable to load live weather forecast');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/v1/weather')
-      .then((r) => r.json())
-      .then((data) => {
-        setWeatherData(data.data);
-        setLoading(false);
-      });
+    fetchWeather();
   }, []);
 
   const current = weatherData?.current;
   const forecast = weatherData?.forecast || [];
 
   return (
-    <DataState status={loading ? 'loading' : 'success'}>
+    <DataState
+      status={loading ? 'loading' : error ? 'error' : 'success'}
+      errorMessage={error || undefined}
+      errorTitle="Weather Service Unavailable"
+      onRetry={fetchWeather}
+    >
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-extrabold text-[#143D2A] tracking-tight">Weather Intelligence</h1>
             <p className="text-xs text-stone-600 mt-1">Real-time localized meteorological forecasts</p>
           </div>
-          <ProvenanceChip type={current?.isDemo ? 'demo' : 'weather_service'} />
+          <div className="flex items-center gap-2">
+            <ProvenanceChip
+              type={current?.isDemo ? 'simulated' : 'forecast'}
+              label={current?.isDemo ? 'SIMULATED WEATHER' : 'Open-Meteo Forecast'}
+              timestamp={current?.updatedAt || current?.time}
+              source="Open-Meteo Meteorological Service"
+            />
+          </div>
         </div>
 
         {/* Current Weather Card */}

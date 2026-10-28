@@ -20,6 +20,7 @@ import {
   BookOpen,
   ShoppingBag,
   ShieldAlert,
+  ScanLine,
 } from 'lucide-react';
 
 const navItems = [
@@ -36,6 +37,7 @@ const navItems = [
   { href: '/soil', label: 'Soil Health', icon: FlaskConical },
   { href: '/soil-moisture', label: 'Soil Moisture', icon: Droplets },
   { href: '/scouting', label: 'Scouting', icon: Eye },
+  { href: '/diagnosis', label: 'Crop Disease AI', icon: ScanLine },
   { href: '/irrigation', label: 'Irrigation', icon: Droplet },
   { href: '/assistant', label: 'AI Assistant', icon: Bot },
   { href: '/admin', label: 'Admin Panel', icon: ShieldAlert },

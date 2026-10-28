@@ -1,0 +1,12 @@
+# SmartFarm AI — Crop Disease Inference Microservice
+# Python 3.10+ / 3.13 Compatible Requirements
+
+fastapi>=0.115.0,<0.116.0
+uvicorn[standard]>=0.32.0,<0.35.0
+python-multipart>=0.0.12,<0.0.21
+pillow>=10.4.0,<11.2.0
+numpy>=1.26.0,<2.3.0
+pydantic>=2.7.0,<3.0.0
+torch>=2.2.0
+torchvision>=0.17.0
+requests>=2.31.0,<3.0.0

@@ -4,13 +4,16 @@ export interface MarketRecordPayload {
   market: string;
   commodity: string;
   variety: string;
-  minPrice: number;
-  maxPrice: number;
-  modalPrice: number;
+  grade: string;
+  minPrice: number | null;
+  maxPrice: number | null;
+  modalPrice: number | null;
   unit: string;
   priceDate: Date;
   source: string;
+  sourceResourceId?: string;
   isDemo: boolean;
+  qualityStatus: 'ok' | 'anomaly_price_order' | 'missing_price';
 }
 
 export interface MarketQueryOptions {
@@ -20,6 +23,7 @@ export interface MarketQueryOptions {
   commodity?: string;
   date?: Date;
   limit?: number;
+  offset?: number;
 }
 
 export interface MarketProviderStatus {
@@ -31,8 +35,23 @@ export interface MarketProviderStatus {
   message: string;
 }
 
+export interface MarketSyncResult {
+  syncRunId: string;
+  provider: string;
+  status: 'success' | 'partial' | 'failed' | 'skipped_locked';
+  recordsFetched: number;
+  recordsStored: number;
+  recordsSkipped: number;
+  anomalies: number;
+  errorMessage?: string;
+  durationMs: number;
+  triggerSource?: string;
+  lockedUntil?: Date;
+}
+
 export interface MarketDataProvider {
   getProviderName(): string;
   fetchPrices(options?: MarketQueryOptions): Promise<MarketRecordPayload[]>;
   getStatus(): Promise<MarketProviderStatus>;
 }
+

@@ -67,13 +67,31 @@ body {
   box-shadow: 0 0 25px -5px rgba(47, 125, 79, 0.35);
 }
 
-/* Leaflet Map styles fix */
+/* Leaflet Map styles & keyboard navigation focus trap defenses */
 .leaflet-container {
   width: 100%;
   height: 100%;
   z-index: 10;
   border-radius: 0.75rem;
 }
+
+/* Prevent Leaflet SVG vector paths, polygon vertices, and panes from capturing or trapping keyboard Tab focus */
+.leaflet-pane svg,
+.leaflet-overlay-pane svg,
+.leaflet-pane svg path,
+.leaflet-overlay-pane path,
+.leaflet-marker-pane .leaflet-marker-icon {
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none !important;
+}
+
+.leaflet-container svg:focus,
+.leaflet-container path:focus,
+.leaflet-pane:focus {
+  outline: none !important;
+}
+
 
 /* Smooth custom scrollbars */
 ::-webkit-scrollbar {
