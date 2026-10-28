@@ -5,6 +5,8 @@ import { Navbar } from '@/components/domain/Navbar';
 import { Sidebar } from '@/components/domain/Sidebar';
 import { BottomNav } from '@/components/domain/BottomNav';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getAuthenticatedUser();
   if (!user) {

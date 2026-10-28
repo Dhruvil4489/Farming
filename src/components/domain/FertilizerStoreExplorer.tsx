@@ -50,8 +50,11 @@ export function FertilizerStoreExplorer({
   const [checkingOut, setCheckingOut] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState<any | null>(null);
 
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
   const fetchCatalog = async () => {
     setLoading(true);
+    setCatalogError(null);
     try {
       const params = new URLSearchParams();
       if (selectedCategory) params.append('category', selectedCategory);
@@ -60,14 +63,16 @@ export function FertilizerStoreExplorer({
       if (searchQuery) params.append('q', searchQuery);
 
       const res = await fetch(`/api/v1/store/products?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        setProducts(json.data || []);
-        if (json.meta?.categories) setCategories(json.meta.categories);
-        if (json.meta?.brands) setBrands(json.meta.brands);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: Failed to load fertilizer store catalog`);
       }
-    } catch (e) {
+      const json = await res.json();
+      setProducts(json.data || []);
+      if (json.meta?.categories) setCategories(json.meta.categories);
+      if (json.meta?.brands) setBrands(json.meta.brands);
+    } catch (e: any) {
       console.error('Failed to load catalog:', e);
+      setCatalogError(e.message || 'Unable to connect to fertilizer store service');
     } finally {
       setLoading(false);
     }
@@ -321,6 +326,18 @@ export function FertilizerStoreExplorer({
                 <div className="h-8 bg-stone-100 rounded-xl" />
               </div>
             ))}
+          </div>
+        ) : catalogError ? (
+          <div className="p-12 bg-rose-50 border border-rose-200 rounded-3xl text-center space-y-3">
+            <AlertCircle size={32} className="mx-auto text-rose-600" />
+            <p className="font-bold text-rose-950 text-sm">Failed to Load Fertilizer Catalog</p>
+            <p className="text-xs text-rose-700 max-w-sm mx-auto">{catalogError}</p>
+            <button
+              onClick={fetchCatalog}
+              className="px-4 py-2 bg-[#2F7D4F] text-white rounded-xl text-xs font-bold cursor-pointer hover:bg-[#256841]"
+            >
+              Retry Loading Catalog
+            </button>
           </div>
         ) : products.length === 0 ? (
           <div className="p-16 bg-white rounded-3xl border border-stone-200 text-center space-y-3">

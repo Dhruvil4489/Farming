@@ -3,8 +3,8 @@ import { MarketExplorer } from '@/components/market/MarketExplorer';
 import { RefreshCw } from 'lucide-react';
 
 export const metadata = {
-  title: 'Live Mandi Prices | SmartFarm AI Farmer Portal',
-  description: 'Real-time APMC mandi prices and wholesale commodity rates across Gujarat and India for SmartFarm AI farmers.',
+  title: 'Mandi Prices | SmartFarm AI Farmer Portal',
+  description: 'Latest reported APMC mandi prices and wholesale commodity rates across Gujarat and India for SmartFarm AI farmers.',
 };
 
 export default function FarmerPortalMandiPage() {

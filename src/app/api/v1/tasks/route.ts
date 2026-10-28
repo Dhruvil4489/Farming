@@ -23,6 +23,8 @@ export async function GET(req: NextRequest) {
   const farmId = searchParams.get('farm_id');
   const fieldId = searchParams.get('field_id');
   const status = searchParams.get('status');
+  const limitParam = searchParams.get('limit');
+  const limit = limitParam ? Math.min(Math.max(parseInt(limitParam, 10) || 50, 1), 100) : 100;
 
   const tasks = await prisma.task.findMany({
     where: {
@@ -37,6 +39,7 @@ export async function GET(req: NextRequest) {
       field: { select: { id: true, name: true } },
     },
     orderBy: { dueAt: 'asc' },
+    take: limit,
   });
 
   return apiSuccess(tasks);

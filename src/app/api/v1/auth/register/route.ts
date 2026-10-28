@@ -8,6 +8,7 @@ import {
   TOKEN_NAME,
 } from '@/lib/auth';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { z } from 'zod';
 
 const registerSchema = z.object({
@@ -27,6 +28,29 @@ export async function POST(req: NextRequest) {
   const isHtmlNavigation = acceptHeader.includes('text/html') && !acceptHeader.includes('application/json');
 
   try {
+    const clientIp =
+      req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+      req.headers.get('x-real-ip') ||
+      '127.0.0.1';
+
+    // 0. Rate limit: max 5 registration attempts per IP per minute
+    const ipLimit = checkRateLimit(`register_ip:${clientIp}`, 5, 60);
+    if (!ipLimit.allowed) {
+      if (isHtmlNavigation) {
+        const registerUrl = new URL('/register', req.url);
+        registerUrl.searchParams.set('error', 'rate_limited');
+        return NextResponse.redirect(registerUrl);
+      }
+      const res = apiError(
+        'Too many account creation attempts. Please wait a minute before trying again.',
+        'rate_limited',
+        429,
+        undefined,
+        requestId
+      );
+      res.headers.set('Retry-After', String(ipLimit.resetSeconds));
+      return res;
+    }
     let rawBody: Record<string, any> = {};
     const contentType = req.headers.get('content-type') || '';
 

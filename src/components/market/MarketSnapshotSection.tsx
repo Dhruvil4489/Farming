@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { ChevronRight, RefreshCw, AlertCircle, ShieldCheck, TrendingUp } from 'lucide-react';
 import { MarketPriceCard, MarketPriceCardSkeleton, MarketPriceRecord } from './MarketPriceCard';
 
-// Verified reference fallback observations if initial API call fails or server restarts
+// Demo fallback observations used when API is unreachable — explicitly marked as demo
+// These are NOT presented as official data; isDemo: true ensures clear labelling
 const FALLBACK_OBSERVATIONS: MarketPriceRecord[] = [
   {
     id: 'fallback-cotton-rajkot',
@@ -20,7 +21,8 @@ const FALLBACK_OBSERVATIONS: MarketPriceRecord[] = [
     modalPrice: 7520,
     unit: '₹/Quintal',
     priceDate: '2026-10-11',
-    source: 'AGMARKNET / data.gov.in',
+    source: 'Demo — Cached Fallback',
+    isDemo: true,
     comparison: {
       previousModalPrice: 7410,
       previousPriceDate: '2026-10-10',
@@ -42,7 +44,8 @@ const FALLBACK_OBSERVATIONS: MarketPriceRecord[] = [
     modalPrice: 7560,
     unit: '₹/Quintal',
     priceDate: '2026-10-11',
-    source: 'AGMARKNET / data.gov.in',
+    source: 'Demo — Cached Fallback',
+    isDemo: true,
     comparison: {
       previousModalPrice: 7480,
       previousPriceDate: '2026-10-10',
@@ -64,7 +67,8 @@ const FALLBACK_OBSERVATIONS: MarketPriceRecord[] = [
     modalPrice: 25200,
     unit: '₹/Quintal',
     priceDate: '2026-10-11',
-    source: 'AGMARKNET / data.gov.in',
+    source: 'Demo — Cached Fallback',
+    isDemo: true,
     comparison: {
       previousModalPrice: 24800,
       previousPriceDate: '2026-10-10',
@@ -86,7 +90,8 @@ const FALLBACK_OBSERVATIONS: MarketPriceRecord[] = [
     modalPrice: 5680,
     unit: '₹/Quintal',
     priceDate: '2026-10-11',
-    source: 'AGMARKNET / data.gov.in',
+    source: 'Demo — Cached Fallback',
+    isDemo: true,
     comparison: {
       previousModalPrice: 5620,
       previousPriceDate: '2026-10-10',
@@ -103,6 +108,7 @@ export function MarketSnapshotSection() {
   const [status, setStatus] = useState<MarketStatus>('loading');
   const [prices, setPrices] = useState<MarketPriceRecord[]>([]);
   const [publicationDate, setPublicationDate] = useState<string>('2026-10-11');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -129,11 +135,13 @@ export function MarketSnapshotSection() {
 
       if (records.length > 0) {
         setPrices(records.slice(0, 4));
-        setPublicationDate(json.meta?.date || records[0]?.priceDate || '2026-10-11');
+        setPublicationDate(json.meta?.arrival_date || json.meta?.date || records[0]?.arrival_date || records[0]?.priceDate || '2026-10-11');
+        setLastSyncedAt(json.meta?.lastSyncedAt || records[0]?.lastSyncedAt || records[0]?.fetchedAt || null);
         setStatus('success');
       } else {
         // Fallback to verified records if empty database
         setPrices(FALLBACK_OBSERVATIONS);
+        setLastSyncedAt(new Date().toISOString());
         setStatus('stale');
       }
     } catch (err: any) {
@@ -175,20 +183,30 @@ export function MarketSnapshotSection() {
                 }`}
               />
               <h2 className="text-xl sm:text-2xl font-extrabold text-[#0F2D1F] tracking-tight">
-                Live Mandi Market Snapshot
+                Mandi Market Snapshot
               </h2>
               <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold inline-flex items-center gap-1 border border-emerald-300/60">
                 <ShieldCheck size={12} /> Official AGMARKNET Feeds
               </span>
               {status === 'stale' && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold border border-amber-300">
-                  Verified Observation
+                  Showing Demo / Cached Data
                 </span>
               )}
             </div>
-            <p className="text-xs text-stone-500 mt-1">
-              Data published on <strong>{publicationDate}</strong> • Modal rates compared against previous trading day
-            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 mt-1">
+              <span>
+                Reported Arrival Date: <strong className="text-stone-800 font-semibold">{publicationDate}</strong>
+              </span>
+              {lastSyncedAt && (
+                <span className="text-stone-500">
+                  • Feed Last Synced: <strong className="text-stone-700 font-semibold">{new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
+                </span>
+              )}
+              <span className="hidden md:inline text-stone-400">
+                • Daily wholesale auction rates (not real-time ticks)
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -227,7 +245,7 @@ export function MarketSnapshotSection() {
           <div className="p-10 text-center space-y-3 bg-rose-50/60 border border-rose-200 rounded-2xl">
             <AlertCircle size={32} className="mx-auto text-rose-600" />
             <div className="space-y-1">
-              <h3 className="font-bold text-stone-900 text-sm">Unable to load live mandi price observations</h3>
+              <h3 className="font-bold text-stone-900 text-sm">Unable to load latest mandi price observations</h3>
               <p className="text-xs text-stone-500 max-w-md mx-auto">
                 {errorMessage || 'A temporary connection error occurred while retrieving official AGMARKNET records.'}
               </p>

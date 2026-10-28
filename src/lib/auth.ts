@@ -3,9 +3,9 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { prisma } from './prisma';
 
-export { normalizeIdentifier, getSafeRedirect } from './auth-utils';
+import { normalizeIdentifier, getSafeRedirect, getJwtSecret } from './auth-utils';
+export { normalizeIdentifier, getSafeRedirect, getJwtSecret };
 
-const JWT_SECRET = process.env.JWT_SECRET || 'smartfarm_jwt_super_secret_key_2026';
 export const TOKEN_NAME = 'smartfarm_token';
 
 export interface TokenPayload {
@@ -24,12 +24,12 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export function signToken(payload: TokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '30d' });
 }
 
 export function verifyToken(token: string): TokenPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+    return jwt.verify(token, getJwtSecret()) as TokenPayload;
   } catch {
     return null;
   }
@@ -66,6 +66,9 @@ export async function getAuthenticatedUser() {
     if (!user || user.deletedAt) return null;
     return user;
   } catch (err) {
+    if ((err as any)?.digest === 'DYNAMIC_SERVER_USAGE' || (err as any)?.message?.includes('DYNAMIC_SERVER_USAGE')) {
+      throw err;
+    }
     console.error('[Auth] Failed to load authenticated user:', err);
     return null;
   }

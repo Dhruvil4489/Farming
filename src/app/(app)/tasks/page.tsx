@@ -9,14 +9,22 @@ import { Button } from '@/components/ui/Button';
 export default function TasksPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
   const fetchTasks = async () => {
     setLoading(true);
-    const res = await fetch('/api/v1/tasks');
-    const data = await res.json();
-    setTasks(data.data || []);
-    setLoading(false);
+    setError(null);
+    try {
+      const res = await fetch('/api/v1/tasks');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setTasks(data.data || []);
+    } catch (err: any) {
+      setError(err.message || 'Unable to retrieve farm tasks');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -24,8 +32,12 @@ export default function TasksPage() {
   }, []);
 
   const handleComplete = async (taskId: string) => {
-    await fetch(`/api/v1/tasks/${taskId}/complete`, { method: 'POST' });
-    fetchTasks();
+    try {
+      await fetch(`/api/v1/tasks/${taskId}/complete`, { method: 'POST' });
+      fetchTasks();
+    } catch (err) {
+      console.error('Failed to complete task:', err);
+    }
   };
 
   const filteredTasks = tasks.filter((t) => {
@@ -35,7 +47,11 @@ export default function TasksPage() {
   });
 
   return (
-    <DataState status={loading ? 'loading' : 'success'}>
+    <DataState
+      status={loading ? 'loading' : error ? 'error' : 'success'}
+      errorMessage={error || undefined}
+      onRetry={fetchTasks}
+    >
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -44,9 +60,10 @@ export default function TasksPage() {
           </div>
           <div className="flex items-center gap-2">
             <select
+              aria-label="Filter tasks by status"
               value={filter}
               onChange={(e) => setFilter(e.target.value as any)}
-              className="px-3 py-2 bg-white border border-stone-300 rounded-lg text-xs font-semibold"
+              className="px-3 py-2 bg-white border border-stone-300 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
             >
               <option value="all">All Tasks</option>
               <option value="pending">Pending</option>
@@ -75,6 +92,7 @@ export default function TasksPage() {
                 >
                   <div className="flex items-start gap-3">
                     <button
+                      aria-label={isDone ? `Task completed: ${task.title}` : `Mark task as completed: ${task.title}`}
                       onClick={() => !isDone && handleComplete(task.id)}
                       disabled={isDone}
                       className={`mt-0.5 w-6 h-6 rounded-lg border flex items-center justify-center transition-colors cursor-pointer ${

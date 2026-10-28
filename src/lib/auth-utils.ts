@@ -59,6 +59,28 @@ export function normalizeIdentifier(raw: string): {
   };
 }
 
+const DEFAULT_DEV_FALLBACK = 'smartfarm_jwt_super_secret_key_2026';
+
+export function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (isProduction) {
+    if (!secret || secret.trim().length === 0) {
+      throw new Error('[Security Hardening] JWT_SECRET must be configured in production environment.');
+    }
+    if (secret === DEFAULT_DEV_FALLBACK) {
+      throw new Error('[Security Hardening] Default development JWT_SECRET cannot be used in production.');
+    }
+    if (secret.length < 32) {
+      throw new Error('[Security Hardening] Production JWT_SECRET must be at least 32 characters in length.');
+    }
+    return secret;
+  }
+
+  return secret || DEFAULT_DEV_FALLBACK;
+}
+
 /**
  * Validates redirect destination to prevent open-redirect vulnerabilities.
  * Allows only strictly relative same-origin paths.
@@ -78,8 +100,25 @@ export function getSafeRedirect(target: string | null | undefined, fallback: str
     return fallback;
   }
 
-  // Reject newline / carriage-return injection
-  if (/[\r\n]/.test(trimmed)) {
+  // Reject newline / carriage-return / null byte injection
+  if (/[\r\n\t\0]/.test(trimmed)) {
+    return fallback;
+  }
+
+  // Also check decoded representation to prevent URL-encoded bypasses (%2f, %5c, etc.)
+  try {
+    const decoded = decodeURIComponent(trimmed);
+    if (
+      !decoded.startsWith('/') ||
+      decoded.startsWith('//') ||
+      decoded.startsWith('/\\') ||
+      /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(decoded) ||
+      /[\r\n\t\0]/.test(decoded)
+    ) {
+      return fallback;
+    }
+  } catch {
+    // Malformed URI sequence
     return fallback;
   }
 

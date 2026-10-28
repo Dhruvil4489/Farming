@@ -4,7 +4,7 @@ import { MarketExplorer } from '@/components/market/MarketExplorer';
 import { RefreshCw } from 'lucide-react';
 
 export const metadata = {
-  title: 'Live Mandi Prices & Agricultural Market Intelligence | SmartFarm AI',
+  title: 'Mandi Prices & Agricultural Market Intelligence | SmartFarm AI',
   description: 'Track daily wholesale mandi rates, official modal prices, and historical trends across APMCs in Gujarat and India.',
 };
 

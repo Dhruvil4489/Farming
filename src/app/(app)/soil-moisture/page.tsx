@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { IotFieldMonitor } from '@/components/iot/IotFieldMonitor';
 
 interface SoilObservation {
   id: string;
@@ -461,139 +462,9 @@ export default function SoilMoisturePage() {
         </div>
       )}
 
-      {/* TAB 2: IN-SITU PHYSICAL FARM SENSOR TELEMETRY */}
+      {/* TAB 2: IN-SITU PHYSICAL FARM SENSOR TELEMETRY (Phase 6 IoT Monitor) */}
       {activeTab === 'sensor' && (
-        <div className="space-y-6">
-          {/* Field Selector */}
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-stone-200">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold text-stone-700">Select Field Plot:</span>
-              {fields.length === 0 ? (
-                <span className="text-xs text-stone-500 italic">No registered fields found in your account</span>
-              ) : (
-                <select
-                  value={selectedFieldId}
-                  onChange={(e) => handleFieldChange(e.target.value)}
-                  className="bg-stone-50 border border-stone-300 rounded-lg px-3 py-1.5 text-xs font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
-                >
-                  {fields.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name} ({f.farm?.name || 'Farm'})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <Link href="/fields">
-              <Button variant="outline" size="sm" className="text-xs h-8">
-                Manage Farm Fields →
-              </Button>
-            </Link>
-          </div>
-
-          {/* Sensor Status Display */}
-          {sensorLoading ? (
-            <div className="h-48 bg-stone-100 animate-pulse rounded-3xl" />
-          ) : sensorTelemetry?.hasSensor ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Connected Sensor Card */}
-              <Card className="p-6 rounded-3xl space-y-4 border border-emerald-200 bg-emerald-50/20">
-                <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                    <span className="text-xs font-bold text-emerald-900 uppercase">Live Sensor Active</span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold bg-white px-2 py-0.5 rounded-md border border-emerald-200 text-emerald-800">
-                    {sensorTelemetry.sensorId}
-                  </span>
-                </div>
-
-                <div className="text-center py-4 bg-white rounded-2xl border border-emerald-100 shadow-xs">
-                  <span className="text-xs text-stone-500 font-semibold">Local Root-Zone Moisture</span>
-                  <p className="text-5xl font-black text-emerald-950 my-2">
-                    {sensorTelemetry.latestReading?.moisturePct}%
-                  </p>
-                  <span className="text-xs text-stone-500">Capacitance probe at {sensorTelemetry.depthCm} cm depth</span>
-                </div>
-
-                <div className="space-y-2 text-xs text-stone-700">
-                  <div className="flex justify-between py-1 border-b border-stone-100">
-                    <span className="text-stone-400">Soil Temperature:</span>
-                    <span className="font-bold text-stone-900">{sensorTelemetry.latestReading?.temperatureC}°C</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-stone-100">
-                    <span className="text-stone-400">Sensor Battery:</span>
-                    <span className="font-bold text-stone-900">{sensorTelemetry.latestReading?.batteryPct}%</span>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span className="text-stone-400">Last Telemetry:</span>
-                    <span className="font-bold text-stone-900 font-mono">
-                      {new Date(sensorTelemetry.latestReading?.readingAt).toLocaleTimeString()}
-                    </span>
-                  </div>
-                </div>
-              </Card>
-
-              {/* In-Situ Trend History */}
-              <Card className="p-6 rounded-3xl space-y-4 md:col-span-2 border border-stone-200">
-                <h3 className="text-base font-bold text-stone-900">Recent In-Situ Sensor Telemetry Logs</h3>
-                <div className="space-y-2">
-                  {sensorTelemetry.historicalReadings?.map((r: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-between text-xs"
-                    >
-                      <span className="font-mono text-stone-600 font-semibold">
-                        {new Date(r.readingAt).toLocaleString()}
-                      </span>
-                      <div className="flex items-center gap-4">
-                        <span className="font-bold text-stone-900">{r.moisturePct}% VWC</span>
-                        {r.temperatureC && <span className="text-stone-500">{r.temperatureC}°C</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
-          ) : (
-            /* Clear Disconnected State - Zero Fabrication */
-            <Card className="p-10 rounded-3xl text-center space-y-5 border-2 border-dashed border-stone-300 bg-stone-50/60 max-w-2xl mx-auto">
-              <div className="w-16 h-16 rounded-3xl bg-stone-200/80 text-stone-600 flex items-center justify-center mx-auto">
-                <Cpu size={32} />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-black text-stone-900">Field IoT Sensor Not Connected</h3>
-                <p className="text-xs text-stone-600 leading-relaxed max-w-lg mx-auto">
-                  No physical hardware soil probe (such as an FDR / TDR capacitive sensor) is currently paired with this
-                  plot. In-situ sensors measure real-time micro-zone hydration at a fixed 15 cm depth.
-                </p>
-              </div>
-
-              <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-2xl text-left text-xs text-cyan-950 space-y-1">
-                <strong className="block text-cyan-900 font-bold">Recommended Guidance:</strong>
-                <p className="text-stone-700">
-                  Until you install and link a SmartFarm LoRaWAN / GSM field probe, reference the{' '}
-                  <button
-                    onClick={() => setActiveTab('government')}
-                    className="font-bold text-cyan-800 underline cursor-pointer"
-                  >
-                    Government NRSC VIC Model Moisture Tab
-                  </button>{' '}
-                  for your district’s hydrological baseline.
-                </p>
-              </div>
-
-              <div className="pt-2">
-                <Link href="/assistant?prompt=How do I install and configure an IoT soil moisture sensor for my field?">
-                  <Button size="sm" variant="outline" className="text-xs">
-                    Pairing Guide & Supported Sensors →
-                  </Button>
-                </Link>
-              </div>
-            </Card>
-          )}
-        </div>
+        <IotFieldMonitor />
       )}
     </div>
   );

@@ -12,26 +12,34 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { DataState } from '@/components/ui/DataState';
 
 export default function FarmerPortalOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/v1/store/orders');
+      if (res.status === 401) {
+        window.location.href = '/login?redirect=/orders';
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load orders`);
+      const json = await res.json();
+      setOrders(json.data || []);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Unable to retrieve your order history');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const res = await fetch('/api/v1/store/orders');
-        if (res.ok) {
-          const json = await res.json();
-          setOrders(json.data || []);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchOrders();
   }, []);
 
@@ -67,25 +75,22 @@ export default function FarmerPortalOrdersPage() {
         </Link>
       </div>
 
-      {loading ? (
-        <div className="p-16 text-center text-xs text-stone-500 font-medium bg-white rounded-3xl border border-stone-200">
-          Loading your recent farm orders...
-        </div>
-      ) : orders.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-stone-200 p-12 text-center space-y-4">
-          <Package size={40} className="mx-auto text-stone-400" />
-          <h3 className="font-extrabold text-stone-900 text-lg">No orders placed yet</h3>
-          <p className="text-xs text-stone-500 max-w-sm mx-auto">
-            Order authentic urea, DAP, foliar sprays, or micronutrients from our certified agricultural cooperative.
-          </p>
+      <DataState
+        status={loading ? 'loading' : error ? 'error' : orders.length === 0 ? 'empty' : 'success'}
+        errorMessage={error || undefined}
+        onRetry={fetchOrders}
+        loadingText="Loading your farm orders..."
+        emptyTitle="No orders placed yet"
+        emptyDescription="Order authentic urea, DAP, foliar sprays, or micronutrients from our certified agricultural cooperative."
+        emptyAction={
           <Link href="/store">
             <Button size="sm">
               <ShoppingBag size={14} className="mr-1.5" />
               <span>Browse Fertilizer Store</span>
             </Button>
           </Link>
-        </div>
-      ) : (
+        }
+      >
         <div className="space-y-4">
           {orders.map((order) => (
             <div
@@ -151,7 +156,7 @@ export default function FarmerPortalOrdersPage() {
             </div>
           ))}
         </div>
-      )}
+      </DataState>
     </div>
   );
 }

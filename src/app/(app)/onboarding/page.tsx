@@ -23,11 +23,34 @@ export default function OnboardingPage() {
     cropName: 'Cotton',
     irrigationType: 'drip',
   });
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step < totalSteps) {
       setStep(step + 1);
     } else {
+      if (farmData.name.trim()) {
+        setSubmitting(true);
+        try {
+          await fetch('/api/v1/farms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: farmData.name.trim(),
+              village: farmData.village.trim() || undefined,
+              state: farmData.state,
+              totalAreaHa: parseFloat(farmData.totalArea) || 1.0,
+              areaInputValue: parseFloat(farmData.totalArea) || 1.0,
+              areaInputUnit: farmData.areaUnit || 'acre',
+              farmType: farmData.irrigationType || 'irrigated',
+            }),
+          });
+        } catch (e) {
+          console.warn('Could not auto-save onboarding farm:', e);
+        } finally {
+          setSubmitting(false);
+        }
+      }
       router.push('/dashboard');
     }
   };
@@ -192,7 +215,7 @@ export default function OnboardingPage() {
             <SkipForward size={14} /> Skip All Setup
           </button>
 
-          <Button onClick={handleNext}>
+          <Button onClick={handleNext} isLoading={submitting} disabled={submitting}>
             {step === totalSteps ? 'Go to Dashboard' : 'Next Step'} <ArrowRight size={16} className="ml-1" />
           </Button>
         </div>

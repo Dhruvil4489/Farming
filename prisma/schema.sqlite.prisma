@@ -38,11 +38,14 @@ model User {
   farms              Farm[]
   tasks              Task[]
   observations       FarmObservation[]
+  irrigationRecords  IrrigationRecord[]
+  diagnoses          CropDiagnosisRecord[]
   notifications      Notification[]
   notificationPrefs  NotificationPreference[]
   files              File[]
   cartItems          CartItem[]
   orders             Order[]
+  assistantConversations AssistantConversation[]
 
   @@index([state, district])
 }
@@ -108,6 +111,7 @@ model Farm {
   fields         Field[]
   tasks          Task[]
   weatherRecords WeatherRecord[]
+  devices        IotDevice[]
 
   @@index([userId])
 }
@@ -129,7 +133,7 @@ model Field {
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
 
-  farm              Farm               @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farm              Farm                  @relation(fields: [farmId], references: [id], onDelete: Cascade)
   cropCycles        CropCycle[]
   tasks             Task[]
   soilProfile       SoilProfile?
@@ -138,6 +142,9 @@ model Field {
   observations      FarmObservation[]
   irrigationRecords IrrigationRecord[]
   sensorMoistures   FarmSensorMoisture[]
+  devices           IotDevice[]
+  iotReadings       IotTelemetryReading[]
+  diagnoses         CropDiagnosisRecord[]
 
   @@index([farmId])
 }
@@ -268,6 +275,7 @@ model CropCycle {
   tasks                  Task[]
   observations           FarmObservation[]
   irrigationRecords      IrrigationRecord[]
+  diagnoses              CropDiagnosisRecord[]
 
   @@index([fieldId, status])
 }
@@ -427,29 +435,75 @@ model FarmObservation {
   stageSnapshot String?
   notes         String?
   photosJson    String     @default("[]") // JSON string array of file UUIDs
+  source        String     @default("manual") // manual | sensor | expert
+  status        String     @default("open")   // open | resolved | monitoring
   createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   field         Field      @relation(fields: [fieldId], references: [id], onDelete: Cascade)
   cropCycle     CropCycle? @relation(fields: [cropCycleId], references: [id])
+
+  @@index([userId, observedAt])
+  @@index([fieldId, observedAt])
 }
 
 model IrrigationRecord {
   id              String     @id @default(uuid())
+  userId          String
   fieldId         String
   cropCycleId     String?
   irrigatedAt     DateTime   @default(now())
   method          String     @default("drip") // drip | sprinkler | flood | rainfed | other
   durationMinutes Int?
-  volumeL         Float?
+  volumeL         Float?     // Only stored when explicitly measured/estimated by caller
   waterSource     String?
   moistureNote    String?    // dry | moist | wet
   notes           String?
   source          String     @default("manual") // manual | sensor
   createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   field           Field      @relation(fields: [fieldId], references: [id], onDelete: Cascade)
   cropCycle       CropCycle? @relation(fields: [cropCycleId], references: [id])
+
+  @@index([userId, irrigatedAt])
+  @@index([fieldId, irrigatedAt])
+}
+
+model CropDiagnosisRecord {
+  id                    String     @id @default(uuid())
+  userId                String
+  fieldId               String
+  cropCycleId           String?
+  imagePath             String     // Stored in private uploads directory (relative path, never public)
+  originalFilename      String
+  mimeType              String
+  fileSizeBytes         Int
+  status                String     // accepted | uncertain | not_crop | model_not_ready
+  predictedLabel        String?
+  cropName              String?
+  diseaseName           String?
+  isHealthy             Boolean?
+  confidence            Float?     // Softmax top-1 score (0.0 to 1.0)
+  topKJson              String     @default("[]") // JSON string array of candidates
+  uncertaintyReason     String?
+  modelName             String     @default("agri-plant-disease-resnet50")
+  modelVersion          String     @default("1.0.0")
+  source                String     @default("farmer_upload") // farmer_upload | field_scouting
+  notes                 String?
+  diagnosedAt           DateTime   @default(now())
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  deletedAt             DateTime?
+
+  user                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  field                 Field      @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  cropCycle             CropCycle? @relation(fields: [cropCycleId], references: [id])
+
+  @@index([userId, diagnosedAt])
+  @@index([fieldId, diagnosedAt])
 }
 
 // -------------------------------------------------------------
@@ -545,23 +599,27 @@ model MarketLocation {
 }
 
 model MarketPriceObservation {
-  id          String   @id @default(uuid())
-  locationId  String
-  commodityId String
-  minPrice    Float
-  maxPrice    Float
-  modalPrice  Float
-  unit        String   @default("₹/Quintal") // Normalized Agmarknet unit
-  priceDate   DateTime // Agmarknet reported trading date
-  source      String   @default("AGMARKNET / data.gov.in")
-  fetchedAt   DateTime @default(now())
-  isDemo      Boolean  @default(false)
-  notes       String?
+  id               String   @id @default(uuid())
+  locationId       String
+  commodityId      String
+  grade            String   @default("") // AGMARKNET grade (FAQ, Non-FAQ, etc.)
+  minPrice         Float?   // Nullable — never convert missing upstream values to zero
+  maxPrice         Float?   // Nullable — never convert missing upstream values to zero
+  modalPrice       Float?   // Nullable — never convert missing upstream values to zero
+  unit             String   @default("₹/Quintal") // Normalized Agmarknet unit
+  priceDate        DateTime // Agmarknet reported trading/arrival date
+  source           String   @default("AGMARKNET / data.gov.in")
+  sourceResourceId String?  // data.gov.in resource ID for provenance
+  fetchedAt        DateTime @default(now())
+  syncRunId        String?  // Links to MarketSyncLog.id for sync provenance
+  isDemo           Boolean  @default(false)
+  qualityStatus    String   @default("ok") // ok | anomaly_price_order | missing_price
+  notes            String?
 
   location    MarketLocation  @relation(fields: [locationId], references: [id], onDelete: Cascade)
   commodity   MarketCommodity @relation(fields: [commodityId], references: [id], onDelete: Cascade)
 
-  @@unique([locationId, commodityId, priceDate, source])
+  @@unique([locationId, commodityId, priceDate, source, grade])
   @@index([commodityId, priceDate])
   @@index([locationId, priceDate])
 }
@@ -569,13 +627,25 @@ model MarketPriceObservation {
 model MarketSyncLog {
   id                    String    @id @default(uuid())
   provider              String    // agmarknet | demo
-  status                String    // success | failed | partial
+  triggerSource         String    @default("scheduled") // scheduled | manual | cli
+  status                String    // success | failed | partial | running
   recordsFetched        Int       @default(0)
   recordsStored         Int       @default(0)
+  recordsSkipped        Int       @default(0)
   sourcePublicationDate DateTime?
   errorMessage          String?
+  durationMs            Int?
   startedAt             DateTime  @default(now())
   completedAt           DateTime?
+
+  @@index([startedAt])
+}
+
+model MarketSyncLock {
+  id        String   @id @default("market_sync")
+  lockedAt  DateTime @default(now())
+  lockedBy  String   // run ID or worker ID
+  expiresAt DateTime // timestamp after which the lock is considered stale
 }
 
 // -------------------------------------------------------------
@@ -781,5 +851,155 @@ model FarmSensorMoisture {
 
   @@index([fieldId, readingAt])
 }
+
+// -------------------------------------------------------------
+// IOT DEVICE REGISTRY & SENSOR TELEMETRY PIPELINE (PHASE 5)
+// -------------------------------------------------------------
+
+model IotDevice {
+  id              String                @id @default(uuid())
+  deviceCode      String                @unique // e.g. "SF-IOT-ESP32-001" or MAC-based identifier
+  name            String                // Human label e.g. "North Field Moisture Probe #1"
+  hardwareModel   String?               @default("ESP32-SoilV1")
+  farmId          String
+  fieldId         String
+  tokenHash       String                // One-way SHA-256 hash of device secret bearer token
+  status          String                @default("active") // active | revoked | provisioning
+  isDemo          Boolean               @default(false)
+  lastSeenAt      DateTime?
+  lastIp          String?
+  firmwareVersion String?
+  batteryVoltage  Float?
+  calibrationJson String?               @default("{}") // e.g. {"rawDry": 3200, "rawWet": 1400, "version": 1}
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  farm            Farm                  @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  field           Field                 @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  readings        IotTelemetryReading[]
+  events          IotDeviceEvent[]
+
+  @@index([farmId])
+  @@index([fieldId])
+  @@index([status])
+}
+
+model IotTelemetryReading {
+  id               String    @id @default(uuid())
+  deviceId         String
+  fieldId          String    // Denormalized for rapid field-scoped time-series queries
+  eventId          String?   // Client-generated deduplication UUID/nonce
+  measuredAt       DateTime  // Device clock time
+  receivedAt       DateTime  @default(now()) // Server clock time
+  soilMoistureRaw  Int?      // Raw ADC reading (e.g. 0-4095 for ESP32 12-bit ADC)
+  soilMoisturePct  Float?    // Relative calibrated moisture index (0-100%, NOT lab VWC)
+  depthCm          Int?      @default(15) // Sensor installation depth
+  airTempC         Float?    // Ambient temperature in Celsius (-40 to 85)
+  airHumidityPct   Float?    // Ambient relative humidity (0-100%)
+  lightLux         Float?    // Ambient light intensity (0-120000 lux)
+  batteryVoltage   Float?    // Battery voltage (e.g. 3.2V to 4.2V)
+  batteryPct       Float?    // Battery percentage (0-100%)
+  waterLevelSwitch Boolean?  // Digital flood/water-level contact switch
+  qualityStatus    String    @default("clean") // clean | suspicious_skew | out_of_range | uncalibrated
+  qualityFlags     String?   @default("[]") // JSON string array of quality warnings
+  isDemo           Boolean   @default(false)
+
+  device           IotDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  field            Field     @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, eventId])
+  @@index([deviceId, measuredAt])
+  @@index([fieldId, measuredAt])
+  @@index([receivedAt])
+}
+
+model IotDeviceEvent {
+  id          String    @id @default(uuid())
+  deviceId    String
+  eventType   String    // boot | token_rotated | status_change | clock_skew_warning | calibration_updated
+  severity    String    @default("info") // info | warning | error
+  detailsJson String?   @default("{}")
+  createdAt   DateTime  @default(now())
+
+  device      IotDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, createdAt])
+}
+
+// -------------------------------------------------------------
+// KNOWLEDGE BASE & GROUNDED RAG ASSISTANT
+// -------------------------------------------------------------
+
+model KnowledgeDocument {
+  id              String           @id @default(uuid())
+  slug            String           @unique
+  title           String
+  issuingOrg      String           // e.g. ICAR, AAU, JAU, KVK
+  sourceUrl       String?
+  publicationDate DateTime?
+  crop            String?          // cotton, wheat, groundnut, tomato, etc.
+  topic           String           // pest_management, irrigation, fertilizer, soil_health
+  language        String           @default("en") // en, hi, gu
+  license         String           // Government Open Data License - India (GODL)
+  checksum        String           // SHA-256 of source content
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  chunks          KnowledgeChunk[]
+
+  @@index([crop, topic])
+  @@index([language])
+}
+
+model KnowledgeChunk {
+  id          String            @id @default(uuid())
+  documentId  String
+  document    KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkIndex  Int
+  title       String
+  content     String
+  keywords    String            // Search keywords space-separated
+  tokenCount  Int
+  crop        String?
+  topic       String?
+  language    String            @default("en")
+  checksum    String
+  createdAt   DateTime          @default(now())
+
+  @@index([documentId])
+  @@index([crop, topic])
+  @@index([language])
+}
+
+model AssistantConversation {
+  id        String             @id @default(uuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  messages  AssistantMessage[]
+
+  @@index([userId, createdAt])
+}
+
+model AssistantMessage {
+  id             String                @id @default(uuid())
+  conversationId String
+  conversation   AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String                // 'user' | 'assistant' | 'system'
+  content        String
+  structuredJson String?               // Serialized JSON of structured response envelope
+  providerId     String?               // 'openai' | 'gemini' | 'anthropic' | 'mock'
+  model          String?
+  confidence     String?               // 'high' | 'medium' | 'low'
+  isHelpful      Boolean?
+  createdAt      DateTime              @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
 
 

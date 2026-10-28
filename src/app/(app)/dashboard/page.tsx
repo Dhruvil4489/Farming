@@ -22,6 +22,7 @@ import { DataState } from '@/components/ui/DataState';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ProvenanceChip } from '@/components/ui/ProvenanceChip';
+import { DemoModeBanner } from '@/components/ui/StatusFeedback';
 import { CropStageBar } from '@/components/domain/CropStageBar';
 
 export default function DashboardPage() {
@@ -118,6 +119,11 @@ export default function DashboardPage() {
       onRetry={fetchDashboardData}
     >
       <div className="space-y-6">
+        {/* Transparent Demo Mode Banner */}
+        {(weather?.current?.isDemo || (mandiPrices.length > 0 && mandiPrices[0]?.isDemo)) && (
+          <DemoModeBanner moduleName="Weather & Mandi Feeds" />
+        )}
+
         {/* Welcome Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-stone-200/90 shadow-sm">
           <div>
@@ -249,31 +255,47 @@ export default function DashboardPage() {
                     return (
                       <div
                         key={item.id}
-                        className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-2"
+                        className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-2 flex flex-col justify-between"
                       >
-                        <div>
-                          <span className="text-xs font-extrabold text-stone-900 block">{item.commodityName}</span>
-                          <span className="text-[10px] text-stone-500">{item.marketName}</span>
-                        </div>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-lg font-black text-[#0F2D1F]">₹{item.modalPrice}</span>
-                          <span className="text-[10px] text-stone-400">/{item.unit.replace('₹/', '')}</span>
-                        </div>
-                        {item.comparison?.previousModalPrice ? (
-                          <div className="text-[10px] font-bold">
-                            {isUp ? (
-                              <span className="text-emerald-700 flex items-center">
-                                <TrendingUp size={11} className="mr-0.5" /> +₹{item.comparison.priceChange}
-                              </span>
-                            ) : isDown ? (
-                              <span className="text-rose-600 flex items-center">
-                                <TrendingDown size={11} className="mr-0.5" /> -₹{Math.abs(item.comparison.priceChange)}
-                              </span>
-                            ) : (
-                              <span className="text-stone-400">Unchanged</span>
-                            )}
+                        <div className="flex items-start justify-between gap-1">
+                          <div>
+                            <span className="text-xs font-extrabold text-stone-900 block">{item.commodityName}</span>
+                            <span className="text-[10px] text-stone-500">{item.marketName}</span>
                           </div>
-                        ) : null}
+                          <ProvenanceChip
+                            type={item.isDemo ? 'simulated' : 'official_market'}
+                            size="xs"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-lg font-black text-[#0F2D1F]">₹{item.modalPrice}</span>
+                            <span className="text-[10px] text-stone-400">/{item.unit?.replace('₹/', '') || 'qtl'}</span>
+                          </div>
+                          {item.comparison?.previousModalPrice ? (
+                            <div className="text-[10px] font-bold mt-0.5">
+                              {isUp ? (
+                                <span className="text-emerald-700 flex items-center">
+                                  <TrendingUp size={11} className="mr-0.5" /> +₹{item.comparison.priceChange}
+                                </span>
+                              ) : isDown ? (
+                                <span className="text-rose-600 flex items-center">
+                                  <TrendingDown size={11} className="mr-0.5" /> -₹{Math.abs(item.comparison.priceChange)}
+                                </span>
+                              ) : (
+                                <span className="text-stone-400">Unchanged</span>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between text-[10px] text-stone-500">
+                          <span>Arrival: <strong className="text-stone-700">{item.arrival_date || item.priceDate || 'Recent'}</strong></span>
+                          {(item.lastSyncedAt || item.fetchedAt) && (
+                            <span>Synced: <strong className="text-stone-700">{new Date(item.lastSyncedAt || item.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -288,7 +310,12 @@ export default function DashboardPage() {
                   <CloudSun size={20} className="text-[#2F7D4F]" />
                   <h3 className="font-bold text-stone-900 text-base">Weather & Spray Conditions</h3>
                 </div>
-                <ProvenanceChip type={weather?.current?.isDemo ? 'demo' : 'weather_service'} />
+                <ProvenanceChip
+                  type={weather?.current?.isDemo ? 'simulated' : 'forecast'}
+                  label={weather?.current?.isDemo ? 'SIMULATED WEATHER' : 'Open-Meteo Forecast'}
+                  timestamp={weather?.current?.updatedAt || weather?.current?.time}
+                  source="Open-Meteo"
+                />
               </div>
 
               {weather?.current && (

@@ -21,11 +21,35 @@ The SmartFarm AI platform enforces a continuous verification testing methodology
 
 ## 2. Automated Quality Gate Checks
 
-Before declaring any phase complete, the following commands must execute cleanly with zero errors:
+Before declaring any release ready, the following commands must execute cleanly with zero errors:
 
 ```bash
-npm run lint
-npm run type-check
-npm run test
-npm run build
+npm run type-check       # TypeScript compilation check across all routes
+npm run lint             # ESLint 9 static analysis
+npm test                 # Master Phase 11 verification suite (orchestrates steps 1-10)
+npm run build            # Next.js optimized production build
 ```
+
+---
+
+## 3. Granular Test Execution Commands
+
+| Level / Layer | Command | Focus Area |
+|---|---|---|
+| **Unit Tests** | `npm run test:unit` | Input validators, DAS math, price normalization, moisture ADC calibration, rules, provenance labels |
+| **Provider Tests** | `npm run test:provider` | Agmarknet, Open-Meteo, LLM providers (Gemini, OpenAI, Anthropic, Mock), Disease vision offline fail-safe |
+| **API Integration** | `npm run test:integration` | Authentication, rate limiting, IDOR prevention, agronomic CRUD, IoT telemetry ingestion, timing-safe sync |
+| **Admin Restrictions** | `npm run test:admin` | RBAC route guards, Farmer HTTP 403 blocks, sync health telemetry |
+| **Store Regression** | `npm run test:regression` | Fertilizer store catalog, server cart persistence, checkout order snapshots, 17-route protection matrix |
+| **Farmer E2E** | `npm run test:e2e` | 14-step farmer lifecycle rehearsal from plot setup to logout |
+| **Live Integrations** | `npm run manual:live-integrations` | Opt-in check for real government API key, commercial LLM keys, and local Python vision microservice |
+
+---
+
+## 4. Release Test Report
+
+Every master rehearsal execution writes a structured test report to:
+`docs/SMARTFARM_RELEASE_TEST_REPORT.md`
+
+Detailed instructions on fresh-machine setup and operational parameters are available in:
+`docs/RELEASE_REHEARSAL_GUIDE.md`
