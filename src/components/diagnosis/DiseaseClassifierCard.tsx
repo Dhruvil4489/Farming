@@ -106,9 +106,7 @@ export function DiseaseClassifierCard() {
       .then((json) => {
         const list = json.data || [];
         setFields(list);
-        if (list.length > 0 && !selectedFieldId) {
-          setSelectedFieldId(list[0].id);
-        }
+        // Defaults to General Purpose Scan
       })
       .catch(() => {});
   }, [selectedFieldId]);
@@ -238,9 +236,11 @@ export function DiseaseClassifierCard() {
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
         <div className="flex items-center gap-3 flex-wrap">
           <Sprout size={18} className="text-emerald-700" />
-          <span className="text-xs font-bold text-stone-700">Target Field Plot:</span>
+          <span className="text-xs font-bold text-stone-700">Diagnosis Mode:</span>
           {fields.length === 0 ? (
-            <span className="text-xs text-stone-500 italic">No registered fields</span>
+            <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+              General Purpose Scan (Any Crop / No Farm Setup Required)
+            </span>
           ) : (
             <select
               id="diagnosis-field-select"
@@ -248,9 +248,10 @@ export function DiseaseClassifierCard() {
               onChange={(e) => setSelectedFieldId(e.target.value)}
               className="bg-stone-50 border border-stone-300 rounded-lg px-3 py-1.5 text-xs font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
             >
+              <option value="">General Purpose Scan (Any Crop)</option>
               {fields.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.name} ({f.farm?.name || 'Farm'})
+                  Assign to: {f.name} ({f.farm?.name || 'Farm'})
                 </option>
               ))}
             </select>
