@@ -1,28 +1,35 @@
 /**
  * SmartFarm AI — Crop Disease Diagnosis Client Service
  *
- * Connects the Next.js application to the decoupled Python disease inference microservice.
- * Enforces:
- * 1. Safe request timeouts (default 10s).
- * 2. Circuit-breaker / fallback handling: returns 'model_not_ready' when the service
- *    is unreachable, without crashing or faking predictions.
- * 3. Type-safe response schemas.
+ * Front-facing facade connecting API routes and components to the
+ * Multi-Model Crop Disease Router and Model Registry.
  */
 
-export interface CandidatePrediction {
-  label: string;
-  crop: string;
-  disease: string;
-  isHealthy: boolean;
-  score: number;
-}
+import {
+  AgronomicDiseaseInfo,
+  getAgronomicPathology,
+  isCropSupportedByModel,
+  SUPPORTED_BENCHMARK_CROPS,
+} from '@/lib/crop-disease-knowledge';
+import {
+  CropDiseaseRouter,
+  CandidatePrediction,
+  RouterDiagnosticResult,
+} from './ai/CropDiseaseRouter';
+import { CropModelRegistry } from './ai/CropModelRegistry';
+
+export type { CandidatePrediction };
 
 export interface ModelMetadata {
   name: string;
   architecture: string;
   version: string;
   license: string;
-  preprocessingVersion: string;
+  preprocessingVersion?: string;
+  datasetSource?: string;
+  status?: string;
+  accuracy?: number;
+  f1Score?: number;
 }
 
 export interface UncertaintyMetadata {
@@ -33,15 +40,27 @@ export interface UncertaintyMetadata {
 }
 
 export interface PredictionResult {
-  status: 'accepted' | 'uncertain' | 'not_crop' | 'model_not_ready';
+  status:
+    | 'accepted'
+    | 'uncertain'
+    | 'not_crop'
+    | 'unsupported_crop'
+    | 'in_validation'
+    | 'blurry_image'
+    | 'model_not_ready';
+  selectedCrop?: string | null;
+  detectedCrop?: string | null;
   predictedLabel?: string | null;
   crop?: string | null;
   disease?: string | null;
   isHealthy?: boolean | null;
   confidence?: number | null;
-  topK: CandidateScore[];
+  severity?: 'mild' | 'moderate' | 'severe' | 'none';
+  topK: CandidatePrediction[];
   model: ModelMetadata;
   uncertainty: UncertaintyMetadata;
+  pathology?: AgronomicDiseaseInfo | null;
+  validationNotice?: string | null;
   explanation: string;
   timestamp: string;
 }
@@ -98,95 +117,60 @@ export class DiseaseDiagnosisService {
   }
 
   /**
-   * Submits an image buffer to the Python service for classification.
+   * Submits an image buffer for multi-model classification via CropDiseaseRouter.
    */
   static async predict(
     imageBuffer: Buffer,
     filename = 'leaf.jpg',
-    mimeType = 'image/jpeg'
+    mimeType = 'image/jpeg',
+    options?: { requestedCrop?: string | null; fieldCropName?: string | null }
   ): Promise<PredictionResult> {
-    const baseUrl = this.getServiceUrl();
-    const timestamp = new Date().toISOString();
-
-    const fallbackMeta: ModelMetadata = {
-      name: 'agri-plant-disease-resnet50',
-      architecture: 'ResNet-50',
-      version: '1.0.0',
-      license: 'Apache-2.0',
-      preprocessingVersion: 'v1-224-imagenet-norm',
-    };
-
-    const fallbackUncertainty: UncertaintyMetadata = {
-      isUncertain: true,
-      reason: 'Inference microservice unavailable',
-      caveat:
-        'Softmax scores represent benchmark category alignment, not clinical certainty. Physical inspection required.',
-    };
-
-    try {
-      const formData = new FormData();
-      const blob = new Blob([new Uint8Array(imageBuffer)], { type: mimeType });
-      formData.append('file', blob, filename);
-
-      const controller = new AbortController();
-      const timeoutMs = parseInt(process.env.DISEASE_SERVICE_TIMEOUT_MS || '10000', 10);
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-      const res = await fetch(`${baseUrl}/predict`, {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-
-      if (!res.ok) {
-        if (res.status === 422) {
-          const errJson = await res.json().catch(() => ({}));
-          throw new Error(errJson.detail || 'Invalid or unreadable image uploaded');
-        }
-        if (res.status === 413) {
-          throw new Error('Image exceeds maximum allowed size limit');
-        }
-        throw new Error(`Inference service error: HTTP ${res.status}`);
+    const result: RouterDiagnosticResult = await CropDiseaseRouter.routeAndAnalyze(
+      imageBuffer,
+      filename,
+      mimeType,
+      {
+        selectedCropId: options?.requestedCrop,
+        fieldCropName: options?.fieldCropName,
       }
+    );
 
-      const data = await res.json();
-      return {
-        status: data.status,
-        predictedLabel: data.predictedLabel || null,
-        crop: data.crop || null,
-        disease: data.disease || null,
-        isHealthy: data.isHealthy ?? null,
-        confidence: data.confidence ?? null,
-        topK: data.topK || [],
-        model: data.model || fallbackMeta,
-        uncertainty: data.uncertainty || fallbackUncertainty,
-        explanation: data.explanation || '',
-        timestamp: data.timestamp || timestamp,
-      };
-    } catch (err: any) {
-      // Deterministic fail-safe: never fake disease diagnosis if service is down
-      const isTimeout = err.name === 'AbortError';
-      const isConnectionRefused = err.cause?.code === 'ECONNREFUSED' || err.message?.includes('fetch failed');
+    return {
+      status: result.status,
+      selectedCrop: result.selectedCrop,
+      detectedCrop: result.detectedCrop,
+      predictedLabel: result.predictedLabel,
+      crop: result.crop,
+      disease: result.disease,
+      isHealthy: result.isHealthy,
+      confidence: result.confidence,
+      severity: result.severity,
+      topK: result.topK,
+      model: {
+        name: result.model.name,
+        architecture: result.model.architecture,
+        version: result.model.version,
+        license: result.model.license,
+        datasetSource: result.model.datasetSource,
+        status: result.model.status,
+        accuracy: result.model.accuracy,
+        f1Score: result.model.f1Score,
+      },
+      uncertainty: result.uncertainty,
+      pathology: result.pathology,
+      validationNotice: result.validationNotice,
+      explanation: result.explanation,
+      timestamp: result.timestamp,
+    };
+  }
 
-      if (isTimeout || isConnectionRefused) {
-        return {
-          status: 'model_not_ready',
-          model: fallbackMeta,
-          uncertainty: {
-            isUncertain: true,
-            reason: isTimeout ? 'Prediction timed out (10s)' : 'Inference service offline',
-            caveat: fallbackUncertainty.caveat,
-          },
-          explanation:
-            'The plant disease classifier service is currently unavailable or busy. Please ensure the Python service is running on port 8000 and try again.',
-          timestamp,
-          topK: [],
-        };
-      }
-
-      // Re-throw validation or payload errors (e.g. 422 non-image)
-      throw err;
-    }
+  /**
+   * Retrieves all registered crops and models in the system.
+   */
+  static getModelRegistry() {
+    return {
+      crops: CropModelRegistry.getAllCrops(),
+      models: CropModelRegistry.getAllModels(),
+    };
   }
 }

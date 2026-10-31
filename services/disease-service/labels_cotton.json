@@ -1,0 +1,8 @@
+[
+  { "id": 0, "label": "cotton_leaf_blight", "crop": "Cotton", "disease": "Cotton Leaf Blight", "isHealthy": false },
+  { "id": 1, "label": "cotton_bacterial_blight", "crop": "Cotton", "disease": "Bacterial Blight / Angular Leaf Spot", "isHealthy": false },
+  { "id": 2, "label": "cotton_grey_mildew", "crop": "Cotton", "disease": "Grey Mildew (Dahiya)", "isHealthy": false },
+  { "id": 3, "label": "cotton_leaf_curl_virus", "crop": "Cotton", "disease": "Cotton Leaf Curl Virus (CLCuV)", "isHealthy": false },
+  { "id": 4, "label": "cotton_healthy", "crop": "Cotton", "disease": "Healthy Leaf", "isHealthy": true }
+]
+

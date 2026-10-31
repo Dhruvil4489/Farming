@@ -6,11 +6,12 @@
  * Workflow:
  * 1. Authenticate user.
  * 2. Validate field ownership (if fieldId provided).
- * 3. Validate actual binary magic bytes (JPEG, PNG, WebP) and size limit (10MB).
- * 4. Store image in private storage directory (never public).
- * 5. Call Python inference service with safe timeout.
- * 6. Save CropDiagnosisRecord to database with tenant scoping.
- * 7. Return standard envelope response with full transparency and caveat flags.
+ * 3. Validate binary magic bytes (JPEG, PNG, WebP) and size limit (10MB).
+ * 4. Check active crop of the field to guard against unsupported benchmark classes (e.g. Cotton).
+ * 5. Store image in private storage directory (never public).
+ * 6. Execute disease prediction service with uncertainty and pathology augmentation.
+ * 7. Save CropDiagnosisRecord to database with tenant scoping.
+ * 8. Return standard envelope response with full transparency, severity, and agronomic recommendations.
  */
 
 import { NextRequest } from 'next/server';
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get('image') as File | null;
     const fieldId = formData.get('fieldId') as string | null;
     const notes = formData.get('notes') as string | null;
+    const requestedCrop = formData.get('crop') as string | null;
 
     if (!file) {
       return apiError('Image file is required', 'missing_image', 400);
@@ -66,7 +68,15 @@ export async function POST(request: NextRequest) {
     if (resolvedFieldId) {
       field = await prisma.field.findFirst({
         where: { id: resolvedFieldId, farm: { userId: user.id } },
-        include: { farm: true },
+        include: {
+          farm: true,
+          cropCycles: {
+            where: { deletedAt: null },
+            include: { crop: { select: { slug: true } } },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
       });
       if (!field) {
         return apiError('Specified field does not exist or does not belong to your account', 'field_not_found', 404);
@@ -75,7 +85,15 @@ export async function POST(request: NextRequest) {
       // Find user's first field as default if none specified
       field = await prisma.field.findFirst({
         where: { farm: { userId: user.id } },
-        include: { farm: true },
+        include: {
+          farm: true,
+          cropCycles: {
+            where: { deletedAt: null },
+            include: { crop: { select: { slug: true } } },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
       });
       if (field) {
         resolvedFieldId = field.id;
@@ -84,11 +102,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const fieldCropSlug = field?.cropCycles?.[0]?.crop?.slug || field?.cropCycles?.[0]?.customCropName || null;
+
     // Save image to private storage directory
     const saved = await saveDiagnosisImage(buffer, file.name);
 
-    // Call Python inference microservice
-    const prediction = await DiseaseDiagnosisService.predict(buffer, saved.filename, saved.mimeType);
+    // Call inference service with crop and blur checks
+    const prediction = await DiseaseDiagnosisService.predict(buffer, saved.filename, saved.mimeType, {
+      requestedCrop,
+      fieldCropName: fieldCropSlug,
+    });
 
     // Persist diagnosis record to database
     const diagnosisRecord = await prisma.cropDiagnosisRecord.create({
@@ -100,17 +123,22 @@ export async function POST(request: NextRequest) {
         mimeType: saved.mimeType,
         fileSizeBytes: saved.sizeBytes,
         status: prediction.status,
+        selectedCrop: prediction.selectedCrop || requestedCrop || null,
+        detectedCrop: prediction.detectedCrop || null,
         predictedLabel: prediction.predictedLabel || null,
         cropName: prediction.crop || null,
         diseaseName: prediction.disease || null,
         isHealthy: prediction.isHealthy,
         confidence: prediction.confidence,
+        severity: prediction.severity || 'none',
         topKJson: JSON.stringify(prediction.topK || []),
         uncertaintyReason: prediction.uncertainty.reason || null,
+        modelId: prediction.model.name,
         modelName: prediction.model.name,
         modelVersion: prediction.model.version,
         source: 'farmer_upload',
         notes: notes || null,
+        metadataJson: JSON.stringify(prediction.model),
         diagnosedAt: new Date(prediction.timestamp),
       },
       include: {
@@ -120,24 +148,33 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return apiSuccess({
-      diagnosis: {
-        id: diagnosisRecord.id,
-        status: diagnosisRecord.status,
-        predictedLabel: diagnosisRecord.predictedLabel,
-        crop: diagnosisRecord.cropName,
-        disease: diagnosisRecord.diseaseName,
-        isHealthy: diagnosisRecord.isHealthy,
-        confidence: diagnosisRecord.confidence,
-        topK: prediction.topK,
-        uncertainty: prediction.uncertainty,
-        explanation: prediction.explanation,
-        model: prediction.model,
-        field: diagnosisRecord.field,
-        diagnosedAt: diagnosisRecord.diagnosedAt.toISOString(),
-        imageFilename: saved.filename,
+    return apiSuccess(
+      {
+        diagnosis: {
+          id: diagnosisRecord.id,
+          status: diagnosisRecord.status,
+          selectedCrop: diagnosisRecord.selectedCrop,
+          detectedCrop: diagnosisRecord.detectedCrop,
+          predictedLabel: diagnosisRecord.predictedLabel,
+          crop: diagnosisRecord.cropName,
+          disease: diagnosisRecord.diseaseName,
+          isHealthy: diagnosisRecord.isHealthy,
+          confidence: diagnosisRecord.confidence,
+          severity: diagnosisRecord.severity || prediction.severity || 'none',
+          topK: prediction.topK,
+          uncertainty: prediction.uncertainty,
+          pathology: prediction.pathology || null,
+          validationNotice: prediction.validationNotice || null,
+          explanation: prediction.explanation,
+          model: prediction.model,
+          field: diagnosisRecord.field,
+          diagnosedAt: diagnosisRecord.diagnosedAt.toISOString(),
+          imageFilename: saved.filename,
+        },
       },
-    }, undefined, 201);
+      undefined,
+      201
+    );
   } catch (error: any) {
     console.error('[API /api/v1/diagnosis/predict POST] Error:', error.message);
     return apiError(error.message || 'Failed to process crop diagnosis', 'diagnosis_error', 500);

@@ -198,9 +198,9 @@ export default function ScoutingPage() {
             <Sparkles size={20} />
           </div>
           <div>
-            <h4 className="text-xs font-bold text-emerald-950">AI Crop Disease Leaf Classifier</h4>
+            <h4 className="text-xs font-bold text-emerald-950">Universal Crop Disease AI Engine</h4>
             <p className="text-[11px] text-emerald-800">
-              Have a leaf photograph? Run computer vision screening across 38 crop disease categories with explainable uncertainty metrics.
+              Have a leaf photograph? Run computer vision screening across specialist models for Cotton, Wheat, Rice, and Horticultural Benchmark networks with explainable differential diagnostics.
             </p>
           </div>
         </div>

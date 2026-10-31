@@ -1,0 +1,9 @@
+[
+  { "id": 0, "label": "wheat_stripe_rust", "crop": "Wheat", "disease": "Stripe Rust (Yellow Rust)", "isHealthy": false },
+  { "id": 1, "label": "wheat_leaf_rust", "crop": "Wheat", "disease": "Leaf Rust (Brown Rust)", "isHealthy": false },
+  { "id": 2, "label": "wheat_stem_rust", "crop": "Wheat", "disease": "Stem Rust (Black Rust)", "isHealthy": false },
+  { "id": 3, "label": "wheat_septoria_blotch", "crop": "Wheat", "disease": "Septoria Leaf Blotch", "isHealthy": false },
+  { "id": 4, "label": "wheat_powdery_mildew", "crop": "Wheat", "disease": "Powdery Mildew", "isHealthy": false },
+  { "id": 5, "label": "wheat_healthy", "crop": "Wheat", "disease": "Healthy Leaf", "isHealthy": true }
+]
+

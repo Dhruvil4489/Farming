@@ -10,7 +10,6 @@ import {
   Sprout,
   CheckSquare,
   CloudSun,
-  FlaskConical,
   Eye,
   Droplet,
   Droplets,
@@ -22,34 +21,35 @@ import {
   ShieldAlert,
   ScanLine,
 } from 'lucide-react';
+import { useI18n } from '@/providers/I18nProvider';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/farms', label: 'My Farms', icon: Tractor },
-  { href: '/fields', label: 'Fields', icon: Grid },
-  { href: '/crops', label: 'Crops & Cycles', icon: Sprout },
-  { href: '/tasks', label: 'Tasks & Activities', icon: CheckSquare },
-  { href: '/weather', label: 'Weather', icon: CloudSun },
-  { href: '/mandi', label: 'Live Mandi Prices', icon: TrendingUp },
-  { href: '/store', label: 'Fertilizer Store', icon: Package },
-  { href: '/guidance', label: 'Nutrient Guidance', icon: BookOpen },
-  { href: '/orders', label: 'My Orders', icon: ShoppingBag },
-  { href: '/soil', label: 'Soil Health', icon: FlaskConical },
-  { href: '/soil-moisture', label: 'Soil Moisture', icon: Droplets },
-  { href: '/scouting', label: 'Scouting', icon: Eye },
-  { href: '/diagnosis', label: 'Crop Disease AI', icon: ScanLine },
-  { href: '/irrigation', label: 'Irrigation', icon: Droplet },
-  { href: '/assistant', label: 'AI Assistant', icon: Bot },
-  { href: '/admin', label: 'Admin Panel', icon: ShieldAlert },
+  { href: '/dashboard', key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/farms', key: 'farms', label: 'My Farms', icon: Tractor },
+  { href: '/fields', key: 'fields', label: 'Fields', icon: Grid },
+  { href: '/crops', key: 'crops', label: 'Crops & Cycles', icon: Sprout },
+  { href: '/tasks', key: 'tasks', label: 'Tasks & Activities', icon: CheckSquare },
+  { href: '/weather', key: 'weather', label: 'Weather', icon: CloudSun },
+  { href: '/mandi', key: 'mandi', label: 'Live Mandi Prices', icon: TrendingUp },
+  { href: '/store', key: 'store', label: 'Fertilizer Store', icon: Package },
+  { href: '/guidance', key: 'guidance', label: 'Nutrient Guidance', icon: BookOpen },
+  { href: '/orders', key: 'orders', label: 'My Orders', icon: ShoppingBag },
+  { href: '/soil-moisture', key: 'soil_moisture', label: 'Soil Moisture', icon: Droplets },
+  { href: '/scouting', key: 'scouting', label: 'Scouting', icon: Eye },
+  { href: '/diagnosis', key: 'crop_disease_ai', label: 'Crop Disease AI', icon: ScanLine },
+  { href: '/irrigation', key: 'irrigation', label: 'Irrigation', icon: Droplet },
+  { href: '/assistant', key: 'assistant', label: 'AI Assistant', icon: Bot },
+  { href: '/admin', key: 'admin', label: 'Admin Panel', icon: ShieldAlert },
 ];
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   return (
     <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-stone-200 min-h-[calc(100vh-4rem)] p-4 space-y-1">
       <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-stone-400">
-        Platform Spine
+        {t('platform_spine', 'Platform Navigation')}
       </div>
       {navItems.map((item) => {
         const Icon = item.icon;
@@ -66,7 +66,7 @@ export const Sidebar: React.FC = () => {
             }`}
           >
             <Icon size={18} className={isActive ? 'text-[#2F7D4F]' : 'text-stone-400'} />
-            <span>{item.label}</span>
+            <span>{t(item.key, item.label)}</span>
           </Link>
         );
       })}

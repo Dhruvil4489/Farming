@@ -13,6 +13,7 @@ import {
   Layers,
   Bug,
   Droplet,
+  Droplets,
   Bot,
   ArrowRight,
   ExternalLink,
@@ -273,24 +274,24 @@ export default function HomePage() {
             </span>
           </Link>
 
-          {/* 4. Soil Health */}
+          {/* 4. Soil Moisture */}
           <Link
-            href="/soil"
+            href="/soil-moisture"
             className="p-6 bg-white rounded-3xl border border-stone-200/80 hover:border-emerald-500/50 shadow-sm hover:shadow-xl transition-all agri-card group flex flex-col justify-between"
           >
             <div className="space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-700 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Layers size={24} />
+              <div className="w-12 h-12 rounded-2xl bg-cyan-100 text-cyan-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Droplets size={24} />
               </div>
               <h3 className="text-lg font-bold text-stone-900 group-hover:text-[#2F7D4F] transition-colors">
-                Soil Health & Cards
+                Soil Moisture Intelligence
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed">
-                6-path soil framework. Upload Soil Health Card reports, confirm NPK and micronutrient parameters, and eliminate blind fertilization.
+                Real-time root-zone capacitance monitoring, IoT sensor telemetry, and crop-specific moisture stress advisories.
               </p>
             </div>
             <span className="pt-4 text-xs font-bold text-[#2F7D4F] flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-              Check Soil Profiles →
+              Monitor Soil Moisture →
             </span>
           </Link>
 
@@ -426,16 +427,14 @@ export default function HomePage() {
                       document.getElementById(`stage-tab-${LIFECYCLE_STAGES[prev].key}`)?.focus();
                     }
                   }}
-                  className={`px-4 py-3 rounded-2xl text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-2 border focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-[#0F2D1F] ${
-                    selected
+                  className={`px-4 py-3 rounded-2xl text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-2 border focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-[#0F2D1F] ${selected
                       ? 'bg-[#2F7D4F] text-white border-emerald-400 shadow-lg scale-105 ring-1 ring-emerald-300/50'
                       : 'bg-white/5 text-emerald-200/70 border-white/10 hover:bg-white/10 hover:text-white'
-                  }`}
+                    }`}
                 >
                   <span
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-colors ${
-                      selected ? 'bg-white text-[#2F7D4F]' : 'bg-white/20 text-white'
-                    }`}
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-colors ${selected ? 'bg-white text-[#2F7D4F]' : 'bg-white/20 text-white'
+                      }`}
                   >
                     {idx + 1}
                   </span>
@@ -811,7 +810,7 @@ export default function HomePage() {
               <li><Link href="/fertilizers" className="hover:text-white transition-colors">Fertilizer Store</Link></li>
               <li><Link href="/fertilizers/guide" className="hover:text-white transition-colors">Crop Nutrient Guide</Link></li>
               <li><Link href="/assistant" className="hover:text-white transition-colors">AI Farming Assistant</Link></li>
-              <li><Link href="/soil" className="hover:text-white transition-colors">Soil Health</Link></li>
+              <li><Link href="/soil-moisture" className="hover:text-white transition-colors">Soil Moisture</Link></li>
             </ul>
           </div>
 

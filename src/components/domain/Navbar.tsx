@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Sprout, Globe, User, LogOut } from 'lucide-react';
 import { ProvenanceChip } from '@/components/ui/ProvenanceChip';
+import { useI18n } from '@/providers/I18nProvider';
 
 interface NavbarProps {
   userName?: string;
@@ -13,6 +14,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ userName = 'Farmer', isDemo = false }) => {
   const router = useRouter();
+  const { locale, setLocale, t } = useI18n();
 
   const handleLogout = async () => {
     try {
@@ -27,7 +29,7 @@ export const Navbar: React.FC<NavbarProps> = ({ userName = 'Farmer', isDemo = fa
     <header className="sticky top-0 z-40 bg-[#143D2A] text-white shadow-md">
       {isDemo && (
         <div className="bg-orange-500 text-white text-center text-xs py-1 font-bold tracking-wide">
-          DEMO DATA MODE ACTIVE — ALL DATA IS REGISTRATION TEST DATA
+          {t('demo_banner')}
         </div>
       )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -36,20 +38,18 @@ export const Navbar: React.FC<NavbarProps> = ({ userName = 'Farmer', isDemo = fa
             <Sprout size={22} />
           </div>
           <div>
-            <h1 className="font-bold text-lg leading-none tracking-tight text-white">SmartFarm AI</h1>
-            <p className="text-[11px] text-emerald-200/80 leading-none mt-0.5">Digital Agriculture</p>
+            <h1 className="font-bold text-lg leading-none tracking-tight text-white">{t('app_name', 'SmartFarm AI')}</h1>
+            <p className="text-[11px] text-emerald-200/80 leading-none mt-0.5">{t('app_tagline', 'Digital Agriculture')}</p>
           </div>
         </Link>
 
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/10 rounded-lg text-xs font-medium">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 rounded-lg text-xs font-medium">
             <Globe size={14} className="text-emerald-300" />
             <select
-              defaultValue="en"
-              onChange={(e) => {
-                document.cookie = `locale=${e.target.value}; path=/`;
-                window.location.reload();
-              }}
+              value={locale}
+              aria-label="Select Language"
+              onChange={(e) => setLocale(e.target.value as any)}
               className="bg-transparent text-white focus:outline-none cursor-pointer"
             >
               <option value="en" className="text-stone-900">English</option>
@@ -66,7 +66,7 @@ export const Navbar: React.FC<NavbarProps> = ({ userName = 'Farmer', isDemo = fa
             <button
               id="logout-button"
               onClick={handleLogout}
-              title="Logout"
+              title={t('sign_out', 'Sign Out')}
               aria-label="Sign out"
               className="p-1.5 text-emerald-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
             >

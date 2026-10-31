@@ -6,12 +6,12 @@ import { z } from 'zod';
 
 const updateSchema = z.object({
   irrigatedAt: z.string().optional(),
-  method: z.enum(['drip', 'sprinkler', 'flood', 'rainfed', 'other']).optional(),
-  durationMinutes: z.number().int().min(1).max(1440).optional(),
-  volumeL: z.number().positive().max(1_000_000).optional(),
-  waterSource: z.string().max(100).optional(),
-  moistureNote: z.enum(['dry', 'moist', 'wet']).optional(),
-  notes: z.string().max(2000).optional(),
+  method: z.enum(['drip', 'sprinkler', 'flood', 'furrow', 'manual', 'rainfed', 'other']).optional(),
+  durationMinutes: z.number().int().min(1).max(1440).optional().nullable(),
+  volumeL: z.number().positive().max(1_000_000).optional().nullable(),
+  waterSource: z.string().max(100).optional().nullable(),
+  moistureNote: z.string().max(100).optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
 });
 
 // Helper: verify record belongs to the requesting user
@@ -19,8 +19,14 @@ async function getOwnedRecord(id: string, userId: string) {
   return prisma.irrigationRecord.findFirst({
     where: { id, userId },
     include: {
-      field: { select: { id: true, name: true } },
-      cropCycle: { select: { id: true, crop: { select: { id: true, slug: true } } } },
+      field: { select: { id: true, name: true, farm: { select: { id: true, name: true } } } },
+      cropCycle: {
+        select: {
+          id: true,
+          customCropName: true,
+          crop: { select: { id: true, slug: true } },
+        },
+      },
     },
   });
 }
@@ -66,8 +72,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(parsed.notes !== undefined ? { notes: parsed.notes } : {}),
       },
       include: {
-        field: { select: { id: true, name: true } },
-        cropCycle: { select: { id: true, crop: { select: { id: true, slug: true } } } },
+        field: { select: { id: true, name: true, farm: { select: { id: true, name: true } } } },
+        cropCycle: {
+          select: {
+            id: true,
+            customCropName: true,
+            crop: { select: { id: true, slug: true } },
+          },
+        },
       },
     });
 
@@ -77,7 +89,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return apiError('Validation failed', 'validation_failed', 422, err.flatten().fieldErrors as any);
     }
     console.error('[irrigation/:id PATCH]', err);
-    return apiError('Failed to update irrigation record', 'update_failed', 500);
+    return apiError(err.message || 'Failed to update irrigation record', 'update_failed', 500);
   }
 }
 

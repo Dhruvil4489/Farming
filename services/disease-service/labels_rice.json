@@ -1,0 +1,9 @@
+[
+  { "id": 0, "label": "rice_blast", "crop": "Rice (Paddy)", "disease": "Rice Blast", "isHealthy": false },
+  { "id": 1, "label": "rice_bacterial_blight", "crop": "Rice (Paddy)", "disease": "Bacterial Leaf Blight (BLB)", "isHealthy": false },
+  { "id": 2, "label": "rice_brown_spot", "crop": "Rice (Paddy)", "disease": "Rice Brown Spot", "isHealthy": false },
+  { "id": 3, "label": "rice_sheath_blight", "crop": "Rice (Paddy)", "disease": "Rice Sheath Blight", "isHealthy": false },
+  { "id": 4, "label": "rice_tungro", "crop": "Rice (Paddy)", "disease": "Rice Tungro Virus", "isHealthy": false },
+  { "id": 5, "label": "rice_healthy", "crop": "Rice (Paddy)", "disease": "Healthy Leaf", "isHealthy": true }
+]
+

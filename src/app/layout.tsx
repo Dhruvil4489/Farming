@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import { I18nProvider } from '@/providers/I18nProvider';
 
 export const metadata: Metadata = {
   title: 'SmartFarm AI — Your Intelligent Digital Farming Companion',
@@ -10,7 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen bg-[#FAF6EF] text-stone-900 antialiased selection:bg-[#2F7D4F] selection:text-white">
-        {children}
+        <I18nProvider>{children}</I18nProvider>
       </body>
     </html>
   );
