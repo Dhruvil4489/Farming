@@ -1,25 +1,28 @@
 /**
  * POST /api/v1/diagnosis/predict
  *
- * Authenticated crop disease prediction endpoint.
+ * Authenticated crop disease prediction & store medicine recommendation endpoint.
  *
  * Workflow:
  * 1. Authenticate user.
- * 2. Validate field ownership (if fieldId provided).
+ * 2. Validate field ownership (if fieldId provided) or assign default plot.
  * 3. Validate binary magic bytes (JPEG, PNG, WebP) and size limit (10MB).
- * 4. Check active crop of the field to guard against unsupported benchmark classes (e.g. Cotton).
+ * 4. Check active crop of the field to guard against unsupported benchmark classes.
  * 5. Store image in private storage directory (never public).
- * 6. Execute disease prediction service with uncertainty and pathology augmentation.
- * 7. Save CropDiagnosisRecord to database with tenant scoping.
- * 8. Return standard envelope response with full transparency, severity, and agronomic recommendations.
+ * 6. Execute disease prediction service with botanical identification, multi-model router, and ICAR pathology.
+ * 7. Retrieve verified matching store medicines from the existing Fertilizer Store database.
+ * 8. Persist CropDiagnosisRecord to database with fail-safe database insertion.
+ * 9. Return standard envelope response with full diagnostic transparency, severity, ICAR treatment, and matching store products.
  */
 
 import { NextRequest } from 'next/server';
+import crypto from 'node:crypto';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { saveDiagnosisImage, validateImageMagicBytes, MAX_IMAGE_SIZE_BYTES } from '@/lib/storage';
 import { DiseaseDiagnosisService } from '@/services/DiseaseDiagnosisService';
+import { DiseaseProductMatchingService } from '@/services/DiseaseProductMatchingService';
 
 export const dynamic = 'force-dynamic';
 
@@ -113,40 +116,125 @@ export async function POST(request: NextRequest) {
       fieldCropName: fieldCropSlug,
     });
 
-    // Persist diagnosis record to database
-    const diagnosisRecord = await prisma.cropDiagnosisRecord.create({
-      data: {
-        userId: user.id,
-        fieldId: resolvedFieldId,
-        imagePath: saved.relativePath,
-        originalFilename: file.name || saved.filename,
-        mimeType: saved.mimeType,
-        fileSizeBytes: saved.sizeBytes,
-        status: prediction.status,
-        selectedCrop: prediction.selectedCrop || requestedCrop || null,
-        detectedCrop: prediction.detectedCrop || null,
-        predictedLabel: prediction.predictedLabel || null,
-        cropName: prediction.crop || null,
-        diseaseName: prediction.disease || null,
-        isHealthy: prediction.isHealthy,
-        confidence: prediction.confidence,
-        severity: prediction.severity || 'none',
-        topKJson: JSON.stringify(prediction.topK || []),
-        uncertaintyReason: prediction.uncertainty.reason || null,
-        modelId: prediction.model.name,
-        modelName: prediction.model.name,
-        modelVersion: prediction.model.version,
-        source: 'farmer_upload',
-        notes: notes || null,
-        metadataJson: JSON.stringify(prediction.model),
-        diagnosedAt: new Date(prediction.timestamp),
-      },
-      include: {
-        field: {
-          select: { id: true, name: true, farm: { select: { id: true, name: true } } },
-        },
-      },
+    // Query matching store medicines from Fertilizer Store
+    const recommendations = await DiseaseProductMatchingService.getRecommendationsForDiagnosis({
+      crop: prediction.crop || requestedCrop || 'General Crop',
+      disease: prediction.disease || 'Unidentified Foliage Condition',
+      label: prediction.predictedLabel,
+      isHealthy: prediction.isHealthy,
+      status: prediction.status,
     });
+
+    // Enrich metadata with model details and recommended product IDs
+    const metadataPayload = {
+      ...prediction.model,
+      recommendedProductIds: recommendations.medicines.map((m) => m.id),
+      hasMatchingStoreMedicine: recommendations.hasMatchingMedicine,
+    };
+
+    const recordData = {
+      userId: user.id,
+      fieldId: resolvedFieldId,
+      imagePath: saved.relativePath,
+      originalFilename: file.name || saved.filename,
+      mimeType: saved.mimeType,
+      fileSizeBytes: saved.sizeBytes,
+      status: prediction.status,
+      selectedCrop: prediction.selectedCrop || requestedCrop || null,
+      detectedCrop: prediction.detectedCrop || null,
+      predictedLabel: prediction.predictedLabel || null,
+      cropName: prediction.crop || null,
+      diseaseName: prediction.disease || null,
+      isHealthy: prediction.isHealthy,
+      confidence: prediction.confidence,
+      severity: prediction.severity || 'none',
+      topKJson: JSON.stringify(prediction.topK || []),
+      uncertaintyReason: prediction.uncertainty.reason || null,
+      modelId: prediction.model.name,
+      modelName: prediction.model.name,
+      modelVersion: prediction.model.version,
+      source: 'farmer_upload',
+      notes: notes || null,
+      metadataJson: JSON.stringify(metadataPayload),
+      diagnosedAt: new Date(prediction.timestamp),
+    };
+
+    // Resilient database persistence ensuring record is 100% saved in PostgreSQL / SQLite
+    let diagnosisRecord: any = null;
+    try {
+      if (prisma.cropDiagnosisRecord && typeof prisma.cropDiagnosisRecord.create === 'function') {
+        diagnosisRecord = await prisma.cropDiagnosisRecord.create({
+          data: recordData,
+          include: {
+            field: {
+              select: { id: true, name: true, farm: { select: { id: true, name: true } } },
+            },
+          },
+        });
+      }
+    } catch (dbErr: any) {
+      console.warn('[API /api/v1/diagnosis/predict POST] Delegate create failed, falling back to direct SQL:', dbErr.message);
+    }
+
+    if (!diagnosisRecord) {
+      // Direct raw SQL insertion fallback
+      const recordId = crypto.randomUUID();
+      const isSqlite = !process.env.DATABASE_URL || process.env.DATABASE_URL.startsWith('file:');
+
+      const cols = [
+        'id', 'userId', 'fieldId', 'imagePath', 'originalFilename', 'mimeType',
+        'fileSizeBytes', 'status', 'selectedCrop', 'detectedCrop', 'predictedLabel',
+        'cropName', 'diseaseName', 'isHealthy', 'confidence', 'severity',
+        'topKJson', 'uncertaintyReason', 'modelId', 'modelName', 'modelVersion',
+        'source', 'notes', 'metadataJson', 'diagnosedAt'
+      ];
+
+      const vals = [
+        recordId,
+        recordData.userId,
+        recordData.fieldId,
+        recordData.imagePath,
+        recordData.originalFilename,
+        recordData.mimeType,
+        recordData.fileSizeBytes,
+        recordData.status,
+        recordData.selectedCrop,
+        recordData.detectedCrop,
+        recordData.predictedLabel,
+        recordData.cropName,
+        recordData.diseaseName,
+        isSqlite ? (recordData.isHealthy ? 1 : 0) : recordData.isHealthy,
+        recordData.confidence,
+        recordData.severity,
+        recordData.topKJson,
+        recordData.uncertaintyReason,
+        recordData.modelId,
+        recordData.modelName,
+        recordData.modelVersion,
+        recordData.source,
+        recordData.notes,
+        recordData.metadataJson,
+        recordData.diagnosedAt.toISOString(),
+      ];
+
+      const colNames = cols.map((c) => `"${c}"`).join(', ');
+      const placeholders = isSqlite ? cols.map(() => '?').join(', ') : cols.map((_, i) => `$${i + 1}`).join(', ');
+
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "CropDiagnosisRecord" (${colNames}) VALUES (${placeholders})`,
+        ...vals
+      );
+
+      diagnosisRecord = {
+        id: recordId,
+        ...recordData,
+        field: {
+          id: field.id,
+          name: field.name,
+          farm: { id: field.farm?.id, name: field.farm?.name },
+        },
+      };
+    }
 
     return apiSuccess(
       {
@@ -168,8 +256,11 @@ export async function POST(request: NextRequest) {
           explanation: prediction.explanation,
           model: prediction.model,
           field: diagnosisRecord.field,
-          diagnosedAt: diagnosisRecord.diagnosedAt.toISOString(),
+          diagnosedAt: (diagnosisRecord.diagnosedAt instanceof Date)
+            ? diagnosisRecord.diagnosedAt.toISOString()
+            : new Date(diagnosisRecord.diagnosedAt).toISOString(),
           imageFilename: saved.filename,
+          recommendations,
         },
       },
       undefined,

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Upload,
   Camera,
@@ -36,6 +37,12 @@ import {
   Send,
   ExternalLink,
   BookOpen,
+  ShoppingBag,
+  ShoppingCart,
+  ArrowRight,
+  PackageCheck,
+  PackageX,
+  CheckCircle,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -43,6 +50,7 @@ import { ProvenanceChip } from '@/components/ui/ProvenanceChip';
 import { useI18n } from '@/providers/I18nProvider';
 import { AgronomicDiseaseInfo } from '@/lib/crop-disease-knowledge';
 import { UNIVERSAL_CROP_CATALOG, AI_MODEL_REGISTRY, CropCatalogEntry, RegisteredModel } from '@/services/ai/CropModelRegistry';
+import { RecommendedMedicineCard, MatchingResult } from '@/services/DiseaseProductMatchingService';
 
 interface FieldOption {
   id: string;
@@ -98,6 +106,7 @@ interface DiagnosisResult {
     name: string;
     farm?: { id: string; name: string };
   };
+  recommendations?: MatchingResult | null;
 }
 
 interface HistoryItem {
@@ -116,9 +125,21 @@ interface HistoryItem {
   modelName?: string;
   field: { name: string };
   pathology?: AgronomicDiseaseInfo | null;
+  recommendations?: MatchingResult | null;
 }
 
+const ANALYSIS_STAGES = [
+  { step: 1, label: 'Uploading leaf photograph...' },
+  { step: 2, label: 'Validating image quality & leaf presence...' },
+  { step: 3, label: 'Identifying botanical crop species...' },
+  { step: 4, label: 'Routing to specialist neural model...' },
+  { step: 5, label: 'Verifying ICAR & CIBRC treatment guidelines...' },
+  { step: 6, label: 'Matching verified medicines in Fertilizer Store...' },
+  { step: 7, label: 'Preparing comprehensive diagnostic report...' },
+];
+
 export function DiseaseClassifierCard() {
+  const router = useRouter();
   const { t, formatDate, formatNumber } = useI18n();
 
   const [fields, setFields] = useState<FieldOption[]>([]);
@@ -133,10 +154,15 @@ export function DiseaseClassifierCard() {
 
   // Analysis state
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState(1);
   const [result, setResult] = useState<DiagnosisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTreatmentTab, setActiveTreatmentTab] = useState<'organic' | 'chemical'>('organic');
+  const [activeTreatmentTab, setActiveTreatmentTab] = useState<'organic' | 'chemical'>('chemical');
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
+
+  // Cart action state
+  const [cartAddingId, setCartAddingId] = useState<string | null>(null);
+  const [cartToast, setCartToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Feedback state
   const [feedbackRating, setFeedbackRating] = useState<number>(5);
@@ -150,6 +176,7 @@ export function DiseaseClassifierCard() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -244,14 +271,20 @@ export function DiseaseClassifierCard() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Run Diagnosis
+  // Run Diagnosis with Progress Simulation
   const handleAnalyze = async () => {
     if (!selectedFile) return;
 
     setAnalyzing(true);
+    setAnalysisStep(1);
     setError(null);
     setResult(null);
     setFeedbackSubmitted(false);
+
+    // Progress stepper interval
+    const stepInterval = setInterval(() => {
+      setAnalysisStep((prev) => (prev < 6 ? prev + 1 : prev));
+    }, 450);
 
     try {
       const formData = new FormData();
@@ -265,6 +298,9 @@ export function DiseaseClassifierCard() {
         body: formData,
       });
 
+      clearInterval(stepInterval);
+      setAnalysisStep(7);
+
       const json = await res.json();
       if (!res.ok) {
         throw new Error(json.error?.message || `Diagnosis failed (HTTP ${res.status})`);
@@ -273,9 +309,57 @@ export function DiseaseClassifierCard() {
       setResult(json.data?.diagnosis || null);
       loadHistory();
     } catch (err: any) {
+      clearInterval(stepInterval);
       setError(err.message || 'An unexpected error occurred during image analysis.');
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  // Add to Cart / Buy Now handler
+  const handleAddToCart = async (product: RecommendedMedicineCard, buyNow = false) => {
+    if (!product.inStock) {
+      setCartToast({
+        message: `${product.name} is currently out of stock in the store.`,
+        type: 'error',
+      });
+      setTimeout(() => setCartToast(null), 3500);
+      return;
+    }
+
+    setCartAddingId(product.id);
+    try {
+      const res = await fetch('/api/v1/store/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id, quantity: 1 }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message || 'Failed to add product to cart');
+      }
+
+      // Notify navbar and cart icon
+      window.dispatchEvent(new Event('cart-updated'));
+
+      if (buyNow) {
+        router.push('/cart');
+      } else {
+        setCartToast({
+          message: `Added 1 × ${product.name} to your Fertilizer Cart!`,
+          type: 'success',
+        });
+        setTimeout(() => setCartToast(null), 4000);
+      }
+    } catch (err: any) {
+      setCartToast({
+        message: err.message || 'Could not add to cart. Please log in or check availability.',
+        type: 'error',
+      });
+      setTimeout(() => setCartToast(null), 4000);
+    } finally {
+      setCartAddingId(null);
     }
   };
 
@@ -298,23 +382,44 @@ export function DiseaseClassifierCard() {
         setFeedbackSubmitted(true);
       }
     } catch {
-      // Catch error
+      // ignore
     } finally {
       setFeedbackLoading(false);
     }
   };
 
-  // Delete history item
+  // View full history record
+  const handleSelectHistoryItem = async (itemId: string) => {
+    setLoadingHistoryId(itemId);
+    try {
+      const res = await fetch(`/api/v1/diagnosis/history/${itemId}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.diagnosis) {
+          setResult(json.data.diagnosis);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingHistoryId(null);
+    }
+  };
+
+  // Delete history record
   const handleDeleteHistory = async (id: string) => {
-    if (!confirm(t('diagnosis_delete_confirm', 'Delete this diagnosis record permanently?'))) return;
     setDeletingId(id);
     try {
       const res = await fetch(`/api/v1/diagnosis/history/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        setHistory((prev) => prev.filter((item) => item.id !== id));
+        setHistory((prev) => prev.filter((h) => h.id !== id));
+        if (result?.id === id) {
+          setResult(null);
+        }
       }
     } catch {
-      // Silently catch
+      // ignore
     } finally {
       setDeletingId(null);
     }
@@ -326,144 +431,123 @@ export function DiseaseClassifierCard() {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner: Field Plot Selection & Crop Router Mode */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-stone-200 shadow-xs print:hidden">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Sprout size={18} className="text-[#2F7D4F]" />
-            <span className="text-xs font-bold text-stone-700">{t('target_field', 'Target Field Plot')}:</span>
-            {fields.length === 0 ? (
-              <span className="text-xs text-stone-500 italic">No registered fields</span>
-            ) : (
+      {/* Toast Notification */}
+      {cartToast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 p-4 rounded-2xl shadow-xl flex items-center gap-3 text-xs font-bold transition-all border animate-in slide-in-from-bottom-3 ${
+            cartToast.type === 'success'
+              ? 'bg-[#143D2A] text-white border-emerald-600'
+              : 'bg-red-900 text-white border-red-700'
+          }`}
+        >
+          {cartToast.type === 'success' ? (
+            <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+          ) : (
+            <AlertCircle size={18} className="text-red-400 shrink-0" />
+          )}
+          <span>{cartToast.message}</span>
+          <button
+            onClick={() => setCartToast(null)}
+            className="ml-2 p-1 hover:bg-white/20 rounded-full transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Main Two-Column Analysis Workstation */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        {/* Left Column: Image Upload & Crop Selector */}
+        <Card className="p-6 rounded-3xl border border-stone-200 bg-white space-y-5 shadow-xs">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-base font-bold text-stone-900 flex items-center gap-2">
+                <Camera size={18} className="text-[#2F7D4F]" />
+                {t('diagnosis_upload_title', 'Upload Diseased Crop Leaf')}
+              </h3>
+              <ProvenanceChip type="model_prediction" label="Universal Vision Model" />
+            </div>
+            <p className="text-xs text-stone-500">
+              {t(
+                'diagnosis_upload_desc',
+                'Upload a sharp close-up photograph of an affected crop leaf showing visible lesions, discoloration, or wilt symptoms.'
+              )}
+            </p>
+          </div>
+
+          {/* Plot & Crop Selectors */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div className="space-y-1.5">
+              <label htmlFor="field-select" className="text-xs font-semibold text-stone-700 block">
+                {t('diagnosis_select_field', 'Target Farm Plot')}
+              </label>
               <select
-                id="diagnosis-field-select"
+                id="field-select"
                 value={selectedFieldId}
                 onChange={(e) => setSelectedFieldId(e.target.value)}
-                className="bg-stone-50 border border-stone-300 rounded-xl px-3 py-1.5 text-xs font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
+                className="w-full bg-stone-50 border border-stone-300 rounded-2xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
               >
                 {fields.map((f) => (
                   <option key={f.id} value={f.id}>
-                    {f.name} ({f.farm?.name || 'Farm'})
+                    {f.name} {f.farm ? `(${f.farm.name})` : ''}
                   </option>
                 ))}
               </select>
-            )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="crop-select" className="text-xs font-semibold text-stone-700 block">
+                {t('diagnosis_select_crop', 'Crop Route')}
+              </label>
+              <select
+                id="crop-select"
+                value={selectedCropId}
+                onChange={(e) => setSelectedCropId(e.target.value)}
+                className="w-full bg-stone-50 border border-stone-300 rounded-2xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
+              >
+                <option value="auto">✨ Auto-Detect (Botanical Classifier)</option>
+                <optgroup label="Specialist Neural Networks (ICAR/CIBRC)">
+                  <option value="cotton">Cotton (ICAR-CICR EfficientNet)</option>
+                  <option value="wheat">Wheat (CIMMYT/IIWBR ResNet-50)</option>
+                  <option value="rice">Rice (IRRI/NRRI Vision Transformer)</option>
+                  <option value="chilli">Chilli (IIHR Specialist)</option>
+                </optgroup>
+                <optgroup label="Horticultural Benchmarks">
+                  <option value="tomato">Tomato (Solanaceae Network)</option>
+                  <option value="potato">Potato (Tuber Pathology)</option>
+                  <option value="corn">Maize (Corn)</option>
+                  <option value="grape">Grape</option>
+                  <option value="apple">Apple</option>
+                </optgroup>
+                <optgroup label="Crops in Field Validation">
+                  <option value="sugarcane">Sugarcane (Validation Phase)</option>
+                  <option value="groundnut">Groundnut (Validation Phase)</option>
+                  <option value="soybean">Soybean (Validation Phase)</option>
+                  <option value="chickpea">Chickpea / Gram (Validation Phase)</option>
+                  <option value="mustard">Mustard (Validation Phase)</option>
+                  <option value="onion">Onion (Validation Phase)</option>
+                  <option value="banana">Banana (Validation Phase)</option>
+                </optgroup>
+              </select>
+            </div>
           </div>
 
-          {/* Crop Selector with Multi-Model Taxonomy */}
-          <div className="flex items-center gap-2 border-l border-stone-200 pl-3">
-            <Cpu size={18} className="text-[#2F7D4F]" />
-            <span className="text-xs font-bold text-stone-700">Crop Route:</span>
-            <select
-              id="diagnosis-crop-select"
-              value={selectedCropId}
-              onChange={(e) => setSelectedCropId(e.target.value)}
-              className="bg-stone-50 border border-stone-300 rounded-xl px-3 py-1.5 text-xs font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
-            >
-              <option value="auto">✨ AI Auto-Detect Crop (Dynamic Router)</option>
-              <optgroup label="Commercial & Fiber Crops">
-                <option value="cotton">Cotton (कपास) — Specialist Model (5 classes)</option>
-                <option value="sugarcane">Sugarcane (गन्ना) — In Validation</option>
-              </optgroup>
-              <optgroup label="Cereal Crops">
-                <option value="wheat">Wheat (गेहूं) — Specialist Model (6 classes)</option>
-                <option value="rice">Rice / Paddy (धान) — Specialist Model (6 classes)</option>
-                <option value="maize">Maize / Corn (मक्का) — Benchmark Model (4 classes)</option>
-              </optgroup>
-              <optgroup label="Oilseeds & Pulses">
-                <option value="soybean">Soybean (सोयाबीन) — Benchmark Model</option>
-                <option value="groundnut">Groundnut (मूंगफली) — In Validation</option>
-                <option value="mustard">Mustard (सरसों) — In Validation</option>
-                <option value="chickpea">Chickpea (चना) — In Validation</option>
-                <option value="pigeonpea">Pigeon Pea (अरहर / तूर) — In Validation</option>
-              </optgroup>
-              <optgroup label="Horticultural Vegetables">
-                <option value="tomato">Tomato (टमाटर) — Benchmark Model (10 classes)</option>
-                <option value="potato">Potato (आलू) — Benchmark Model (3 classes)</option>
-                <option value="chilli">Chilli (मिर्च) — Specialist Model (4 classes)</option>
-                <option value="pepper">Bell Pepper (शिमला मिर्च) — Benchmark Model</option>
-                <option value="onion">Onion (प्याज) — In Validation</option>
-                <option value="garlic">Garlic (लहसुन) — In Validation</option>
-                <option value="brinjal">Brinjal (बैंगन) — In Validation</option>
-                <option value="okra">Okra / Bhindi (भिंडी) — In Validation</option>
-                <option value="cabbage">Cabbage (पत्तागोभी) — In Validation</option>
-                <option value="cauliflower">Cauliflower (फूलगोभी) — In Validation</option>
-              </optgroup>
-              <optgroup label="Fruits & Plantation">
-                <option value="grape">Grapes (अंगूर) — Benchmark Model (4 classes)</option>
-                <option value="apple">Apple (सेब) — Benchmark Model (4 classes)</option>
-                <option value="citrus">Citrus (संतरा / नींबू) — Benchmark Model</option>
-                <option value="banana">Banana (केला) — In Validation</option>
-                <option value="mango">Mango (आम) — In Validation</option>
-                <option value="papaya">Papaya (पपीता) — In Validation</option>
-                <option value="pomegranate">Pomegranate (अनार) — In Validation</option>
-                <option value="guava">Guava (अमरूद) — In Validation</option>
-                <option value="watermelon">Watermelon (तरबूज) — In Validation</option>
-              </optgroup>
-            </select>
-          </div>
-        </div>
+          {/* Model Route Transparency Badge */}
+          {activeCropMeta && (
+            <div className="p-3 bg-stone-50 border border-stone-200/90 rounded-2xl flex items-center justify-between text-[11px] text-stone-600">
+              <div className="flex items-center gap-2">
+                <Cpu size={14} className="text-[#2F7D4F]" />
+                <span>
+                  Active Model: <strong className="text-stone-800">{activeModelMeta?.name || 'Dynamic Router'}</strong>
+                </span>
+              </div>
+              <span className="font-mono text-stone-500 uppercase text-[10px] bg-stone-200/70 px-2 py-0.5 rounded-md">
+                {activeModelMeta?.architecture || 'Multi-Model'}
+              </span>
+            </div>
+          )}
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowHistory(!showHistory)}
-            className="text-xs h-8 rounded-xl"
-          >
-            <History size={14} className="mr-1.5 text-[#2F7D4F]" />
-            {showHistory ? t('diagnosis_btn_hide_history', 'Hide History') : t('diagnosis_btn_history', 'Diagnosis History')} ({history.length})
-          </Button>
-        </div>
-      </div>
-
-      {/* Model Router Status Pill */}
-      <div className="p-3 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-950 shadow-xs print:hidden">
-        <div className="flex items-center gap-2">
-          <Sparkles size={16} className="text-[#2F7D4F] shrink-0" />
-          <span>
-            {selectedCropId === 'auto' ? (
-              <strong>Universal Model Router Active:</strong>
-            ) : (
-              <strong>Selected Target: {activeCropMeta?.cropName} ({activeCropMeta?.scientificName}) —</strong>
-            )}
-            {' '}
-            {selectedCropId === 'auto'
-              ? 'Multi-Model Pipeline automatically classifies crop species and routes to Specialist (Cotton, Wheat, Rice, Chilli) or Horticultural Benchmark networks.'
-              : activeCropMeta?.status === 'specialist_active'
-              ? `${activeModelMeta?.name} (${activeModelMeta?.architecture}) with ${activeCropMeta.supportedDiseasesCount} verified classes. Accuracy: ${(activeModelMeta?.validationMetrics.accuracy! * 100).toFixed(1)}%.`
-              : activeCropMeta?.status === 'benchmark_active'
-              ? `PlantVillage Horticultural Network with ${activeCropMeta.supportedDiseasesCount} benchmark classes.`
-              : 'Specialist weights undergoing multi-season field trials with Agricultural Universities. Real-time botanical identification and ICAR IPM prevention.'}
-          </span>
-        </div>
-        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-[#143D2A] border border-emerald-300">
-          {selectedCropId === 'auto' ? 'Dynamic Orchestration' : activeCropMeta?.statusBadge}
-        </span>
-      </div>
-
-      {/* Main Upload / Analyze Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:grid-cols-1">
-        {/* Left Column: Image Dropzone & Preview */}
-        <Card className="p-6 rounded-3xl space-y-4 border border-stone-200 print:border-none print:shadow-none bg-white">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-stone-900 flex items-center gap-2">
-              <Camera size={18} className="text-[#2F7D4F]" />
-              {t('diagnosis_upload_title', 'Upload Crop Leaf Photo')}
-            </h3>
-            <span className="text-[10px] text-stone-400 font-mono">JPEG, PNG, WebP ≤ 10MB</span>
-          </div>
-
-          {/* Hidden File Input */}
-          <input
-            ref={fileInputRef}
-            id="leaf-photo-input"
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-          />
-
+          {/* Drag & Drop Upload Zone */}
           {!previewUrl ? (
             <div
               onDragEnter={handleDrag}
@@ -471,32 +555,40 @@ export function DiseaseClassifierCard() {
               onDragOver={handleDrag}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-3xl p-8 text-center cursor-pointer transition-all ${
+              className={`border-2 border-dashed rounded-3xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center space-y-3 min-h-[220px] ${
                 dragActive
-                  ? 'border-emerald-600 bg-emerald-50/50'
-                  : 'border-stone-300 bg-stone-50/50 hover:bg-stone-50 hover:border-stone-400'
+                  ? 'border-[#2F7D4F] bg-emerald-50/50'
+                  : 'border-stone-300 hover:border-stone-400 bg-stone-50/60'
               }`}
             >
-              <div className="w-14 h-14 rounded-2xl bg-white shadow-xs border border-stone-200 flex items-center justify-center mx-auto text-[#2F7D4F] mb-3">
-                <Upload size={24} />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+              />
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100/70 text-[#2F7D4F] flex items-center justify-center">
+                <Upload size={22} />
               </div>
-              <p className="text-sm font-bold text-stone-800">
-                {t('diagnosis_dropzone_prompt', 'Click to browse or drag & drop leaf photo')}
-              </p>
-              <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
-                {t('diagnosis_dropzone_hint', 'Take a clear close-up photo of the affected leaf in good natural light. Avoid blurred or distant canopy shots.')}
-              </p>
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-stone-800">
+                  {t('diagnosis_drag_prompt', 'Click to browse or drag & drop leaf photograph')}
+                </p>
+                <p className="text-[11px] text-stone-500">Supports JPEG, PNG, WebP up to 10 MB</p>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="relative rounded-2xl overflow-hidden border border-stone-200 bg-black aspect-video max-h-72 flex items-center justify-center">
+              <div className="relative rounded-3xl overflow-hidden border border-stone-200 bg-stone-900 flex items-center justify-center max-h-[300px]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={previewUrl}
-                  alt="Crop Leaf Preview"
-                  className="max-h-full max-w-full object-contain"
+                  alt="Crop leaf preview"
+                  className="max-h-[300px] w-auto object-contain mx-auto"
                 />
                 <button
+                  type="button"
                   onClick={clearSelection}
                   className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black text-white rounded-full transition-colors print:hidden"
                   title="Remove image"
@@ -522,7 +614,7 @@ export function DiseaseClassifierCard() {
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Yellowing observed on lower foliage after 3 days of rain; top leaves unaffected..."
+              placeholder="e.g. Yellowing and brown necrotic spots observed on lower foliage after 3 days of rain; top leaves unaffected..."
               className="w-full bg-stone-50 border border-stone-300 rounded-2xl p-3 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
             />
           </div>
@@ -569,8 +661,9 @@ export function DiseaseClassifierCard() {
           )}
         </Card>
 
-        {/* Right Column: Dynamic Diagnosis Results */}
-        <Card className="p-6 rounded-3xl border border-stone-200 bg-white space-y-5 flex flex-col justify-between">
+        {/* Right Column: Dynamic Diagnosis Results & Medicine Cards */}
+        <Card className="p-6 rounded-3xl border border-stone-200 bg-white space-y-5 flex flex-col justify-between shadow-xs">
+          {/* Empty State Before Analysis */}
           {!result && !analyzing && (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3 my-auto">
               <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-[#2F7D4F] flex items-center justify-center">
@@ -580,33 +673,68 @@ export function DiseaseClassifierCard() {
                 {t('diagnosis_awaiting_title', 'Awaiting Leaf Photograph')}
               </h4>
               <p className="text-xs text-stone-500 max-w-sm leading-relaxed">
-                {t('diagnosis_awaiting_desc', 'Select a crop route or use Auto-Detect, upload a clear close-up leaf photograph, and click Analyze Crop Leaf to initiate multi-model computer vision screening.')}
+                {t(
+                  'diagnosis_awaiting_desc',
+                  'Select a crop route or use Auto-Detect, upload a clear close-up leaf photograph, and click Analyze Crop Leaf to initiate multi-model computer vision screening and retrieve verified store medicines.'
+                )}
               </p>
             </div>
           )}
 
+          {/* Multi-Stage Animated Analysis Progress */}
           {analyzing && (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4 my-auto">
+            <div className="h-full flex flex-col items-center justify-center p-8 space-y-6 my-auto">
               <div className="relative">
-                <div className="w-16 h-16 rounded-3xl bg-emerald-100/60 flex items-center justify-center animate-pulse">
+                <div className="w-16 h-16 rounded-3xl bg-emerald-100/70 flex items-center justify-center animate-pulse">
                   <Sparkles size={28} className="text-[#2F7D4F]" />
                 </div>
                 <div className="absolute inset-0 rounded-3xl border-2 border-[#2F7D4F] border-t-transparent animate-spin" />
               </div>
-              <div className="space-y-1">
-                <h4 className="text-base font-bold text-stone-900">
-                  {t('diagnosis_scanning_title', 'Scanning Vegetative Structure...')}
+
+              <div className="space-y-1 text-center">
+                <h4 className="text-base font-black text-stone-900 tracking-tight">
+                  Analyzing Crop Disease & Finding Medicines
                 </h4>
-                <p className="text-xs text-stone-500 max-w-xs">
-                  {t('diagnosis_scanning_desc', 'Validating foliage presence, extracting venation patterns, and routing to specialist neural model.')}
+                <p className="text-xs text-stone-500">
+                  Executing multi-model computer vision and store matching pipeline
                 </p>
+              </div>
+
+              {/* Step Progress Checklist */}
+              <div className="w-full max-w-sm space-y-2 text-left pt-2">
+                {ANALYSIS_STAGES.map((s) => {
+                  const isDone = analysisStep > s.step;
+                  const isCurrent = analysisStep === s.step;
+                  return (
+                    <div
+                      key={s.step}
+                      className={`flex items-center gap-2.5 text-xs p-2 rounded-xl transition-all ${
+                        isCurrent
+                          ? 'bg-emerald-50 text-[#143D2A] font-bold border border-emerald-200'
+                          : isDone
+                          ? 'text-stone-700 font-medium'
+                          : 'text-stone-400'
+                      }`}
+                    >
+                      {isDone ? (
+                        <CheckCircle2 size={15} className="text-[#2F7D4F] shrink-0" />
+                      ) : isCurrent ? (
+                        <RefreshCw size={15} className="text-[#2F7D4F] animate-spin shrink-0" />
+                      ) : (
+                        <div className="w-3.5 h-3.5 rounded-full border border-stone-300 shrink-0" />
+                      )}
+                      <span>{s.label}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
+          {/* Diagnostic Result Display */}
           {result && (
-            <div className="space-y-5 animate-in fade-in duration-300">
-              {/* Result Header */}
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Header: Diagnosis Badge & Status */}
               <div className="flex items-start justify-between border-b border-stone-100 pb-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -710,7 +838,7 @@ export function DiseaseClassifierCard() {
                     >
                       {result.severity || 'Unknown'}
                     </span>
-                    <span className="text-[10px] text-stone-400 block mt-1">Based on leaf coverage</span>
+                    <span className="text-[10px] text-stone-400 block mt-1">Leaf coverage index</span>
                   </div>
 
                   <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200/80 col-span-2 sm:col-span-1">
@@ -719,7 +847,7 @@ export function DiseaseClassifierCard() {
                       {result.pathology?.pathogenType || (result.isHealthy ? 'Non-pathogenic' : 'Specialist')}
                     </span>
                     <span className="text-[10px] text-stone-400 block mt-0.5">
-                      {result.isHealthy ? 'Optimal health' : 'Infectious agent'}
+                      {result.isHealthy ? 'Optimal health' : 'Target organism'}
                     </span>
                   </div>
                 </div>
@@ -794,6 +922,16 @@ export function DiseaseClassifierCard() {
                         </span>
                         <div className="flex items-center gap-1 bg-stone-100 p-0.5 rounded-xl text-[11px] font-bold">
                           <button
+                            onClick={() => setActiveTreatmentTab('chemical')}
+                            className={`px-2.5 py-1 rounded-lg transition-all ${
+                              activeTreatmentTab === 'chemical'
+                                ? 'bg-white text-stone-900 shadow-xs'
+                                : 'text-stone-500 hover:text-stone-900'
+                            }`}
+                          >
+                            CIBRC Chemical Controls
+                          </button>
+                          <button
                             onClick={() => setActiveTreatmentTab('organic')}
                             className={`px-2.5 py-1 rounded-lg transition-all ${
                               activeTreatmentTab === 'organic'
@@ -803,36 +941,13 @@ export function DiseaseClassifierCard() {
                           >
                             Organic Solutions
                           </button>
-                          <button
-                            onClick={() => setActiveTreatmentTab('chemical')}
-                            className={`px-2.5 py-1 rounded-lg transition-all ${
-                              activeTreatmentTab === 'chemical'
-                                ? 'bg-white text-stone-900 shadow-xs'
-                                : 'text-stone-500 hover:text-stone-900'
-                            }`}
-                          >
-                            Chemical Controls
-                          </button>
                         </div>
                       </div>
-
-                      {activeTreatmentTab === 'organic' && (
-                        <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl text-xs space-y-2">
-                          <strong className="text-emerald-950 block font-bold">
-                            Organic & Bio-Pesticide Treatments:
-                          </strong>
-                          <ul className="list-disc list-inside space-y-1 text-emerald-900">
-                            {result.pathology.organicOptions?.map((o, idx) => (
-                              <li key={idx} className="leading-relaxed">{o}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
 
                       {activeTreatmentTab === 'chemical' && (
                         <div className="p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-xs space-y-2">
                           <strong className="text-amber-950 block font-bold">
-                            CIBRC Chemical Recommendations:
+                            CIBRC Registered Chemical Controls:
                           </strong>
                           <ul className="list-disc list-inside space-y-1 text-amber-900">
                             {result.pathology.chemicalOptions?.map((c, idx) => (
@@ -846,19 +961,226 @@ export function DiseaseClassifierCard() {
                           )}
                         </div>
                       )}
-                    </div>
-                  )}
 
-                  {/* KVK Escalation Trigger */}
-                  {result.pathology.whenToConsultExpert && (
-                    <div className="p-3 bg-stone-50 border border-stone-200 rounded-2xl text-[11px] text-stone-600 flex items-start gap-2">
-                      <HelpCircle size={15} className="text-[#2F7D4F] shrink-0 mt-0.5" />
-                      <div>
-                        <strong className="text-stone-800">When to Escalate to Local KVK:</strong>{' '}
-                        {result.pathology.whenToConsultExpert}
-                      </div>
+                      {activeTreatmentTab === 'organic' && (
+                        <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl text-xs space-y-2">
+                          <strong className="text-emerald-950 block font-bold">
+                            Organic & Bio-Pesticide Treatments:
+                          </strong>
+                          <ul className="list-disc list-inside space-y-1 text-emerald-900">
+                            {result.pathology.organicOptions?.map((o, idx) => (
+                              <li key={idx} className="leading-relaxed">{o}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* ------------------------------------------------------------- */}
+              {/* RECOMMENDED MEDICINES FROM FERTILIZER STORE                   */}
+              {/* ------------------------------------------------------------- */}
+              <div className="border-t border-stone-200/80 pt-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-black text-stone-900 flex items-center gap-2">
+                      <ShoppingBag size={18} className="text-[#2F7D4F]" />
+                      Verified Medicines from Fertilizer Store
+                    </h4>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      Direct e-commerce procurement of CIBRC-registered active ingredients
+                    </p>
+                  </div>
+                  <Link
+                    href="/store"
+                    className="text-xs font-bold text-[#2F7D4F] hover:text-[#143D2A] flex items-center gap-1 transition-colors print:hidden"
+                  >
+                    Open Store <ArrowRight size={13} />
+                  </Link>
+                </div>
+
+                {/* Healthy Foliage Notice */}
+                {result.isHealthy && (
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-3">
+                    <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="text-xs text-emerald-950">
+                      <strong className="block font-bold">Optimal Foliage Health Detected</strong>
+                      The uploaded leaf shows vigorous, non-pathogenic foliage. No synthetic fungicides, bactericides, or disease treatments are required.
+                    </div>
+                  </div>
+                )}
+
+                {/* If Not Healthy: Display Matching Store Products */}
+                {!result.isHealthy && (
+                  <>
+                    {result.recommendations?.medicines && result.recommendations.medicines.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-4">
+                        {result.recommendations.medicines.map((med) => {
+                          const isAdding = cartAddingId === med.id;
+
+                          return (
+                            <div
+                              key={med.id}
+                              className={`p-4 rounded-2xl border transition-all space-y-3 bg-white hover:border-emerald-300 shadow-xs ${
+                                med.treatmentType === 'primary'
+                                  ? 'border-emerald-200 bg-emerald-50/20'
+                                  : 'border-stone-200'
+                              }`}
+                            >
+                              {/* Header Badges: Treatment Type & Stock */}
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <span
+                                  className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                                    med.treatmentType === 'primary'
+                                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                                      : med.treatmentType === 'alternative'
+                                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                      : 'bg-teal-100 text-teal-900 border-teal-300'
+                                  }`}
+                                >
+                                  {med.treatmentTypeLabel}
+                                </span>
+
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                                    med.inStock
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                                  }`}
+                                >
+                                  {med.inStock ? (
+                                    <>
+                                      <PackageCheck size={12} />
+                                      In Stock ({med.stock} units)
+                                    </>
+                                  ) : (
+                                    <>
+                                      <PackageX size={12} />
+                                      Out of Stock
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+
+                              {/* Product Info & Active Ingredient */}
+                              <div>
+                                <h5 className="text-sm font-black text-stone-900 tracking-tight leading-snug">
+                                  {med.name}
+                                </h5>
+                                <div className="flex items-center gap-2 mt-1 text-xs text-stone-500">
+                                  <span>Brand: <strong className="text-stone-800">{med.brandName}</strong></span>
+                                  <span>•</span>
+                                  <span>Pack: <strong className="text-stone-800">{med.packSize}</strong></span>
+                                </div>
+                                <div className="mt-1.5 p-2 bg-stone-50 rounded-xl border border-stone-200/80 font-mono text-[11px] text-stone-700">
+                                  Active: <strong className="text-stone-900">{med.activeIngredient}</strong>
+                                </div>
+                              </div>
+
+                              {/* Why Recommended Explanation */}
+                              <p className="text-xs text-stone-600 leading-relaxed bg-emerald-50/40 p-2.5 rounded-xl border border-emerald-100">
+                                <strong>Target Mechanism:</strong> {med.whyRecommended}
+                              </p>
+
+                              {/* Price & Action Buttons */}
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-stone-100">
+                                <div>
+                                  <span className="text-[10px] uppercase font-bold text-stone-400 block">Store Price</span>
+                                  <div className="flex items-baseline gap-1.5">
+                                    <span className="text-lg font-black text-[#143D2A]">
+                                      ₹{med.price.toLocaleString('en-IN')}
+                                    </span>
+                                    {med.mrp && med.mrp > med.price && (
+                                      <span className="text-xs text-stone-400 line-through">
+                                        ₹{med.mrp.toLocaleString('en-IN')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 print:hidden flex-wrap">
+                                  {/* View Product in Store */}
+                                  <Link
+                                    href={med.detailUrl}
+                                    className="px-3 py-2 rounded-xl border border-stone-300 hover:border-stone-400 bg-white text-stone-700 hover:text-stone-900 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                                  >
+                                    View Product
+                                    <ExternalLink size={12} />
+                                  </Link>
+
+                                  {/* Add to Cart */}
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAddToCart(med, false)}
+                                    disabled={!med.inStock || isAdding}
+                                    className="bg-white hover:bg-stone-50 text-stone-800 border border-stone-300 text-xs font-bold h-9 px-3.5 rounded-xl"
+                                  >
+                                    {isAdding ? (
+                                      <RefreshCw size={13} className="animate-spin mr-1.5" />
+                                    ) : (
+                                      <ShoppingCart size={13} className="mr-1.5 text-[#2F7D4F]" />
+                                    )}
+                                    Add to Cart
+                                  </Button>
+
+                                  {/* Buy Now */}
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAddToCart(med, true)}
+                                    disabled={!med.inStock || isAdding}
+                                    className="bg-[#143D2A] hover:bg-[#0F2D1F] text-white text-xs font-bold h-9 px-3.5 rounded-xl shadow-xs"
+                                  >
+                                    Buy Now
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-stone-50 border border-stone-200 rounded-2xl flex items-start gap-3">
+                        <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                        <div className="text-xs text-stone-600 space-y-1">
+                          <strong className="text-stone-900 block font-bold">
+                            No verified matching medicine is currently available in the store.
+                          </strong>
+                          <p className="leading-relaxed">
+                            {result.recommendations?.message ||
+                              'Our agricultural safety guidelines ensure we only recommend verified, label-approved CIBRC products matching the identified active ingredient. We never recommend unrelated fertilizers.'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Field Management & Preventive Recommendations */}
+              {result.pathology?.immediatePrevention && result.pathology.immediatePrevention.length > 0 && (
+                <div className="border-t border-stone-100 pt-4 space-y-2">
+                  <span className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                    <Sprout size={14} className="text-[#2F7D4F]" />
+                    Preventive Agronomic Field Management:
+                  </span>
+                  <ul className="list-disc list-inside text-xs text-stone-600 space-y-1 pl-1">
+                    {result.pathology.immediatePrevention.map((prev, idx) => (
+                      <li key={idx} className="leading-relaxed">{prev}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* KVK Escalation Trigger */}
+              {result.pathology?.whenToConsultExpert && (
+                <div className="p-3 bg-stone-50 border border-stone-200 rounded-2xl text-[11px] text-stone-600 flex items-start gap-2">
+                  <HelpCircle size={15} className="text-[#2F7D4F] shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-stone-800">When to Escalate to Local KVK:</strong>{' '}
+                    {result.pathology.whenToConsultExpert}
+                  </div>
                 </div>
               )}
 
@@ -972,9 +1294,22 @@ export function DiseaseClassifierCard() {
         </Card>
       </div>
 
+      {/* History Drawer Toggle */}
+      <div className="flex items-center justify-between border-t border-stone-200/80 pt-4 print:hidden">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowHistory(!showHistory)}
+          className="text-xs h-9 px-4 rounded-xl flex items-center gap-2 font-bold"
+        >
+          <History size={15} className="text-[#2F7D4F]" />
+          {showHistory ? 'Hide Diagnosis History' : `View Diagnosis History (${history.length})`}
+        </Button>
+      </div>
+
       {/* Diagnosis History Table (Collapsible) */}
       {showHistory && (
-        <Card className="p-6 rounded-3xl border border-stone-200 bg-white space-y-4 print:hidden">
+        <Card className="p-6 rounded-3xl border border-stone-200 bg-white space-y-4 print:hidden shadow-xs">
           <div className="flex items-center justify-between border-b border-stone-100 pb-3">
             <h3 className="text-base font-bold text-stone-900 flex items-center gap-2">
               <History size={18} className="text-[#2F7D4F]" />
@@ -1048,21 +1383,37 @@ export function DiseaseClassifierCard() {
                               : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                           }`}
                         >
-                          {item.severity || 'mild'}
+                          {item.severity || '—'}
                         </span>
                       </td>
-                      <td className="p-3 text-[11px] text-stone-500 font-mono">
-                        {item.modelName || item.modelId || 'ResNet-50'}
+                      <td className="p-3 font-mono text-[11px] text-stone-500 whitespace-nowrap">
+                        {item.modelId || item.modelName || 'ResNet-50'}
                       </td>
                       <td className="p-3 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => handleDeleteHistory(item.id)}
-                          disabled={deletingId === item.id}
-                          className="p-1.5 text-stone-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                          title="Delete record"
-                        >
-                          <Trash2 size={14} className={deletingId === item.id ? 'animate-spin' : ''} />
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectHistoryItem(item.id)}
+                            disabled={loadingHistoryId === item.id}
+                            className="px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-[11px] transition-colors"
+                            title="Load diagnostic report & medicines"
+                          >
+                            {loadingHistoryId === item.id ? (
+                              <RefreshCw size={12} className="animate-spin inline" />
+                            ) : (
+                              'View Report'
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteHistory(item.id)}
+                            disabled={deletingId === item.id}
+                            className="p-1 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Delete diagnostic record"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

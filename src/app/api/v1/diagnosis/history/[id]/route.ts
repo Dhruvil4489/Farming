@@ -10,6 +10,7 @@ import { prisma } from '@/lib/prisma';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { deleteDiagnosisImage } from '@/lib/storage';
 import { getAgronomicPathology } from '@/lib/crop-disease-knowledge';
+import { DiseaseProductMatchingService } from '@/services/DiseaseProductMatchingService';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,14 @@ export async function GET(
     const filename = record.imagePath.replace(/^diagnoses[\/\\]/, '');
     const pathology = getAgronomicPathology(record.predictedLabel);
 
+    const recommendations = await DiseaseProductMatchingService.getRecommendationsForDiagnosis({
+      crop: record.cropName || record.selectedCrop || 'General Crop',
+      disease: record.diseaseName || 'Crop Foliage Disease',
+      label: record.predictedLabel,
+      isHealthy: record.isHealthy,
+      status: record.status,
+    });
+
     return apiSuccess({
       diagnosis: {
         id: record.id,
@@ -73,6 +82,7 @@ export async function GET(
         diagnosedAt: record.diagnosedAt.toISOString(),
         imageFilename: filename,
         fileSizeBytes: record.fileSizeBytes,
+        recommendations,
       },
     });
   } catch (error: any) {

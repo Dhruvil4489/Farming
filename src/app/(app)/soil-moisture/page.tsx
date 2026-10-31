@@ -21,11 +21,11 @@ import {
   Cpu,
   Battery,
   AlertCircle,
+  Activity,
   X,
   Sparkles,
   ArrowRight,
   Filter,
-  Activity,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -146,7 +146,7 @@ export default function SoilMoisturePage() {
           setSelectedFieldId(list[0].id);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [selectedFieldId]);
 
   // Load field telemetry
@@ -449,11 +449,11 @@ export default function SoilMoisturePage() {
           <p className="text-[11px] text-stone-500 pt-1 truncate">
             {telemetry?.latestReading?.measuredAt
               ? `Updated ${formatDate(telemetry.latestReading.measuredAt, {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  day: 'numeric',
-                  month: 'short',
-                })}`
+                hour: '2-digit',
+                minute: '2-digit',
+                day: 'numeric',
+                month: 'short',
+              })}`
               : 'No sensor updates'}
           </p>
         </Card>
@@ -476,8 +476,8 @@ export default function SoilMoisturePage() {
                   telemetry?.dataSource === 'live_iot'
                     ? 'Capacitive Probe'
                     : telemetry?.dataSource === 'manual'
-                    ? 'Manual Reading'
-                    : 'Awaiting Hardware'
+                      ? 'Manual Reading'
+                      : 'Awaiting Hardware'
                 }
                 source="In-situ measurement"
               />
@@ -496,9 +496,8 @@ export default function SoilMoisturePage() {
                 {/* low - high: Optimal band */}
                 <div
                   style={{
-                    width: `${
-                      (telemetry?.thresholds?.high || 65) - (telemetry?.thresholds?.low || 30)
-                    }%`,
+                    width: `${(telemetry?.thresholds?.high || 65) - (telemetry?.thresholds?.low || 30)
+                      }%`,
                   }}
                   className="h-full bg-emerald-200/80 border-r border-emerald-300 flex items-center justify-center text-[10px] font-bold text-[#143D2A]"
                 >
@@ -560,27 +559,24 @@ export default function SoilMoisturePage() {
                 <button
                   type="button"
                   onClick={() => setTimeframe('24h')}
-                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                    timeframe === '24h' ? 'bg-white shadow-xs text-stone-900 font-bold' : 'text-stone-600'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${timeframe === '24h' ? 'bg-white shadow-xs text-stone-900 font-bold' : 'text-stone-600'
+                    }`}
                 >
                   {t('moisture_filter_24h', '24 Hours')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setTimeframe('7d')}
-                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                    timeframe === '7d' ? 'bg-white shadow-xs text-stone-900 font-bold' : 'text-stone-600'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${timeframe === '7d' ? 'bg-white shadow-xs text-stone-900 font-bold' : 'text-stone-600'
+                    }`}
                 >
                   {t('moisture_filter_7d', '7 Days')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setTimeframe('30d')}
-                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                    timeframe === '30d' ? 'bg-white shadow-xs text-stone-900 font-bold' : 'text-stone-600'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${timeframe === '30d' ? 'bg-white shadow-xs text-stone-900 font-bold' : 'text-stone-600'
+                    }`}
                 >
                   {t('moisture_filter_30d', '30 Days')}
                 </button>
@@ -659,9 +655,8 @@ export default function SoilMoisturePage() {
                         </div>
                         <div
                           style={{ height: `${heightPct}%` }}
-                          className={`w-full rounded-t-md transition-all ${
-                            isDry ? 'bg-amber-400' : isSat ? 'bg-cyan-500' : 'bg-[#2F7D4F]'
-                          }`}
+                          className={`w-full rounded-t-md transition-all ${isDry ? 'bg-amber-400' : isSat ? 'bg-cyan-500' : 'bg-[#2F7D4F]'
+                            }`}
                         />
                         <span className="text-[8px] text-stone-400 font-mono rotate-45 mt-1 origin-top-left">
                           {new Date(pt.timestamp).getDate()}
@@ -692,19 +687,18 @@ export default function SoilMoisturePage() {
                   Action Trigger
                 </span>
                 <span
-                  className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full border ${
-                    telemetry?.recommendation.action === 'irrigate_now'
-                      ? 'bg-rose-100 text-rose-900 border-rose-300'
-                      : telemetry?.recommendation.action === 'delay_irrigation'
+                  className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full border ${telemetry?.recommendation.action === 'irrigate_now'
+                    ? 'bg-rose-100 text-rose-900 border-rose-300'
+                    : telemetry?.recommendation.action === 'delay_irrigation'
                       ? 'bg-amber-100 text-amber-900 border-amber-300'
                       : 'bg-emerald-100 text-[#143D2A] border-emerald-300'
-                  }`}
+                    }`}
                 >
                   {telemetry?.recommendation.action === 'irrigate_now'
                     ? t('moisture_irrigation_needed', 'Irrigation Required')
                     : telemetry?.recommendation.action === 'delay_irrigation'
-                    ? t('moisture_irrigation_delay', 'Delay Irrigation')
-                    : t('moisture_irrigation_sufficient', 'Soil Moisture Sufficient')}
+                      ? t('moisture_irrigation_delay', 'Delay Irrigation')
+                      : t('moisture_irrigation_sufficient', 'Soil Moisture Sufficient')}
                 </span>
                 <p className="text-stone-700 leading-relaxed pt-1">
                   {telemetry?.recommendation.reason}
