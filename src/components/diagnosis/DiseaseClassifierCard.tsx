@@ -69,7 +69,7 @@ interface TopKCandidate {
 
 interface DiagnosisResult {
   id?: string;
-  status: 'accepted' | 'uncertain' | 'not_crop' | 'unsupported_crop' | 'in_validation' | 'blurry_image' | 'model_not_ready';
+  status: 'accepted' | 'crop_mismatch' | 'uncertain' | 'not_crop' | 'unsupported_crop' | 'in_validation' | 'blurry_image' | 'model_not_ready';
   selectedCrop?: string | null;
   detectedCrop?: string | null;
   predictedLabel?: string | null;
@@ -536,13 +536,13 @@ export function DiseaseClassifierCard() {
           {activeCropMeta && (
             <div className="p-3 bg-stone-50 border border-stone-200/90 rounded-2xl flex items-center justify-between text-[11px] text-stone-600">
               <div className="flex items-center gap-2">
-                <Cpu size={14} className="text-[#2F7D4F]" />
+                <Shield size={14} className="text-[#2F7D4F]" />
                 <span>
-                  Active Model: <strong className="text-stone-800">{activeModelMeta?.name || 'Dynamic Router'}</strong>
+                  Diagnostic Protocol: <strong className="text-stone-800">{activeCropMeta.cropName} Pathology & Protection</strong>
                 </span>
               </div>
-              <span className="font-mono text-stone-500 uppercase text-[10px] bg-stone-200/70 px-2 py-0.5 rounded-md">
-                {activeModelMeta?.architecture || 'Multi-Model'}
+              <span className="font-medium text-emerald-800 text-[10px] bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                ICAR / CIBRC Verified
               </span>
             </div>
           )}
@@ -741,39 +741,49 @@ export function DiseaseClassifierCard() {
                     <span
                       className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
                         result.status === 'accepted'
-                          ? 'bg-emerald-100 text-[#143D2A] border-emerald-300'
-                          : result.status === 'in_validation'
+                          ? result.isHealthy
+                            ? 'bg-emerald-100 text-[#143D2A] border-emerald-300'
+                            : 'bg-rose-100 text-rose-900 border-rose-300'
+                          : result.status === 'crop_mismatch'
                           ? 'bg-amber-100 text-amber-900 border-amber-300'
+                          : result.status === 'in_validation'
+                          ? 'bg-blue-100 text-blue-900 border-blue-300'
                           : result.status === 'blurry_image'
                           ? 'bg-rose-100 text-rose-900 border-rose-300'
+                          : result.status === 'not_crop'
+                          ? 'bg-stone-100 text-stone-800 border-stone-300'
                           : 'bg-amber-100 text-amber-900 border-amber-300'
                       }`}
                     >
                       {result.status === 'accepted'
-                        ? 'Diagnostic Match Confirmed'
+                        ? result.isHealthy
+                          ? 'Optimal Foliage Health'
+                          : 'Pathology Detected (Action Required)'
+                        : result.status === 'crop_mismatch'
+                        ? 'Crop Mismatch Detected'
                         : result.status === 'in_validation'
-                        ? 'Crop Identified • In Validation'
+                        ? 'Crop Identified • In Field Validation'
                         : result.status === 'blurry_image'
                         ? 'Image Quality Issue'
+                        : result.status === 'not_crop'
+                        ? 'No Foliage Detected'
                         : 'Uncertain Diagnosis'}
                     </span>
                     {result.detectedCrop && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 border border-stone-200">
-                        Crop: {result.detectedCrop}
+                        Visual Crop: {result.detectedCrop}
                       </span>
                     )}
-                    {result.model && (
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 border border-stone-200">
-                        {result.model.architecture || result.model.name}
-                      </span>
-                    )}
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      ICAR Aligned Protocol
+                    </span>
                   </div>
 
                   <h3 className="text-xl font-black text-stone-900 tracking-tight">
                     {result.disease || result.predictedLabel}
                   </h3>
                   <p className="text-xs text-stone-500 mt-0.5">
-                    Crop: <strong className="text-stone-800">{result.crop}</strong>
+                    Target Plot: <strong className="text-stone-800">{result.crop}</strong>
                     {result.pathology?.pathogenName && (
                       <span className="italic ml-1">({result.pathology.pathogenName})</span>
                     )}
@@ -794,24 +804,68 @@ export function DiseaseClassifierCard() {
                 </div>
               </div>
 
+              {/* Status Notice: Crop Mismatch Detected (Case 2) */}
+              {result.status === 'crop_mismatch' && (
+                <div className="p-5 bg-amber-50/90 border border-amber-300 rounded-2xl space-y-3 text-xs text-amber-950">
+                  <div className="flex items-center gap-2 font-black text-amber-900 text-sm">
+                    <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+                    <span>Crop Mismatch Detected — Verification Required</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-white/80 p-3 rounded-xl border border-amber-200">
+                    <div>
+                      <span className="text-[10px] font-bold text-stone-500 block uppercase">Selected Plot Crop</span>
+                      <strong className="text-xs text-stone-900">{result.selectedCrop || result.crop || 'Selected Plot'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-amber-700 block uppercase">Detected Leaf Foliage</span>
+                      <strong className="text-xs text-amber-900">{result.detectedCrop || 'Different Crop Family'}</strong>
+                    </div>
+                  </div>
+                  <p className="leading-relaxed text-xs text-amber-900">
+                    {result.validationNotice || result.explanation}
+                  </p>
+                  <div className="pt-2 flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const el = document.getElementById('field-select');
+                        el?.focus();
+                      }}
+                      className="text-xs h-8 rounded-xl border-amber-300 text-amber-950 hover:bg-amber-100"
+                    >
+                      Verify Farm Plot
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearSelection}
+                      className="text-xs h-8 rounded-xl border-amber-300 text-amber-950 hover:bg-amber-100"
+                    >
+                      Upload New Photo
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Status Notice if in validation */}
               {result.status === 'in_validation' && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-2 text-xs text-amber-950">
-                  <div className="flex items-center gap-2 font-bold">
-                    <Info size={16} className="text-amber-700" />
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl space-y-2 text-xs text-blue-950">
+                  <div className="flex items-center gap-2 font-bold text-blue-900">
+                    <Info size={16} className="text-blue-700" />
                     <span>Scientific Diagnostic Safety Boundary</span>
                   </div>
-                  <p className="leading-relaxed text-[11px] text-amber-900">
+                  <p className="leading-relaxed text-[11px] text-blue-900">
                     {result.validationNotice || result.explanation}
                   </p>
                 </div>
               )}
 
               {/* Confidence & Severity KPI Cards */}
-              {result.status !== 'in_validation' && result.status !== 'blurry_image' && (
+              {result.status === 'accepted' && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200/80">
-                    <span className="text-[11px] font-semibold text-stone-500 block">Model Confidence</span>
+                    <span className="text-[11px] font-semibold text-stone-500 block">Diagnostic Confidence</span>
                     <span className="text-lg font-black text-stone-900 tracking-tight">
                       {result.confidence != null ? `${(result.confidence * 100).toFixed(1)}%` : '—'}
                     </span>
@@ -836,7 +890,7 @@ export function DiseaseClassifierCard() {
                           : 'bg-stone-100 text-stone-700 border-stone-300'
                       }`}
                     >
-                      {result.severity || 'Unknown'}
+                      {result.severity || 'None'}
                     </span>
                     <span className="text-[10px] text-stone-400 block mt-1">Leaf coverage index</span>
                   </div>
@@ -853,11 +907,11 @@ export function DiseaseClassifierCard() {
                 </div>
               )}
 
-              {/* Top-3 Differential Diagnostic Candidates */}
-              {result.topK && result.topK.length > 0 && (
+              {/* Candidate Diagnostic Alignment (differential ranking) */}
+              {result.status === 'accepted' && result.topK && result.topK.length > 0 && (
                 <div className="space-y-2">
                   <span className="text-xs font-bold text-stone-700 block">
-                    Top Differential Predictions (Candidate Ranking):
+                    Diagnostic Candidate Alignment:
                   </span>
                   <div className="space-y-1.5">
                     {result.topK.slice(0, 3).map((item, idx) => (

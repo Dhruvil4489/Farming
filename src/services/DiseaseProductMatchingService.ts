@@ -241,6 +241,17 @@ export class DiseaseProductMatchingService {
       };
     }
 
+    if (status === 'crop_mismatch') {
+      return {
+        hasMatchingMedicine: false,
+        message: 'Crop mismatch detected between selected farm plot and leaf image. Please verify your plot or upload the matching crop photograph before medicines can be recommended.',
+        targetDisease: 'Crop Mismatch Detected',
+        targetCrop: crop,
+        primaryActiveIngredient: null,
+        medicines: [],
+      };
+    }
+
     if (status === 'blurry_image' || status === 'not_crop') {
       return {
         hasMatchingMedicine: false,

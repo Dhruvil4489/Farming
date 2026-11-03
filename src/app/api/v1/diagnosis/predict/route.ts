@@ -105,14 +105,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const fieldCropSlug = field?.cropCycles?.[0]?.crop?.slug || field?.cropCycles?.[0]?.customCropName || null;
+    // Infer crop context from crop cycle, field name, or farm plot details
+    const fieldCropSlug =
+      field?.cropCycles?.[0]?.crop?.slug ||
+      field?.cropCycles?.[0]?.customCropName ||
+      inferCropFromFieldName(field?.name) ||
+      null;
 
     // Save image to private storage directory
     const saved = await saveDiagnosisImage(buffer, file.name);
 
     // Call inference service with crop and blur checks
     const prediction = await DiseaseDiagnosisService.predict(buffer, saved.filename, saved.mimeType, {
-      requestedCrop,
+      requestedCrop: requestedCrop && requestedCrop !== 'auto' ? requestedCrop : null,
       fieldCropName: fieldCropSlug,
     });
 
@@ -270,4 +275,27 @@ export async function POST(request: NextRequest) {
     console.error('[API /api/v1/diagnosis/predict POST] Error:', error.message);
     return apiError(error.message || 'Failed to process crop diagnosis', 'diagnosis_error', 500);
   }
+}
+
+/**
+ * Heuristic botanical crop extractor from field plot nomenclature.
+ * Handles vernacular Indian names (Kapas, Gehun, Dhan, Mirchi, Makka).
+ */
+function inferCropFromFieldName(name?: string | null): string | null {
+  if (!name) return null;
+  const n = name.toLowerCase();
+
+  if (/\b(cotton|kapas|ru)\b/i.test(n)) return 'cotton';
+  if (/\b(rice|paddy|chawal|dhan)\b/i.test(n)) return 'rice';
+  if (/\b(wheat|gehun|ghau)\b/i.test(n)) return 'wheat';
+  if (/\b(corn|maize|makka)\b/i.test(n)) return 'corn';
+  if (/\b(tomato|tamatar)\b/i.test(n)) return 'tomato';
+  if (/\b(potato|aalu|aloo|batata)\b/i.test(n)) return 'potato';
+  if (/\b(chilli|chili|mirch|marcha)\b/i.test(n)) return 'chilli';
+  if (/\b(sugarcane|ganna|serdi)\b/i.test(n)) return 'sugarcane';
+  if (/\b(soybean|soya)\b/i.test(n)) return 'soybean';
+  if (/\b(groundnut|peanut|mungfali|singdana)\b/i.test(n)) return 'groundnut';
+  if (/\b(grape|angoor|draksh)\b/i.test(n)) return 'grape';
+
+  return null;
 }

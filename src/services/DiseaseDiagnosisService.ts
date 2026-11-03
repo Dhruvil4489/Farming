@@ -42,6 +42,7 @@ export interface UncertaintyMetadata {
 export interface PredictionResult {
   status:
     | 'accepted'
+    | 'crop_mismatch'
     | 'uncertain'
     | 'not_crop'
     | 'unsupported_crop'
