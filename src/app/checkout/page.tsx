@@ -15,7 +15,10 @@ import {
 } from 'lucide-react';
 import { SiteHeader } from '@/components/domain/SiteHeader';
 
+import { useI18n } from '@/providers/I18nProvider';
+
 export default function CheckoutPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [cart, setCart] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,7 +109,7 @@ export default function CheckoutPage() {
         <div className="flex items-center justify-between pb-4 border-b border-stone-200">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
-              Order Checkout & Farm Delivery
+              {t('checkout_title', 'Order Checkout')} & Farm Delivery
             </h1>
             <p className="text-xs text-stone-500 mt-0.5">
               Specify your farm plot delivery address and review payment mode.
@@ -234,11 +237,10 @@ export default function CheckoutPage() {
 
               <div className="space-y-3">
                 {/* Demo Checkout Option */}
-                <label className={`p-4 rounded-2xl border flex items-start gap-3 cursor-pointer transition-colors ${
-                  formData.paymentMethod === 'demo_checkout'
+                <label className={`p-4 rounded-2xl border flex items-start gap-3 cursor-pointer transition-colors ${formData.paymentMethod === 'demo_checkout'
                     ? 'border-emerald-600 bg-emerald-50/50'
                     : 'border-stone-200 hover:bg-stone-50'
-                }`}>
+                  }`}>
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -258,11 +260,10 @@ export default function CheckoutPage() {
                 </label>
 
                 {/* Cash on Delivery */}
-                <label className={`p-4 rounded-2xl border flex items-start gap-3 cursor-pointer transition-colors ${
-                  formData.paymentMethod === 'cod'
+                <label className={`p-4 rounded-2xl border flex items-start gap-3 cursor-pointer transition-colors ${formData.paymentMethod === 'cod'
                     ? 'border-emerald-600 bg-emerald-50/50'
                     : 'border-stone-200 hover:bg-stone-50'
-                }`}>
+                  }`}>
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -330,7 +331,7 @@ export default function CheckoutPage() {
                 disabled={submitting}
                 className="w-full py-4 bg-[#2F7D4F] hover:bg-[#25663f] disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg transition-colors cursor-pointer flex items-center justify-center gap-2"
               >
-                {submitting ? 'Placing Order...' : 'Confirm & Place Order'} <ArrowRight size={15} />
+                {submitting ? 'Placing Order...' : t('place_order', 'Confirm & Place Order')} <ArrowRight size={15} />
               </button>
 
               <div className="text-center text-[10px] text-stone-400">

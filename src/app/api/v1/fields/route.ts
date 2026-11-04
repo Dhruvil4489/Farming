@@ -32,10 +32,41 @@ export async function GET(req: NextRequest) {
       deletedAt: null,
     },
     include: {
-      farm: { select: { id: true, name: true } },
+      farm: {
+        select: {
+          id: true,
+          name: true,
+          village: true,
+          district: true,
+          state: true,
+          lat: true,
+          lng: true,
+        },
+      },
       cropCycles: {
         where: { deletedAt: null, status: { notIn: ['completed'] } },
-        include: { crop: true },
+        include: {
+          crop: true,
+          variety: true,
+          cycleStages: {
+            where: { status: 'current' },
+            take: 1,
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+      diagnoses: {
+        where: { deletedAt: null },
+        orderBy: { diagnosedAt: 'desc' },
+        take: 3,
+        select: {
+          id: true,
+          cropName: true,
+          diseaseName: true,
+          severity: true,
+          isHealthy: true,
+          diagnosedAt: true,
+        },
       },
     },
     orderBy: { createdAt: 'desc' },

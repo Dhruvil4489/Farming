@@ -27,7 +27,10 @@ export interface FertilizerStoreExplorerProps {
   initialCrop?: string;
 }
 
+import { useI18n } from '@/providers/I18nProvider';
+
 export function FertilizerStoreExplorer({
+
   variant = 'public',
   initialCategory = '',
   initialCrop = '',
@@ -50,6 +53,7 @@ export function FertilizerStoreExplorer({
   const [checkingOut, setCheckingOut] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState<any | null>(null);
 
+  const { t } = useI18n();
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
   const fetchCatalog = async () => {
@@ -257,11 +261,10 @@ export function FertilizerStoreExplorer({
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={() => setSelectedCategory('')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold shrink-0 transition-colors cursor-pointer border ${
-              !selectedCategory
+            className={`px-4 py-2 rounded-2xl text-xs font-bold shrink-0 transition-colors cursor-pointer border ${!selectedCategory
                 ? 'bg-[#2F7D4F] text-white border-emerald-600 shadow-xs'
                 : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
-            }`}
+              }`}
           >
             All Products
           </button>
@@ -269,11 +272,10 @@ export function FertilizerStoreExplorer({
             <button
               key={c.id}
               onClick={() => setSelectedCategory(selectedCategory === c.slug ? '' : c.slug)}
-              className={`px-4 py-2 rounded-2xl text-xs font-bold shrink-0 transition-colors cursor-pointer border ${
-                selectedCategory === c.slug
+              className={`px-4 py-2 rounded-2xl text-xs font-bold shrink-0 transition-colors cursor-pointer border ${selectedCategory === c.slug
                   ? 'bg-[#2F7D4F] text-white border-emerald-600 shadow-xs'
                   : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
-              }`}
+                }`}
             >
               {c.name}
             </button>
@@ -374,9 +376,8 @@ export function FertilizerStoreExplorer({
                       </div>
                       <div className="absolute top-3 right-3">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                            inStock ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                          }`}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${inStock ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                            }`}
                         >
                           {inStock ? `${p.stock} in stock` : 'Out of Stock'}
                         </span>
@@ -420,7 +421,7 @@ export function FertilizerStoreExplorer({
                       className="px-3.5 py-2 rounded-xl bg-[#2F7D4F] hover:bg-[#143D2A] text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
                     >
                       <ShoppingBag size={13} />
-                      <span>{isAdding ? 'Adding...' : 'Add to Cart'}</span>
+                      <span>{isAdding ? 'Adding...' : t('add_to_cart', 'Add to Cart')}</span>
                     </button>
                   </div>
                 </div>

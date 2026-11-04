@@ -25,7 +25,10 @@ import { ProvenanceChip } from '@/components/ui/ProvenanceChip';
 import { DemoModeBanner } from '@/components/ui/StatusFeedback';
 import { CropStageBar } from '@/components/domain/CropStageBar';
 
+import { useI18n } from '@/providers/I18nProvider';
+
 export default function DashboardPage() {
+  const { t } = useI18n();
   const [summary, setSummary] = useState<any>(null);
   const [weather, setWeather] = useState<any>(null);
   const [advisories, setAdvisories] = useState<any[]>([]);
@@ -129,7 +132,7 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-extrabold text-[#0F2D1F] tracking-tight">
-                Good day, {summary?.userName || 'Farmer'}! 👋
+                {t('welcome_farmer', 'Good day')}, {summary?.userName || 'Farmer'}! 👋
               </h1>
               <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
                 Gujarat Region
@@ -142,12 +145,12 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <Link href="/farms/new">
               <Button size="sm" variant="outline">
-                <Plus size={14} className="mr-1" /> Add Farm
+                <Plus size={14} className="mr-1" /> {t('add_farm', 'Add Farm')}
               </Button>
             </Link>
             <Link href="/crops/new-cycle">
               <Button size="sm">
-                <Plus size={14} className="mr-1" /> Start Crop Cycle
+                <Plus size={14} className="mr-1" /> {t('start_crop_cycle', 'Start Crop Cycle')}
               </Button>
             </Link>
             <Link href="/soil-moisture">
@@ -157,7 +160,7 @@ export default function DashboardPage() {
             </Link>
             <Link href="/mandi">
               <Button size="sm" variant="outline">
-                <TrendingUp size={14} className="mr-1" /> Mandi Rates
+                <TrendingUp size={14} className="mr-1" /> {t('mandi_rates', 'Mandi Rates')}
               </Button>
             </Link>
           </div>
@@ -191,7 +194,7 @@ export default function DashboardPage() {
               <Tractor size={24} />
             </div>
             <div>
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">My Farms</p>
+              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{t('my_farms', 'My Farms')}</p>
               <p className="text-2xl font-extrabold text-[#0F2D1F]">{summary?.counts?.farms || 0}</p>
             </div>
           </Card>
@@ -201,7 +204,7 @@ export default function DashboardPage() {
               <Grid size={24} />
             </div>
             <div>
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Total Fields</p>
+              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{t('total_fields', 'Total Fields')}</p>
               <p className="text-2xl font-extrabold text-[#0F2D1F]">{summary?.counts?.fields || 0}</p>
             </div>
           </Card>
@@ -211,7 +214,7 @@ export default function DashboardPage() {
               <Sprout size={24} />
             </div>
             <div>
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Active Crops</p>
+              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{t('active_crops', 'Active Crops')}</p>
               <p className="text-2xl font-extrabold text-[#0F2D1F]">{summary?.counts?.activeCycles || 0}</p>
             </div>
           </Card>
@@ -221,7 +224,7 @@ export default function DashboardPage() {
               <CheckSquare size={24} />
             </div>
             <div>
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Pending Tasks</p>
+              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{t('pending_tasks', 'Pending Tasks')}</p>
               <p className="text-2xl font-extrabold text-[#0F2D1F]">{summary?.counts?.pendingTasks || 0}</p>
             </div>
           </Card>
@@ -237,10 +240,10 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <TrendingUp size={20} className="text-[#2F7D4F]" />
-                  <h3 className="font-bold text-stone-900 text-base">Live APMC Mandi Rates</h3>
+                  <h3 className="font-bold text-stone-900 text-base">{t('live_mandi_rates', 'Live APMC Mandi Rates')}</h3>
                 </div>
                 <Link href="/mandi" className="text-xs font-bold text-[#2F7D4F] hover:underline flex items-center gap-1">
-                  All Mandis <ArrowRight size={14} />
+                  {t('all_mandis', 'All Mandis')} <ArrowRight size={14} />
                 </Link>
               </div>
 

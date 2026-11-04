@@ -44,29 +44,44 @@ export default function DiagnosisPage() {
       {/* Main Classifier Card */}
       <DiseaseClassifierCard />
 
-      {/* Methodology, Architecture & Limitations Disclosures */}
+      {/* Agricultural Advisory & Safety Disclosures */}
       <div className="p-6 bg-stone-50 rounded-3xl border border-stone-200/80 space-y-3 print:hidden">
         <h4 className="text-xs font-bold uppercase tracking-wider text-stone-700 flex items-center gap-2">
-          <BookOpen size={14} className="text-[#2F7D4F]" />
-          Multi-Model AI Architecture, Dataset Sources & Diagnostic Safety
+          <ShieldCheck size={16} className="text-[#2F7D4F]" />
+          {t('diagnosis_safety_title', 'Agricultural Diagnostic Standards & Evidence-Based Safety')}
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-stone-600">
           <div className="space-y-1">
-            <strong className="block text-stone-800 font-bold">1. Specialist Neural Networks</strong>
+            <strong className="block text-stone-800 font-bold">
+              {t('diagnosis_safety_s1_title', '1. Validated Crop Models')}
+            </strong>
             <p className="leading-relaxed">
-              Dynamically routes images to dedicated specialist architectures: <strong>EfficientNet-B2</strong> for Cotton (ICAR-CICR), <strong>ResNet-50</strong> for Wheat rusts (CIMMYT/IIWBR), <strong>Vision Transformer (ViT)</strong> for Rice (IRRI/NRRI), and <strong>PlantVillage Benchmark</strong> for horticultural crops.
+              {t(
+                'diagnosis_safety_s1_desc',
+                'Images are processed through crop-specific computer vision models aligned with ICAR and agricultural research protocols. Models are never applied to crops outside their validated domain.'
+              )}
             </p>
           </div>
           <div className="space-y-1">
-            <strong className="block text-stone-800 font-bold">2. Botanical Crop Identification</strong>
+            <strong className="block text-stone-800 font-bold">
+              {t('diagnosis_safety_s2_title', '2. Intelligent Field Context')}
+            </strong>
             <p className="leading-relaxed">
-              When a crop is not pre-selected by the farmer, the botanical feature extraction layer identifies the leaf species before routing to the appropriate specialist disease classifier.
+              {t(
+                'diagnosis_safety_s2_desc',
+                'Your registered field information is checked against visual leaf morphology. When a discrepancy occurs, the system alerts you rather than generating an incorrect diagnosis.'
+              )}
             </p>
           </div>
           <div className="space-y-1">
-            <strong className="block text-stone-800 font-bold">3. Conservative Action Boundary</strong>
+            <strong className="block text-stone-800 font-bold">
+              {t('diagnosis_safety_s3_title', '3. Verified Treatments Only')}
+            </strong>
             <p className="leading-relaxed">
-              Crops in field validation (Sugarcane, Groundnut, Pulses) receive botanical identification and verified ICAR integrated pest management guidance without fabricating unvalidated disease diagnoses.
+              {t(
+                'diagnosis_safety_s3_desc',
+                'Medicines and biological controls strictly follow CIBRC registered label recommendations and official university package of practices. Unverified dosages are never generated.'
+              )}
             </p>
           </div>
         </div>

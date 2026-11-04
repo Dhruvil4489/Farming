@@ -13,7 +13,10 @@ import {
 } from 'lucide-react';
 import { SiteHeader } from '@/components/domain/SiteHeader';
 
+import { useI18n } from '@/providers/I18nProvider';
+
 export default function CartPage() {
+  const { t } = useI18n();
   const [cart, setCart] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
