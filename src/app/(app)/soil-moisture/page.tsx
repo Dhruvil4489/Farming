@@ -187,12 +187,19 @@ const loadHistory = useCallback(async (fieldId: string, tf: '24h' | '7d' | '30d'
   }
 }, []);
 
-useEffect(() => {
-  if (selectedFieldId) {
-    loadTelemetry(selectedFieldId);
-    loadHistory(selectedFieldId, timeframe);
-  }
-}, [selectedFieldId, timeframe, loadTelemetry, loadHistory]);
+  useEffect(() => {
+    if (selectedFieldId) {
+      loadTelemetry(selectedFieldId);
+      loadHistory(selectedFieldId, timeframe);
+
+      // Continuous 3-second live polling for USB hardware serial bridge updates
+      const timer = setInterval(() => {
+        loadTelemetry(selectedFieldId);
+      }, 3000);
+
+      return () => clearInterval(timer);
+    }
+  }, [selectedFieldId, timeframe, loadTelemetry, loadHistory]);
 
 // Handle Manual Log Submit
 const handleManualSubmit = async (e: React.FormEvent) => {
@@ -335,6 +342,41 @@ return (
         <span>{error}</span>
       </div>
     )}
+
+    {/* Urgent Dry Soil Warning Notification Alert */}
+    {telemetry?.latestReading &&
+      telemetry.latestReading.moisturePct < (telemetry.thresholds?.low || 30) && (
+        <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-rose-950 shadow-sm animate-pulse">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-rose-100 rounded-xl text-rose-700 shrink-0 mt-0.5">
+              <AlertTriangle size={20} />
+            </div>
+            <div className="text-xs space-y-0.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-sm text-rose-900">
+                  ⚠️ Critical Soil Moisture Warning: Irrigation Recommended
+                </span>
+                <span className="bg-rose-200 text-rose-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                  Root-Zone Stress
+                </span>
+              </div>
+              <p className="text-rose-800 leading-relaxed font-medium">
+                Soil moisture in <strong>{telemetry.fieldName}</strong> has fallen to{' '}
+                <strong>{telemetry.latestReading.moisturePct.toFixed(1)}%</strong> (critical threshold: {telemetry.thresholds?.low || 30}%).
+                Irrigation is recommended immediately.
+              </p>
+            </div>
+          </div>
+          <Link
+            href={`/irrigation?fieldId=${selectedFieldId}&notes=${encodeURIComponent(
+              telemetry.recommendation?.reason || 'Critical low soil moisture alert'
+            )}`}
+            className="shrink-0 px-4 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold shadow-xs transition-colors self-start sm:self-auto"
+          >
+            Schedule Irrigation →
+          </Link>
+        </div>
+      )}
 
     {/* Sensor Disconnected / Notice Banner */}
     {telemetry && !telemetry.sensorConnected && (
@@ -731,41 +773,72 @@ return (
             <div className="flex justify-between py-1 border-b border-stone-100">
               <span className="text-stone-500">{t('moisture_hardware_type', 'Hardware Type')}:</span>
               <strong className="text-stone-900">
-                {telemetry?.device?.hardwareModel || 'ESP32 Capacitive Probe (v1)'}
+                {telemetry?.device?.hardwareModel || 'Arduino Uno R3 + Capacitive v1.2'}
               </strong>
             </div>
 
             <div className="flex justify-between py-1 border-b border-stone-100">
-              <span className="text-stone-500">{t('moisture_sensor_id', 'Sensor ID')}:</span>
+              <span className="text-stone-500">{t('moisture_sensor_id', 'Device ID')}:</span>
               <strong className="font-mono text-stone-900">
-                {telemetry?.device?.deviceCode || 'None Paired'}
+                {telemetry?.device?.deviceCode || 'UNO-001'}
               </strong>
             </div>
 
             <div className="flex justify-between py-1 border-b border-stone-100">
-              <span className="text-stone-500">{t('moisture_sensor_status', 'Status')}:</span>
+              <span className="text-stone-500">Connection Status:</span>
+              {telemetry?.device?.lastSeenAt &&
+              Date.now() - new Date(telemetry.device.lastSeenAt).getTime() < 60000 ? (
+                <span className="text-emerald-700 font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Online (USB Bridge)
+                </span>
+              ) : (
+                <span className="text-stone-500 font-medium">Offline</span>
+              )}
+            </div>
+
+            <div className="flex justify-between py-1 border-b border-stone-100">
+              <span className="text-stone-500">Irrigation Advice:</span>
               <strong
-                className={telemetry?.sensorConnected ? 'text-emerald-700' : 'text-amber-700'}
+                className={
+                  telemetry?.latestReading?.moisturePct &&
+                  telemetry.latestReading.moisturePct < (telemetry.thresholds?.low || 30)
+                    ? 'text-rose-700'
+                    : 'text-emerald-700'
+                }
               >
-                {telemetry?.sensorConnected
-                  ? t('moisture_sensor_connected', 'Connected')
-                  : t('moisture_sensor_disconnected', 'Not Connected')}
+                {telemetry?.recommendation?.action === 'irrigate_now' ||
+                (telemetry?.latestReading?.moisturePct &&
+                  telemetry.latestReading.moisturePct < (telemetry.thresholds?.low || 30))
+                  ? 'Irrigation Recommended'
+                  : telemetry?.recommendation?.action === 'delay_irrigation'
+                    ? 'No Irrigation Needed'
+                    : 'Monitor Soil (Adequate)'}
               </strong>
+            </div>
+
+            <div className="flex justify-between py-1 border-b border-stone-100 items-center">
+              <span className="text-stone-500">Pump Control:</span>
+              <span className="font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded text-[10px]">
+                NOT CONNECTED (Safety Lock)
+              </span>
             </div>
 
             {telemetry?.device?.batteryVoltage != null && (
               <div className="flex justify-between py-1 border-b border-stone-100">
-                <span className="text-stone-500">Battery Voltage:</span>
+                <span className="text-stone-500">USB / VCC Supply:</span>
                 <strong className="text-stone-900 font-mono">
-                  {telemetry.device.batteryVoltage.toFixed(2)}V
+                  {telemetry.device.batteryVoltage.toFixed(2)}V (5.0V USB)
                 </strong>
               </div>
             )}
           </div>
 
-          <p className="text-[11px] text-stone-500 leading-relaxed pt-1">
-            Supports standard 3.3V capacitive FDR/TDR soil moisture probes attached to ESP32 microcontrollers. Connect probes at 15cm root-zone depth.
-          </p>
+          <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200/80 text-[11px] text-amber-950 space-y-1">
+            <strong className="block font-bold">⚠️ Hardware Circuit Protection Notice</strong>
+            <p className="text-stone-600 leading-relaxed">
+              Mini DC water pump is kept electrically disconnected for circuit safety. Arduino Uno GPIO pins (rated 20mA) cannot directly switch inductive motor loads. The system operates in automatic monitoring & advisory mode.
+            </p>
+          </div>
         </Card>
       </div>
     </div>

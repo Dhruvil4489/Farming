@@ -33,3 +33,7 @@ yarn-error.log*
 
 # Uploads
 /uploads/
+
+# Python
+__pycache__/
+*.pyc
