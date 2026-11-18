@@ -1,23 +1,30 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
-import { getEffectiveUserId } from '@/lib/get-effective-user';
+import { getAuthenticatedUser } from '@/lib/auth';
 import { StoreService } from '@/services/StoreService';
 
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getEffectiveUserId();
-    const { id } = await params;
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return apiError('Please sign in to view order details.', 'unauthorized', 401);
+    }
 
-    const order = await StoreService.getOrderById(id, userId || undefined);
+    const { id } = await params;
+    const isAdmin = user.roles.some((ur) => ur.role.name === 'ADMIN');
+
+    // Enforce strict tenant isolation: farmers can ONLY read their own orders; admins can inspect any order
+    const order = await StoreService.getOrderById(id, isAdmin ? undefined : user.id);
     if (!order) {
       return apiError('Order not found', 'not_found', 404);
     }
 
     return apiSuccess(order);
   } catch (err: any) {
-    return apiError(err.message, 'order_detail_error', 500);
+    console.error('[GET /api/v1/store/orders/[id]] Error:', err);
+    return apiError('Unable to load order details.', 'order_detail_error', 500);
   }
 }

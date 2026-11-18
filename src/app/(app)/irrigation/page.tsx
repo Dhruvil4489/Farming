@@ -175,14 +175,14 @@ function IrrigationContent() {
     if (!form.fieldId) return;
     setAdvisoryLoading(true);
     fetch(`/api/v1/irrigation/advisory?fieldId=${encodeURIComponent(form.fieldId)}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
-        if (json.success && json.data) {
-          setAdvisory(json.data);
-        } else {
-          setAdvisory(null);
-        }
-      })
+          if (json?.data) {
+            setAdvisory(json.data);
+          } else {
+            setAdvisory(null);
+          }
+        })
       .catch(() => setAdvisory(null))
       .finally(() => setAdvisoryLoading(false));
   }, [form.fieldId]);
@@ -574,12 +574,12 @@ function IrrigationContent() {
                   <div className="flex items-center gap-2">
                     <span
                       className={`text-xs font-bold px-2.5 py-1 rounded-full border ${advisory.advisory.action === 'irrigate_now'
-                          ? 'bg-rose-100 text-rose-900 border-rose-300'
-                          : advisory.advisory.action === 'delay_irrigation'
-                            ? 'bg-amber-100 text-amber-900 border-amber-300'
-                            : advisory.advisory.action === 'sufficient_moisture'
-                              ? 'bg-emerald-100 text-[#143D2A] border-emerald-300'
-                              : 'bg-stone-100 text-stone-700 border-stone-300'
+                        ? 'bg-rose-100 text-rose-900 border-rose-300'
+                        : advisory.advisory.action === 'delay_irrigation'
+                          ? 'bg-amber-100 text-amber-900 border-amber-300'
+                          : advisory.advisory.action === 'sufficient_moisture'
+                            ? 'bg-emerald-100 text-[#143D2A] border-emerald-300'
+                            : 'bg-stone-100 text-stone-700 border-stone-300'
                         }`}
                     >
                       {advisory.advisory.action === 'irrigate_now'
@@ -633,10 +633,10 @@ function IrrigationContent() {
                   <span className="text-stone-500">{t('irrigation_advisory_risk', 'Over-Irrigation Risk')}:</span>
                   <span
                     className={`font-bold uppercase ${advisory.advisory.overIrrigationRisk === 'high'
-                        ? 'text-rose-700'
-                        : advisory.advisory.overIrrigationRisk === 'moderate'
-                          ? 'text-amber-700'
-                          : 'text-emerald-700'
+                      ? 'text-rose-700'
+                      : advisory.advisory.overIrrigationRisk === 'moderate'
+                        ? 'text-amber-700'
+                        : 'text-emerald-700'
                       }`}
                   >
                     {advisory.advisory.overIrrigationRisk}

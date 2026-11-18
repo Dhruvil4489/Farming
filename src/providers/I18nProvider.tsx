@@ -24,7 +24,7 @@ interface I18nContextType {
 
 const I18nContext = createContext<I18nContextType>({
   locale: 'en',
-  setLocale: () => {},
+  setLocale: () => { },
   t: (key, fallback) => fallback || key,
   formatDate: (date) => (typeof date === 'string' ? date : date.toLocaleDateString()),
   formatNumber: (num) => num.toString(),
@@ -37,19 +37,16 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   // Load persisted language on client mount
   useEffect(() => {
     try {
-      // 1. Check cookie
       const cookieMatch = document.cookie.match(/(?:^|;\s*)locale=([^;]+)/);
       const cookieLocale = cookieMatch ? (cookieMatch[1] as Locale) : null;
-
-      // 2. Check localStorage
       const localLocale = localStorage.getItem('smartfarm_locale') as Locale | null;
-
       const resolved = cookieLocale || localLocale || 'en';
       if (['en', 'hi', 'gu'].includes(resolved)) {
         setLocaleState(resolved);
+        document.documentElement.lang = resolved;
       }
     } catch {
-      // Ignore security errors in restricted environments
+      // Ignore storage access errors
     }
   }, []);
 
@@ -60,16 +57,23 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem('smartfarm_locale', newLocale);
       document.cookie = `locale=${newLocale}; path=/; max-age=31536000; SameSite=Lax`;
+      document.documentElement.lang = newLocale;
     } catch {
       // Fallback
     }
 
-    // Try updating user profile preference in background
-    fetch('/api/v1/me', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ preferredLanguage: newLocale }),
-    }).catch(() => {});
+    // Only sync preference to server on authenticated app routes (avoids 401 noise on public pages)
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const isPublic = path === '/' || path.startsWith('/login') || path.startsWith('/register') || path.startsWith('/market') || path.startsWith('/fertilizers') || path.startsWith('/cart');
+      if (!isPublic) {
+        fetch('/api/v1/me', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ preferredLanguage: newLocale }),
+        }).catch(() => { });
+      }
+    }
   }, []);
 
   const t = useCallback(
@@ -142,4 +146,3 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 export function useI18n() {
   return useContext(I18nContext);
 }
-

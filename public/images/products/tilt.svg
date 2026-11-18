@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F2F4F1"/>
+    </radialGradient>
+    <linearGradient id="bottleBody" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E4E9E5"/>
+      <stop offset="22%" stop-color="#FFFFFF"/>
+      <stop offset="75%" stop-color="#F9FBF9"/>
+      <stop offset="100%" stop-color="#D4DCD6"/>
+    </linearGradient>
+    <linearGradient id="capGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0F2D1F"/>
+      <stop offset="40%" stop-color="#16A34A"/>
+      <stop offset="100%" stop-color="#0F2D1F"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="24" stdDeviation="20" flood-color="#0F2D1F" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="800" height="800" fill="url(#bg)"/>
+  <ellipse cx="400" cy="692" rx="165" ry="20" fill="#0F2D1F" opacity="0.14"/>
+
+  <g filter="url(#shadow)">
+    <!-- Measuring Cap -->
+    <rect x="336" y="102" width="128" height="72" rx="14" fill="url(#capGrad)"/>
+    <line x1="354" y1="112" x2="354" y2="164" stroke="#FFFFFF" stroke-width="2" opacity="0.25"/>
+    <line x1="376" y1="112" x2="376" y2="164" stroke="#FFFFFF" stroke-width="2" opacity="0.25"/>
+    <line x1="400" y1="112" x2="400" y2="164" stroke="#FFFFFF" stroke-width="2" opacity="0.25"/>
+    <line x1="424" y1="112" x2="424" y2="164" stroke="#FFFFFF" stroke-width="2" opacity="0.25"/>
+    <line x1="446" y1="112" x2="446" y2="164" stroke="#FFFFFF" stroke-width="2" opacity="0.25"/>
+    <!-- Neck Collar -->
+    <rect x="328" y="170" width="144" height="22" rx="6" fill="#EAB308"/>
+    <!-- Bottle Shoulder & Body -->
+    <path d="M332,192 C332,226 248,244 248,298 L248,648 C248,668 266,680 288,680 L512,680 C534,680 552,668 552,648 L552,298 C552,244 468,226 468,192 Z" fill="url(#bottleBody)" stroke="#CED7D0" stroke-width="2"/>
+
+    <!-- Wrap Label -->
+    <rect x="256" y="302" width="288" height="332" rx="12" fill="#FFFFFF" stroke="#E3E8E4" stroke-width="1.5"/>
+    <!-- Top Label Header -->
+    <path d="M256,314 C256,307 262,302 268,302 L532,302 C538,302 544,307 544,314 L544,386 L256,386 Z" fill="#14532D"/>
+    <text x="400" y="338" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#EAB308">DHANUKA AGRITECH</text>
+    <text x="400" y="368" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="22" font-weight="900" fill="#FFFFFF">TILT FUNGICIDE</text>
+
+    <!-- Accent Strip -->
+    <rect x="256" y="386" width="288" height="8" fill="#EAB308"/>
+
+    <!-- Botanical Leaf Emblem -->
+    <circle cx="400" cy="444" r="32" fill="#14532D" opacity="0.12"/>
+    <path d="M400,464 L400,432" stroke="#14532D" stroke-width="4" stroke-linecap="round"/>
+    <path d="M400,446 C380,444 374,428 384,420 C394,422 400,432 400,446 Z" fill="#14532D"/>
+    <path d="M400,438 C420,436 426,420 416,412 C406,414 400,424 400,438 Z" fill="#16A34A"/>
+
+    <!-- Composition & Details -->
+    <text x="400" y="504" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="17" font-weight="800" fill="#132A1E">Systemic Triazole Protection</text>
+    <rect x="282" y="520" width="236" height="36" rx="18" fill="#14532D"/>
+    <text x="400" y="544" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="15" font-weight="800" fill="#FFFFFF">PROPICONAZOLE 25% EC</text>
+
+    <!-- Pack Size Footer -->
+    <text x="400" y="592" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14" font-weight="700" fill="#54685D">CROP PROTECTION SOLUTION</text>
+    <text x="400" y="618" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="17" font-weight="900" fill="#132A1E">NET VOL: 250 ml Bottle</text>
+  </g>
+</svg>

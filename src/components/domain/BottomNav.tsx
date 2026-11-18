@@ -3,40 +3,45 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Tractor, Sprout, Bot, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Grid, Sprout, TrendingUp, Bot } from 'lucide-react';
+import { useI18n } from '@/providers/I18nProvider';
 
 export const BottomNav: React.FC = () => {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   const items = [
-    { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
-    { href: '/farms', label: 'My Farm', icon: Tractor },
-    { href: '/mandi', label: 'Mandi', icon: TrendingUp },
-    { href: '/crops', label: 'Crops', icon: Sprout },
-    { href: '/assistant', label: 'Assistant', icon: Bot },
+    { href: '/dashboard', key: 'dashboard', label: 'Home', icon: LayoutDashboard },
+    { href: '/fields', key: 'fields', label: 'Fields', icon: Grid },
+    { href: '/crops', key: 'crops', label: 'Crops', icon: Sprout },
+    { href: '/mandi', key: 'mandi', label: 'Mandi', icon: TrendingUp },
+    { href: '/assistant', key: 'assistant', label: 'AI', icon: Bot },
   ];
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-stone-200 px-2 py-1 shadow-lg">
-      <div className="flex items-center justify-around relative">
-        {items.map((item, idx) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
+          <nav
+            aria-label="Mobile Bottom Navigation"
+            className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-stone-200 px-2 py-1 shadow-lg"
+          >
+            <div className="flex items-center justify-around">
+              {items.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-col items-center py-1.5 px-3 min-w-[64px] min-h-[48px] justify-center text-xs ${
-                isActive ? 'text-[#2F7D4F] font-bold' : 'text-stone-500 font-medium'
-              }`}
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                        }`}
             >
-              <Icon size={20} className={isActive ? 'text-[#2F7D4F]' : 'text-stone-400'} />
-              <span className="text-[10px] mt-0.5">{item.label}</span>
+              <Icon size={19} className={isActive ? 'text-[#2F7D4F]' : 'text-stone-400'} />
+              <span className="text-[10px] mt-0.5 truncate max-w-[64px]">
+                {t(item.key, item.label)}
+              </span>
             </Link>
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 };

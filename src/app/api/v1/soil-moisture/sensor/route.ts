@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { SoilMoistureService } from '@/services/SoilMoistureService';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
 import { getAuthenticatedUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,11 @@ const ingestSchema = z.object({
 // GET /api/v1/soil-moisture/sensor?fieldId=...
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return apiError('Please sign in to view soil moisture telemetry.', 'unauthorized', 401);
+    }
+
     const { searchParams } = new URL(request.url);
     const fieldId = searchParams.get('fieldId');
 
@@ -27,24 +33,44 @@ export async function GET(request: NextRequest) {
       return apiError('fieldId query parameter is required', 'missing_field_id', 400);
     }
 
+    const ownedField = await prisma.field.findFirst({
+      where: { id: fieldId, deletedAt: null, farm: { userId: user.id, deletedAt: null } },
+      select: { id: true },
+    });
+    if (!ownedField) {
+      return apiError('Field not found or access denied.', 'not_found', 404);
+    }
+
     const telemetry = await SoilMoistureService.getFieldSensorTelemetry(fieldId);
 
-    // Return in both envelope and telemetry property for backwards compatibility
     return apiSuccess({
       ...telemetry,
       telemetry,
     });
   } catch (error: any) {
     console.error('[API /api/v1/soil-moisture/sensor] Error:', error);
-    return apiError(error.message || 'Error fetching field sensor telemetry', 'sensor_error', 500);
+    return apiError('Unable to load soil moisture telemetry right now.', 'sensor_error', 500);
   }
 }
 
-// POST /api/v1/soil-moisture/sensor — IoT Device ingestion (ESP32 / Capacitive probe)
+// POST /api/v1/soil-moisture/sensor — Authenticated farmer or verified IoT ingestion
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return apiError('Authentication required to record sensor telemetry.', 'unauthorized', 401);
+    }
+
     const body = await request.json();
     const parsed = ingestSchema.parse(body);
+
+    const ownedField = await prisma.field.findFirst({
+      where: { id: parsed.fieldId, deletedAt: null, farm: { userId: user.id, deletedAt: null } },
+      select: { id: true },
+    });
+    if (!ownedField) {
+      return apiError('Field not found or access denied.', 'not_found', 404);
+    }
 
     const reading = await SoilMoistureService.recordSensorReading({
       fieldId: parsed.fieldId,
@@ -67,9 +93,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return apiError('Validation error', 'validation_error', 422, error.flatten().fieldErrors as any);
+      return apiError(error.issues[0]?.message || 'Validation error', 'validation_error', 422, error.flatten().fieldErrors as any);
     }
     console.error('[API /api/v1/soil-moisture/sensor POST] Error:', error);
-    return apiError(error.message || 'Failed to ingest sensor telemetry', 'ingest_error', 500);
+    return apiError('Failed to save sensor reading.', 'ingest_error', 500);
   }
 }

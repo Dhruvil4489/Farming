@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F2F4F1"/>
+    </radialGradient>
+    <linearGradient id="pouchFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#15803D"/>
+      <stop offset="55%" stop-color="#65A30D"/>
+      <stop offset="100%" stop-color="#15803D"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.28"/>
+      <stop offset="22%" stop-color="#FFFFFF" stop-opacity="0.06"/>
+      <stop offset="80%" stop-color="#000000" stop-opacity="0.02"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.18"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="24" stdDeviation="20" flood-color="#0F2D1F" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="800" height="800" fill="url(#bg)"/>
+  <ellipse cx="400" cy="690" rx="205" ry="22" fill="#0F2D1F" opacity="0.13"/>
+
+  <!-- Stand-up Foil Pouch -->
+  <g filter="url(#shadow)">
+    <path d="M225,115 L575,115 L595,645 C595,665 565,675 400,675 C235,675 205,665 205,645 Z" fill="url(#pouchFill)" rx="18"/>
+    <path d="M225,115 L575,115 L595,645 C595,665 565,675 400,675 C235,675 205,665 205,645 Z" fill="url(#sheen)"/>
+    <!-- Top tear seal -->
+    <line x1="224" y1="148" x2="576" y2="148" stroke="#FFFFFF" stroke-width="2" opacity="0.35"/>
+    <circle cx="222" cy="148" r="4" fill="#F2F4F1"/>
+    <circle cx="578" cy="148" r="4" fill="#F2F4F1"/>
+
+    <!-- White Label Panel -->
+    <rect x="242" y="210" width="316" height="365" rx="22" fill="#FFFFFF" opacity="0.96"/>
+    <!-- Brand pill -->
+    <rect x="290" y="168" width="220" height="30" rx="15" fill="#BEF264"/>
+    <text x="400" y="188" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14" font-weight="900" letter-spacing="1.5" fill="#132A1E">BAYER CROPSCIENCE</text>
+
+    <!-- Leaf Shield Icon -->
+    <circle cx="400" cy="282" r="42" fill="#15803D" opacity="0.12"/>
+    <path d="M400,250 C422,258 430,278 422,300 C414,310 400,316 400,316 C400,316 386,310 378,300 C370,278 378,258 400,250 Z" fill="#15803D"/>
+    <path d="M400,264 L400,304 M400,282 L413,273 M400,290 L387,281" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Product Name -->
+    <text x="400" y="372" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="34" font-weight="900" fill="#132A1E">ANTRACOL</text>
+    <text x="400" y="406" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="17" font-weight="700" fill="#15803D">Zinc-Enriched Contact Fungicide</text>
+
+    <!-- Active Composition Badge -->
+    <rect x="268" y="432" width="264" height="44" rx="14" fill="#15803D" opacity="0.12"/>
+    <text x="400" y="460" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="16" font-weight="800" fill="#15803D">PROPINEB 70% WP</text>
+
+    <!-- Bottom Specs -->
+    <line x1="274" y1="504" x2="526" y2="504" stroke="#E5E9E4" stroke-width="1.5"/>
+    <text x="400" y="534" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="15" font-weight="700" fill="#52665B">AGRICULTURAL PROTECTION</text>
+    <text x="400" y="558" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="16" font-weight="900" fill="#132A1E">PACK: 500 g Pack</text>
+
+    <!-- Bottom Pouch Gusset -->
+    <text x="400" y="636" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14" font-weight="700" letter-spacing="2" fill="#FFFFFF" opacity="0.9">CIBRC / CO-OP VERIFIED</text>
+  </g>
+</svg>

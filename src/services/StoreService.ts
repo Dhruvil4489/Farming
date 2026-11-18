@@ -26,13 +26,16 @@ export class StoreService {
     sort?: 'price_asc' | 'price_desc' | 'name_asc';
   }) {
     const where: any = { isAvailable: true };
+    const andConditions: any[] = [];
 
     if (params.query) {
-      where.OR = [
-        { name: { contains: params.query } },
-        { description: { contains: params.query } },
-        { composition: { contains: params.query } },
-      ];
+      andConditions.push({
+        OR: [
+          { name: { contains: params.query } },
+          { description: { contains: params.query } },
+          { composition: { contains: params.query } },
+        ],
+      });
     }
     if (params.categorySlug) {
       where.category = { slug: params.categorySlug };
@@ -41,10 +44,16 @@ export class StoreService {
       where.brandId = params.brandId;
     }
     if (params.crop) {
-      where.OR = [
-        { cropTarget: { contains: params.crop.toLowerCase() } },
-        { cropTarget: 'all_crops' },
-      ];
+      andConditions.push({
+        OR: [
+          { cropTarget: { contains: params.crop.toLowerCase() } },
+          { cropTarget: 'all_crops' },
+          { cropTarget: 'all' },
+        ],
+      });
+    }
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
     }
     if (params.minPrice !== undefined || params.maxPrice !== undefined) {
       where.price = {};
@@ -134,8 +143,11 @@ export class StoreService {
    * Add to Cart with stock enforcement
    */
   static async addToCart(userId: string, productId: string, quantity = 1) {
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new Error('Quantity must be a positive whole number');
+    }
     const product = await prisma.product.findUnique({ where: { id: productId } });
-    if (!product) throw new Error('Product not found');
+    if (!product || !product.isAvailable) throw new Error('Product not found or currently unavailable');
 
     const existing = await prisma.cartItem.findUnique({
       where: { userId_productId: { userId, productId } },

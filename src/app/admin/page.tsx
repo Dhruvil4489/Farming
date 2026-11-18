@@ -43,476 +43,470 @@ export default function AdminPage() {
     setError(null);
     setPermissionDenied(false);
     try {
-      const [sumRes, mRes, pRes, oRes, healthRes] = await Promise.all([
-        fetch('/api/v1/dashboard/summary'),
-        fetch('/api/v1/market/status'),
-        fetch('/api/v1/store/products'),
-        fetch('/api/v1/store/orders'),
-        fetch('/api/v1/admin/market/sync'),
-      ]);
+      const [overviewRes, mRes, pRes, healthRes] = await Promise.all([
+          fetch('/api/v1/admin/overview'),
+          fetch('/api/v1/market/status'),
+          fetch('/api/v1/store/products'),
+          fetch('/api/v1/admin/market/sync'),
+        ]);
 
-      if (sumRes.status === 401 || healthRes.status === 401 || healthRes.status === 403) {
-        setPermissionDenied(true);
-        setLoading(false);
-        return;
-      }
-
-      if (!sumRes.ok && !healthRes.ok) {
-        throw new Error(`Failed to load admin telemetry (HTTP ${sumRes.status})`);
-      }
-
-      if (sumRes.ok) {
-        const s = await sumRes.json();
-        setStats(s.data);
-      }
-      if (mRes.ok) {
-        const m = await mRes.json();
-        setMarketStatus(m.data);
-      }
-      if (pRes.ok) {
-        const p = await pRes.json();
-        setStoreProducts(p.data || []);
-      }
-      if (oRes.ok) {
-        const o = await oRes.json();
-        setOrders(o.data || []);
-      }
-      if (healthRes.ok) {
-        const h = await healthRes.json();
-        if (h.success && h.data) {
-          setSyncHealth(h.data);
+        if (overviewRes.status === 401 || overviewRes.status === 403 || healthRes.status === 401 || healthRes.status === 403) {
+          setPermissionDenied(true);
+          setLoading(false);
+          return;
         }
-      }
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message || 'Unable to load admin console data');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    fetchAdminData();
-  }, []);
+          if (!overviewRes.ok && !healthRes.ok) {
+            throw new Error(`Failed to load admin telemetry (HTTP ${overviewRes.status})`);
+          }
 
-  const handleTriggerSync = async () => {
-    setSyncing(true);
-    setSyncMsg('');
-    setSyncError(null);
-    try {
-      const res = await fetch('/api/v1/admin/market/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const json = await res.json();
-      if (res.status === 409) {
-        setSyncError(json.error?.message || 'Sync lock active: Another job is currently running.');
-      } else if (res.ok && json.data) {
-        const d = json.data;
-        if (d.status === 'skipped_locked') {
-          setSyncError(`Sync skipped: lock is held until ${d.lockedUntil || 'soon'}.`);
-        } else {
-          setSyncMsg(
-            `Sync ${d.status}: ${d.recordsFetched} fetched, ${d.recordsStored} stored, ${d.recordsSkipped || 0} skipped, ${d.anomalies || 0} anomalies (${d.durationMs}ms). Source: ${d.triggerSource || 'manual'}`
-          );
-        }
-      } else {
-        setSyncError(`Sync failed: ${json.error?.message || res.statusText}`);
-      }
-      await fetchAdminData();
-    } catch (e: any) {
-      setSyncError(`Sync error: ${e.message}`);
-    } finally {
-      setSyncing(false);
-    }
-  };
+            if (overviewRes.ok) {
+              const ov = await overviewRes.json();
+              setStats(ov.data);
+              setOrders(ov.data?.orders || []);
+            }
+            if (mRes.ok) {
+              const m = await mRes.json();
+              setMarketStatus(m.data);
+            }
+            if (pRes.ok) {
+              const p = await pRes.json();
+              setStoreProducts(p.data || []);
+            }
+            if (healthRes.ok) {
+              const h = await healthRes.json();
+                if (h?.data) {
+                  setSyncHealth(h.data);
+                }
+              }
+            } catch (e: any) {
+              console.error(e);
+              setError(e.message || 'Unable to load admin console data');
+            } finally {
+              setLoading(false);
+            }
+          };
 
-  if (permissionDenied) {
-    return (
-      <div className="max-w-2xl mx-auto py-12 px-4">
-        <PermissionDeniedState
-          title="Administrative Access Restricted"
-          message="You do not have administrative permissions to view the operations console, or your session has expired. Please sign in with an administrator account."
-          loginUrl="/login?redirect=/admin"
-        />
-      </div>
-    );
-  }
+          useEffect(() => {
+            fetchAdminData();
+          }, []);
 
-  return (
-    <DataState
-      status={loading ? 'loading' : error ? 'error' : 'success'}
-      errorMessage={error || undefined}
-      onRetry={fetchAdminData}
-    >
-      <div className="max-w-6xl mx-auto space-y-8 p-4 sm:p-6 font-sans">
-        {/* Admin Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#0F2D1F] text-white rounded-xl flex items-center justify-center font-bold shadow-sm">
-              <ShieldAlert size={22} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-extrabold text-stone-900 tracking-tight">Admin & Operations Console</h1>
-              <p className="text-xs text-stone-500">Mandi feed synchronization, fertilizer store catalog, and system provenance audits</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/dashboard">
-              <Button size="sm" variant="outline">
-                Farmer App
-              </Button>
-            </Link>
-            <Link href="/">
-              <Button size="sm">
-                Homepage
-              </Button>
-            </Link>
-          </div>
-        </div>
+          const handleTriggerSync = async () => {
+            setSyncing(true);
+            setSyncMsg('');
+            setSyncError(null);
+            try {
+              const res = await fetch('/api/v1/admin/market/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+              });
+              const json = await res.json();
+              if (res.status === 409) {
+                setSyncError(json?.meta?.message || json?.error?.message || 'Sync lock active: Another job is currently running.');
+              } else if (res.ok && json.data) {
+                const d = json.data;
+                if (d.status === 'skipped_locked') {
+                  setSyncError(`Sync skipped: lock is held until ${d.lockedUntil || 'soon'}.`);
+                } else {
+                  setSyncMsg(
+                    `Sync ${d.status}: ${d.recordsFetched} fetched, ${d.recordsStored} stored, ${d.recordsSkipped || 0} skipped, ${d.anomalies || 0} anomalies (${d.durationMs}ms). Source: ${d.triggerSource || 'manual'}`
+                  );
+                }
+              } else {
+                setSyncError(`Sync failed: ${json.error?.message || res.statusText}`);
+              }
+              await fetchAdminData();
+            } catch (e: any) {
+              setSyncError(`Sync error: ${e.message}`);
+            } finally {
+              setSyncing(false);
+            }
+          };
 
-        {/* System Health Tiles */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <Card className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-100 text-emerald-800 rounded-lg flex items-center justify-center">
-              <Database size={20} />
-            </div>
-            <div>
-              <span className="text-xs font-semibold text-stone-500 block">Database Storage</span>
-              <span className="text-sm font-bold text-stone-900">SQLite (dev.db)</span>
-            </div>
-          </Card>
-
-          <Card className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 bg-sky-100 text-sky-800 rounded-lg flex items-center justify-center">
-              <Activity size={20} />
-            </div>
-            <div>
-              <span className="text-xs font-semibold text-stone-500 block">Weather Telemetry</span>
-              <span className="text-sm font-bold text-stone-900">Open-Meteo & Demo</span>
-            </div>
-          </Card>
-
-          <Card className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-100 text-purple-800 rounded-lg flex items-center justify-center">
-              <TrendingUp size={20} />
-            </div>
-            <div>
-              <span className="text-xs font-semibold text-stone-500 block">Mandi Feed Source</span>
-              <span className="text-sm font-bold text-stone-900">AGMARKNET (DMI)</span>
-            </div>
-          </Card>
-
-          <Card className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-100 text-amber-800 rounded-lg flex items-center justify-center">
-              <Package size={20} />
-            </div>
-            <div>
-              <span className="text-xs font-semibold text-stone-500 block">Store Orders</span>
-              <span className="text-sm font-bold text-stone-900">{orders.length} Active Orders</span>
-            </div>
-          </Card>
-        </div>
-
-        {/* Section: Market Synchronization Manager */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-stone-200 space-y-6 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-100">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-stone-900 flex items-center gap-2">
-                  <TrendingUp size={18} className="text-[#2F7D4F]" /> AGMARKNET Mandi Price Sync Engine
-                </h2>
-                {syncHealth?.isLocked ? (
-                  <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold flex items-center gap-1">
-                    <Lock size={10} /> Sync Lock Active
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold flex items-center gap-1">
-                    <CheckCircle2 size={10} /> Lock Idle / Ready
-                  </span>
-                )}
+          if (permissionDenied) {
+            return (
+              <div className="max-w-2xl mx-auto py-12 px-4">
+                <PermissionDeniedState
+                  title="Administrative Access Restricted"
+                  message="You do not have administrative permissions to view the operations console, or your session has expired. Please sign in with an administrator account."
+                  loginUrl="/login?redirect=/admin"
+                />
               </div>
-              <p className="text-xs text-stone-500">
-                Automated twice-daily wholesale price polling with database-backed run guards and provenance tracking
-              </p>
-            </div>
-            <button
-              onClick={handleTriggerSync}
-              disabled={syncing || syncHealth?.isLocked}
-              className="px-4 py-2 bg-[#2F7D4F] hover:bg-[#25663f] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 self-start sm:self-auto shadow-xs"
+            );
+          }
+
+          return (
+            <DataState
+              status={loading ? 'loading' : error ? 'error' : 'success'}
+              errorMessage={error || undefined}
+              onRetry={fetchAdminData}
             >
-              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-              {syncing ? 'Synchronizing...' : 'Sync Now (Manual)'}
-            </button>
-          </div>
-
-          {syncMsg && (
-            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 font-medium flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-emerald-700 shrink-0" />
-              <span>{syncMsg}</span>
-            </div>
-          )}
-
-          {syncError && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 font-medium flex items-center gap-2">
-              <AlertTriangle size={16} className="text-rose-700 shrink-0" />
-              <span>{syncError}</span>
-            </div>
-          )}
-
-          {/* Sync Health Diagnostic Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-            {/* 1. Last Success */}
-            <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-1.5">
-              <div className="flex items-center justify-between text-stone-500 text-[11px] font-bold uppercase tracking-wider">
-                <span>Last Successful Run</span>
-                <CheckCircle2 size={14} className="text-emerald-600" />
-              </div>
-              <p className="font-extrabold text-stone-900 text-sm">
-                {syncHealth?.lastSuccess
-                  ? new Date(syncHealth.lastSuccess.timestamp).toLocaleString('en-IN', {
-                      timeZone: 'Asia/Kolkata',
-                      dateStyle: 'short',
-                      timeStyle: 'short',
-                    }) + ' IST'
-                  : 'No successful run yet'}
-              </p>
-              <p className="text-stone-500 text-[11px]">
-                {syncHealth?.lastSuccess
-                  ? `${syncHealth.lastSuccess.recordsStored} stored • ${syncHealth.lastSuccess.durationMs || 0}ms (${syncHealth.lastSuccess.triggerSource})`
-                  : 'Awaiting initial trigger'}
-              </p>
-            </div>
-
-            {/* 2. Last Attempt */}
-            <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-1.5">
-              <div className="flex items-center justify-between text-stone-500 text-[11px] font-bold uppercase tracking-wider">
-                <span>Last Attempt</span>
-                <Activity size={14} className="text-stone-500" />
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                    syncHealth?.lastAttempt?.status === 'success'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : syncHealth?.lastAttempt?.status === 'partial'
-                      ? 'bg-amber-100 text-amber-800'
-                      : syncHealth?.lastAttempt?.status === 'skipped_locked'
-                      ? 'bg-orange-100 text-orange-800'
-                      : 'bg-rose-100 text-rose-800'
-                  }`}
-                >
-                  {syncHealth?.lastAttempt?.status || 'None'}
-                </span>
-                <span className="font-bold text-stone-900 text-xs">
-                  {syncHealth?.lastAttempt?.triggerSource || 'system'}
-                </span>
-              </div>
-              <p className="text-stone-500 text-[11px] truncate">
-                {syncHealth?.lastAttempt?.errorMessage
-                  ? syncHealth.lastAttempt.errorMessage
-                  : `${syncHealth?.lastAttempt?.recordsStored || 0} stored, ${syncHealth?.lastAttempt?.recordsSkipped || 0} skipped`}
-              </p>
-            </div>
-
-            {/* 3. Next Scheduled Run */}
-            <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-1.5">
-              <div className="flex items-center justify-between text-stone-500 text-[11px] font-bold uppercase tracking-wider">
-                <span>Next Scheduled Run</span>
-                <Clock size={14} className="text-sky-600" />
-              </div>
-              <p className="font-extrabold text-stone-900 text-sm">
-                {syncHealth?.nextScheduledRun?.nextRunFormattedIST || '06:30 IST'}
-              </p>
-              <p className="text-stone-500 text-[11px]">
-                {syncHealth?.nextScheduledRun?.cadence || 'Twice daily'} ({syncHealth?.nextScheduledRun?.cronExpressionUtc} UTC)
-              </p>
-            </div>
-
-            {/* 4. Data Freshness & Provenance */}
-            <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-1.5">
-              <div className="flex items-center justify-between text-stone-500 text-[11px] font-bold uppercase tracking-wider">
-                <span>Data Freshness & Integrity</span>
-                <Database size={14} className="text-purple-600" />
-              </div>
-              <p className="font-extrabold text-stone-900 text-sm">
-                Arrival: {syncHealth?.dataFreshness?.latestReportedArrivalDate || 'N/A'}
-              </p>
-              <p className="text-stone-500 text-[11px]">
-                Synced: {syncHealth?.dataFreshness?.latestLocalSyncTimestamp
-                  ? new Date(syncHealth.dataFreshness.latestLocalSyncTimestamp).toLocaleTimeString('en-IN', {
-                      timeZone: 'Asia/Kolkata',
-                    }) + ' IST'
-                  : 'N/A'}{' '}
-                • {syncHealth?.dataFreshness?.totalStoredRecords || 0} rows (
-                {syncHealth?.dataFreshness?.isDemoData ? 'Demo/Fallback' : 'Live Official'})
-              </p>
-            </div>
-          </div>
-
-          {/* Recent Sync Audit Log Table */}
-          <div className="space-y-3 pt-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center justify-between">
-              <span>Recent Synchronization Runs (Audit Trail):</span>
-              <span className="text-[11px] text-stone-500 font-normal">Last {syncHealth?.recentLogs?.length || 0} invocations</span>
-            </h3>
-
-            {(!syncHealth?.recentLogs || syncHealth.recentLogs.length === 0) ? (
-              <p className="text-stone-500 text-xs italic py-2">No sync logs recorded yet.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-2xl border border-stone-100">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-stone-50 text-stone-500 font-bold uppercase text-[10px] border-b border-stone-200">
-                    <tr>
-                      <th className="py-2.5 px-3">Run Time (IST)</th>
-                      <th className="py-2.5 px-3">Source</th>
-                      <th className="py-2.5 px-3">Provider</th>
-                      <th className="py-2.5 px-3 text-center">Status</th>
-                      <th className="py-2.5 px-3 text-right">Fetched</th>
-                      <th className="py-2.5 px-3 text-right">Stored</th>
-                      <th className="py-2.5 px-3 text-right">Skipped</th>
-                      <th className="py-2.5 px-3 text-right">Duration</th>
-                      <th className="py-2.5 px-3">Details / Error</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100 font-medium">
-                    {syncHealth.recentLogs.map((log: any) => (
-                      <tr key={log.id} className="hover:bg-stone-50/50">
-                        <td className="py-2.5 px-3 font-semibold text-stone-900 whitespace-nowrap">
-                          {new Date(log.startedAt).toLocaleString('en-IN', {
-                            timeZone: 'Asia/Kolkata',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                          })}
-                        </td>
-                        <td className="py-2.5 px-3 text-stone-600 capitalize">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-stone-100 text-stone-700">
-                            {log.triggerSource || 'scheduled'}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-stone-600 truncate max-w-[120px]">{log.provider}</td>
-                        <td className="py-2.5 px-3 text-center">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                              log.status === 'success'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : log.status === 'partial'
-                                ? 'bg-amber-100 text-amber-800'
-                                : log.status === 'skipped_locked'
-                                ? 'bg-orange-100 text-orange-800'
-                                : 'bg-rose-100 text-rose-800'
-                            }`}
-                          >
-                            {log.status}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-stone-600">{log.recordsFetched}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-stone-900">{log.recordsStored}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-stone-500">{log.recordsSkipped || 0}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-stone-500">{log.durationMs != null ? `${log.durationMs}ms` : '-'}</td>
-                        <td className="py-2.5 px-3 text-stone-500 text-[11px] truncate max-w-[200px]" title={log.errorMessage || 'Clean run'}>
-                          {log.errorMessage ? (
-                            <span className="text-rose-600">{log.errorMessage}</span>
-                          ) : (
-                            <span className="text-emerald-700">OK</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Section: Fertilizer Store & Orders Manager */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-stone-200 space-y-6 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-stone-100">
-            <div>
-              <h2 className="text-base font-bold text-stone-900 flex items-center gap-2">
-                <Package size={18} className="text-amber-600" /> Fertilizer Catalog & Inventory
-              </h2>
-              <p className="text-xs text-stone-500 mt-0.5">
-                Active cooperative products, real-time stock counts, and customer orders
-              </p>
-            </div>
-            <Link
-              href="/fertilizers"
-              className="text-xs font-bold text-[#2F7D4F] hover:underline"
-            >
-              View Public Store →
-            </Link>
-          </div>
-
-          {/* Active Product Inventory List */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600">
-              Active Cooperative Inventory ({storeProducts.length} Products):
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-stone-50 text-stone-500 font-bold uppercase text-[10px] border-b border-stone-100">
-                  <tr>
-                    <th className="py-2.5 px-3">Product Name</th>
-                    <th className="py-2.5 px-3">Brand</th>
-                    <th className="py-2.5 px-3">Pack Size</th>
-                    <th className="py-2.5 px-3 text-right">Price</th>
-                    <th className="py-2.5 px-3 text-center">Available Stock</th>
-                    <th className="py-2.5 px-3 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100 font-medium">
-                  {storeProducts.map((p) => (
-                    <tr key={p.id} className="hover:bg-stone-50/50">
-                      <td className="py-2.5 px-3 font-bold text-stone-900">{p.name}</td>
-                      <td className="py-2.5 px-3 text-stone-600">{p.brand?.name}</td>
-                      <td className="py-2.5 px-3 text-stone-600">{p.packSize}</td>
-                      <td className="py-2.5 px-3 text-right font-black text-stone-900">₹{p.price.toFixed(2)}</td>
-                      <td className="py-2.5 px-3 text-center font-bold text-emerald-800">{p.stock} units</td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold">
-                          Live
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Recent Orders Overview */}
-          <div className="pt-4 border-t border-stone-100 space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600">
-              Customer Orders Dispatches ({orders.length} Total):
-            </h3>
-            <div className="space-y-2">
-              {orders.map((o) => (
-                <div key={o.id} className="p-3.5 bg-stone-50 rounded-xl flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-stone-900">Order #{o.orderNumber}</span>
-                    <span className="text-stone-500 ml-2">• Customer: {o.deliveryName} ({o.deliveryDistrict})</span>
-                  </div>
+              <div className="max-w-6xl mx-auto space-y-8 p-4 sm:p-6 font-sans">
+                {/* Admin Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 pb-4">
                   <div className="flex items-center gap-3">
-                    <span className="font-black text-stone-900">₹{o.totalAmount.toFixed(2)}</span>
-                    <span className="px-2 py-0.5 bg-purple-100 text-purple-800 font-bold rounded text-[10px] uppercase">
-                      {o.status}
-                    </span>
-                    <Link href={`/orders/${o.id}`} className="text-[#2F7D4F] font-bold hover:underline">
-                      Inspect →
+                    <div className="w-10 h-10 bg-[#0F2D1F] text-white rounded-xl flex items-center justify-center font-bold shadow-sm">
+                      <ShieldAlert size={22} />
+                    </div>
+                    <div>
+                      <h1 className="text-2xl font-extrabold text-stone-900 tracking-tight">Admin & Operations Console</h1>
+                      <p className="text-xs text-stone-500">Mandi feed synchronization, fertilizer store catalog, and system provenance audits</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link href="/dashboard">
+                      <Button size="sm" variant="outline">
+                        Farmer App
+                      </Button>
+                    </Link>
+                    <Link href="/">
+                      <Button size="sm">
+                        Homepage
+                      </Button>
                     </Link>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </DataState>
-  );
-}
+
+                {/* System Health Tiles */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <Card className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-100 text-emerald-800 rounded-lg flex items-center justify-center">
+                      <Database size={20} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-stone-500 block">Database Storage</span>
+                      <span className="text-sm font-bold text-stone-900">SQLite (dev.db)</span>
+                    </div>
+                  </Card>
+
+                  <Card className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-sky-100 text-sky-800 rounded-lg flex items-center justify-center">
+                      <Activity size={20} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-stone-500 block">Weather Telemetry</span>
+                      <span className="text-sm font-bold text-stone-900">Open-Meteo & Demo</span>
+                    </div>
+                  </Card>
+
+                  <Card className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-100 text-purple-800 rounded-lg flex items-center justify-center">
+                      <TrendingUp size={20} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-stone-500 block">Mandi Feed Source</span>
+                      <span className="text-sm font-bold text-stone-900">AGMARKNET (DMI)</span>
+                    </div>
+                  </Card>
+
+                  <Card className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-amber-100 text-amber-800 rounded-lg flex items-center justify-center">
+                      <Package size={20} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-stone-500 block">Store Orders</span>
+                      <span className="text-sm font-bold text-stone-900">{orders.length} Active Orders</span>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Section: Market Synchronization Manager */}
+                <div className="bg-white p-6 sm:p-8 rounded-3xl border border-stone-200 space-y-6 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-100">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-bold text-stone-900 flex items-center gap-2">
+                          <TrendingUp size={18} className="text-[#2F7D4F]" /> AGMARKNET Mandi Price Sync Engine
+                        </h2>
+                        {syncHealth?.isLocked ? (
+                          <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold flex items-center gap-1">
+                            <Lock size={10} /> Sync Lock Active
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold flex items-center gap-1">
+                            <CheckCircle2 size={10} /> Lock Idle / Ready
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-stone-500">
+                        Automated twice-daily wholesale price polling with database-backed run guards and provenance tracking
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleTriggerSync}
+                      disabled={syncing || syncHealth?.isLocked}
+                      className="px-4 py-2 bg-[#2F7D4F] hover:bg-[#25663f] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 self-start sm:self-auto shadow-xs"
+                    >
+                      <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+                      {syncing ? 'Synchronizing...' : 'Sync Now (Manual)'}
+                    </button>
+                  </div>
+
+                  {syncMsg && (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 font-medium flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-emerald-700 shrink-0" />
+                      <span>{syncMsg}</span>
+                    </div>
+                  )}
+
+                  {syncError && (
+                    <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 font-medium flex items-center gap-2">
+                      <AlertTriangle size={16} className="text-rose-700 shrink-0" />
+                      <span>{syncError}</span>
+                    </div>
+                  )}
+
+                  {/* Sync Health Diagnostic Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                    {/* 1. Last Success */}
+                    <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-1.5">
+                      <div className="flex items-center justify-between text-stone-500 text-[11px] font-bold uppercase tracking-wider">
+                        <span>Last Successful Run</span>
+                        <CheckCircle2 size={14} className="text-emerald-600" />
+                      </div>
+                      <p className="font-extrabold text-stone-900 text-sm">
+                        {syncHealth?.lastSuccess
+                          ? new Date(syncHealth.lastSuccess.timestamp).toLocaleString('en-IN', {
+                            timeZone: 'Asia/Kolkata',
+                            dateStyle: 'short',
+                            timeStyle: 'short',
+                          }) + ' IST'
+                          : 'No successful run yet'}
+                      </p>
+                      <p className="text-stone-500 text-[11px]">
+                        {syncHealth?.lastSuccess
+                          ? `${syncHealth.lastSuccess.recordsStored} stored • ${syncHealth.lastSuccess.durationMs || 0}ms (${syncHealth.lastSuccess.triggerSource})`
+                          : 'Awaiting initial trigger'}
+                      </p>
+                    </div>
+
+                    {/* 2. Last Attempt */}
+                    <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-1.5">
+                      <div className="flex items-center justify-between text-stone-500 text-[11px] font-bold uppercase tracking-wider">
+                        <span>Last Attempt</span>
+                        <Activity size={14} className="text-stone-500" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${syncHealth?.lastAttempt?.status === 'success'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : syncHealth?.lastAttempt?.status === 'partial'
+                                ? 'bg-amber-100 text-amber-800'
+                                : syncHealth?.lastAttempt?.status === 'skipped_locked'
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : 'bg-rose-100 text-rose-800'
+                            }`}
+                        >
+                          {syncHealth?.lastAttempt?.status || 'None'}
+                        </span>
+                        <span className="font-bold text-stone-900 text-xs">
+                          {syncHealth?.lastAttempt?.triggerSource || 'system'}
+                        </span>
+                      </div>
+                      <p className="text-stone-500 text-[11px] truncate">
+                        {syncHealth?.lastAttempt?.errorMessage
+                          ? syncHealth.lastAttempt.errorMessage
+                          : `${syncHealth?.lastAttempt?.recordsStored || 0} stored, ${syncHealth?.lastAttempt?.recordsSkipped || 0} skipped`}
+                      </p>
+                    </div>
+
+                    {/* 3. Next Scheduled Run */}
+                    <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-1.5">
+                      <div className="flex items-center justify-between text-stone-500 text-[11px] font-bold uppercase tracking-wider">
+                        <span>Next Scheduled Run</span>
+                        <Clock size={14} className="text-sky-600" />
+                      </div>
+                      <p className="font-extrabold text-stone-900 text-sm">
+                        {syncHealth?.nextScheduledRun?.nextRunFormattedIST || '06:30 IST'}
+                      </p>
+                      <p className="text-stone-500 text-[11px]">
+                        {syncHealth?.nextScheduledRun?.cadence || 'Twice daily'} ({syncHealth?.nextScheduledRun?.cronExpressionUtc} UTC)
+                      </p>
+                    </div>
+
+                    {/* 4. Data Freshness & Provenance */}
+                    <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-1.5">
+                      <div className="flex items-center justify-between text-stone-500 text-[11px] font-bold uppercase tracking-wider">
+                        <span>Data Freshness & Integrity</span>
+                        <Database size={14} className="text-purple-600" />
+                      </div>
+                      <p className="font-extrabold text-stone-900 text-sm">
+                        Arrival: {syncHealth?.dataFreshness?.latestReportedArrivalDate || 'N/A'}
+                      </p>
+                      <p className="text-stone-500 text-[11px]">
+                        Synced: {syncHealth?.dataFreshness?.latestLocalSyncTimestamp
+                          ? new Date(syncHealth.dataFreshness.latestLocalSyncTimestamp).toLocaleTimeString('en-IN', {
+                            timeZone: 'Asia/Kolkata',
+                          }) + ' IST'
+                          : 'N/A'}{' '}
+                        • {syncHealth?.dataFreshness?.totalStoredRecords || 0} rows (
+                        {syncHealth?.dataFreshness?.isDemoData ? 'Demo/Fallback' : 'Live Official'})
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Recent Sync Audit Log Table */}
+                  <div className="space-y-3 pt-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center justify-between">
+                      <span>Recent Synchronization Runs (Audit Trail):</span>
+                      <span className="text-[11px] text-stone-500 font-normal">Last {syncHealth?.recentLogs?.length || 0} invocations</span>
+                    </h3>
+
+                    {(!syncHealth?.recentLogs || syncHealth.recentLogs.length === 0) ? (
+                      <p className="text-stone-500 text-xs italic py-2">No sync logs recorded yet.</p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-2xl border border-stone-100">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-stone-50 text-stone-500 font-bold uppercase text-[10px] border-b border-stone-200">
+                            <tr>
+                              <th className="py-2.5 px-3">Run Time (IST)</th>
+                              <th className="py-2.5 px-3">Source</th>
+                              <th className="py-2.5 px-3">Provider</th>
+                              <th className="py-2.5 px-3 text-center">Status</th>
+                              <th className="py-2.5 px-3 text-right">Fetched</th>
+                              <th className="py-2.5 px-3 text-right">Stored</th>
+                              <th className="py-2.5 px-3 text-right">Skipped</th>
+                              <th className="py-2.5 px-3 text-right">Duration</th>
+                              <th className="py-2.5 px-3">Details / Error</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-stone-100 font-medium">
+                            {syncHealth.recentLogs.map((log: any) => (
+                              <tr key={log.id} className="hover:bg-stone-50/50">
+                                <td className="py-2.5 px-3 font-semibold text-stone-900 whitespace-nowrap">
+                                  {new Date(log.startedAt).toLocaleString('en-IN', {
+                                    timeZone: 'Asia/Kolkata',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                  })}
+                                </td>
+                                <td className="py-2.5 px-3 text-stone-600 capitalize">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-stone-100 text-stone-700">
+                                    {log.triggerSource || 'scheduled'}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-stone-600 truncate max-w-[120px]">{log.provider}</td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${log.status === 'success'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : log.status === 'partial'
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : log.status === 'skipped_locked'
+                                            ? 'bg-orange-100 text-orange-800'
+                                            : 'bg-rose-100 text-rose-800'
+                                      }`}
+                                  >
+                                    {log.status}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono text-stone-600">{log.recordsFetched}</td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-stone-900">{log.recordsStored}</td>
+                                <td className="py-2.5 px-3 text-right font-mono text-stone-500">{log.recordsSkipped || 0}</td>
+                                <td className="py-2.5 px-3 text-right font-mono text-stone-500">{log.durationMs != null ? `${log.durationMs}ms` : '-'}</td>
+                                <td className="py-2.5 px-3 text-stone-500 text-[11px] truncate max-w-[200px]" title={log.errorMessage || 'Clean run'}>
+                                  {log.errorMessage ? (
+                                    <span className="text-rose-600">{log.errorMessage}</span>
+                                  ) : (
+                                    <span className="text-emerald-700">OK</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Section: Fertilizer Store & Orders Manager */}
+                <div className="bg-white p-6 sm:p-8 rounded-3xl border border-stone-200 space-y-6 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-stone-100">
+                    <div>
+                      <h2 className="text-base font-bold text-stone-900 flex items-center gap-2">
+                        <Package size={18} className="text-amber-600" /> Fertilizer Catalog & Inventory
+                      </h2>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        Active cooperative products, real-time stock counts, and customer orders
+                      </p>
+                    </div>
+                    <Link
+                      href="/fertilizers"
+                      className="text-xs font-bold text-[#2F7D4F] hover:underline"
+                    >
+                      View Public Store →
+                    </Link>
+                  </div>
+
+                  {/* Active Product Inventory List */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600">
+                      Active Cooperative Inventory ({storeProducts.length} Products):
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-stone-50 text-stone-500 font-bold uppercase text-[10px] border-b border-stone-100">
+                          <tr>
+                            <th className="py-2.5 px-3">Product Name</th>
+                            <th className="py-2.5 px-3">Brand</th>
+                            <th className="py-2.5 px-3">Pack Size</th>
+                            <th className="py-2.5 px-3 text-right">Price</th>
+                            <th className="py-2.5 px-3 text-center">Available Stock</th>
+                            <th className="py-2.5 px-3 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-100 font-medium">
+                          {storeProducts.map((p) => (
+                            <tr key={p.id} className="hover:bg-stone-50/50">
+                              <td className="py-2.5 px-3 font-bold text-stone-900">{p.name}</td>
+                              <td className="py-2.5 px-3 text-stone-600">{p.brand?.name}</td>
+                              <td className="py-2.5 px-3 text-stone-600">{p.packSize}</td>
+                              <td className="py-2.5 px-3 text-right font-black text-stone-900">₹{p.price.toFixed(2)}</td>
+                              <td className="py-2.5 px-3 text-center font-bold text-emerald-800">{p.stock} units</td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold">
+                                  Live
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Recent Orders Overview */}
+                  <div className="pt-4 border-t border-stone-100 space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600">
+                      Customer Orders Dispatches ({orders.length} Total):
+                    </h3>
+                    <div className="space-y-2">
+                      {orders.map((o) => (
+                        <div key={o.id} className="p-3.5 bg-stone-50 rounded-xl flex items-center justify-between text-xs">
+                          <div>
+                            <span className="font-bold text-stone-900">Order #{o.orderNumber}</span>
+                            <span className="text-stone-500 ml-2">• Customer: {o.deliveryName} ({o.deliveryDistrict})</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-black text-stone-900">₹{o.totalAmount.toFixed(2)}</span>
+                            <span className="px-2 py-0.5 bg-purple-100 text-purple-800 font-bold rounded text-[10px] uppercase">
+                              {o.status}
+                            </span>
+                            <Link href={`/orders/${o.id}`} className="text-[#2F7D4F] font-bold hover:underline">
+                              Inspect →
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DataState>
+          );
+        }

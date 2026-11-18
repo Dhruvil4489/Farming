@@ -33,11 +33,12 @@ export async function GET(
       return NextResponse.json({ error: { message: 'Invalid filename' } }, { status: 400 });
     }
 
-    // Authorization check: Verify user owns a diagnosis referencing this image
+    // Authorization check: Verify user owns an active diagnosis referencing this exact image
     const record = await prisma.cropDiagnosisRecord.findFirst({
       where: {
         userId: user.id,
-        imagePath: { contains: filename },
+        deletedAt: null,
+        imagePath: { endsWith: filename },
       },
     });
 

@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     if (resolvedFieldId) {
       field = await prisma.field.findFirst({
-        where: { id: resolvedFieldId, farm: { userId: user.id } },
+        where: { id: resolvedFieldId, deletedAt: null, farm: { userId: user.id, deletedAt: null } },
         include: {
           farm: true,
           cropCycles: {
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Find user's first field as default if none specified
       field = await prisma.field.findFirst({
-        where: { farm: { userId: user.id } },
+        where: { deletedAt: null, farm: { userId: user.id, deletedAt: null } },
         include: {
           farm: true,
           cropCycles: {

@@ -32,19 +32,37 @@ export default function OnboardingPage() {
       if (farmData.name.trim()) {
         setSubmitting(true);
         try {
-          await fetch('/api/v1/farms', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: farmData.name.trim(),
-              village: farmData.village.trim() || undefined,
-              state: farmData.state,
-              totalAreaHa: parseFloat(farmData.totalArea) || 1.0,
-              areaInputValue: parseFloat(farmData.totalArea) || 1.0,
-              areaInputUnit: farmData.areaUnit || 'acre',
-              farmType: farmData.irrigationType || 'irrigated',
-            }),
-          });
+            const parsedArea = parseFloat(farmData.totalArea);
+            const farmRes = await fetch('/api/v1/farms', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: farmData.name.trim(),
+                village: farmData.village.trim() || undefined,
+                district: farmData.district.trim() || undefined,
+                state: farmData.state,
+                areaInputValue: !isNaN(parsedArea) && parsedArea > 0 ? parsedArea : undefined,
+                areaInputUnit: farmData.areaUnit || 'acre',
+                farmType: farmData.irrigationType === 'rainfed' ? 'rainfed' : 'irrigated',
+              }),
+            });
+            if(farmRes.ok && farmData.fieldName.trim()) {
+            const farmJson = await farmRes.json().catch(() => null);
+            const createdFarmId = farmJson?.data?.id;
+            if (createdFarmId) {
+              await fetch('/api/v1/fields', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  farmId: createdFarmId,
+                  name: farmData.fieldName.trim(),
+                  areaInputValue: !isNaN(parsedArea) && parsedArea > 0 ? parsedArea : undefined,
+                  areaInputUnit: farmData.areaUnit || 'acre',
+                  irrigationType: farmData.irrigationType || 'drip',
+                }),
+              });
+            }
+          }
         } catch (e) {
           console.warn('Could not auto-save onboarding farm:', e);
         } finally {
@@ -181,11 +199,10 @@ export default function OnboardingPage() {
                   key={type}
                   type="button"
                   onClick={() => setFarmData({ ...farmData, irrigationType: type })}
-                  className={`p-4 border rounded-xl text-left capitalize font-semibold text-xs transition-all ${
-                    farmData.irrigationType === type
+                  className={`p-4 border rounded-xl text-left capitalize font-semibold text-xs transition-all ${farmData.irrigationType === type
                       ? 'bg-emerald-100 border-[#2F7D4F] text-[#143D2A]'
                       : 'bg-stone-50 border-stone-200 text-stone-700'
-                  }`}
+                    }`}
                 >
                   {type} Irrigation
                 </button>

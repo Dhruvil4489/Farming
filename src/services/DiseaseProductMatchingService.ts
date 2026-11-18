@@ -420,7 +420,7 @@ export class DiseaseProductMatchingService {
       mrp: prod.mrp || null,
       stock: prod.stock,
       inStock,
-      imageUrl: prod.imageUrl || '/images/products/fertilizer-generic.png',
+      imageUrl: prod.imageUrl || '/images/products/fertilizer-generic.svg',
       treatmentType,
       treatmentTypeLabel,
       whyRecommended,

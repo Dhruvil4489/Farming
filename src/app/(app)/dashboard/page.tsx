@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Tractor,
@@ -14,9 +14,11 @@ import {
   TrendingUp,
   TrendingDown,
   Package,
-  BookOpen,
   ShieldCheck,
   Droplets,
+  ScanLine,
+  Bot,
+  MapPin,
 } from 'lucide-react';
 import { DataState } from '@/components/ui/DataState';
 import { Card } from '@/components/ui/Card';
@@ -24,7 +26,6 @@ import { Button } from '@/components/ui/Button';
 import { ProvenanceChip } from '@/components/ui/ProvenanceChip';
 import { DemoModeBanner } from '@/components/ui/StatusFeedback';
 import { CropStageBar } from '@/components/domain/CropStageBar';
-
 import { useI18n } from '@/providers/I18nProvider';
 
 export default function DashboardPage() {
@@ -38,514 +39,503 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchDashboardData = async () => {
-    setLoading(true);
-    setError('');
+    const fetchDashboardData = useCallback(async () => {
+      setLoading(true);
+      setError('');
 
-    try {
-      // 1. Fetch core dashboard summary (Protected Farmer Data)
-      const sumController = new AbortController();
-      const sumTimeout = setTimeout(() => sumController.abort(), 8000);
+      try {
+        const sumController = new AbortController();
+        const sumTimeout = setTimeout(() => sumController.abort(), 8000);
 
-      const sumRes = await fetch('/api/v1/dashboard/summary', {
-        signal: sumController.signal,
-        headers: { Accept: 'application/json' },
-      });
-      clearTimeout(sumTimeout);
+        const sumRes = await fetch('/api/v1/dashboard/summary', {
+          signal: sumController.signal,
+          headers: { Accept: 'application/json' },
+        });
+        clearTimeout(sumTimeout);
 
-      if (sumRes.status === 401) {
-        // Unauthenticated visitor attempting to access protected dashboard -> redirect to login
-        window.location.href = '/login?redirect=/dashboard';
-        return;
-      }
-
-      if (!sumRes.ok) {
-        throw new Error(`Failed to load dashboard summary (HTTP ${sumRes.status})`);
-      }
-
-      const sumData = await sumRes.json();
-      setSummary(sumData.data || null);
-
-      // 2. Fetch ancillary widgets concurrently using allSettled so one failing widget never breaks the dashboard
-      const fetchWithTimeout = async (url: string, ms = 6000) => {
-        const c = new AbortController();
-        const t = setTimeout(() => c.abort(), ms);
-        try {
-          const res = await fetch(url, { signal: c.signal, headers: { Accept: 'application/json' } });
-          return res.ok ? await res.json() : null;
-        } catch {
-          return null;
-        } finally {
-          clearTimeout(t);
+        if (sumRes.status === 401) {
+          window.location.href = '/login?redirect=/dashboard';
+          return;
         }
-      };
 
-      const [weaRes, advRes, mandiRes, orderRes, soilRes] = await Promise.allSettled([
-        fetchWithTimeout('/api/v1/weather'),
-        fetchWithTimeout('/api/v1/advisories'),
-        fetchWithTimeout('/api/v1/market/prices?limit=3'),
-        fetchWithTimeout('/api/v1/store/orders'),
-        fetchWithTimeout('/api/v1/soil-moisture?state=Gujarat'),
-      ]);
+        if (!sumRes.ok) {
+          throw new Error(`Unable to load your dashboard right now.`);
+        }
 
-      if (weaRes.status === 'fulfilled' && weaRes.value?.data) {
-        setWeather(weaRes.value.data);
+        const sumData = await sumRes.json();
+        const profileSummary = sumData.data || null;
+        setSummary(profileSummary);
+
+        const userState = profileSummary?.state || 'Gujarat';
+        const primaryFarmId = profileSummary?.farms?.[0]?.id;
+        const farmQs = primaryFarmId ? `?farm_id=${encodeURIComponent(primaryFarmId)}` : '';
+
+        const fetchWithTimeout = async (url: string, ms = 6000) => {
+          const c = new AbortController();
+          const timer = setTimeout(() => c.abort(), ms);
+          try {
+            const res = await fetch(url, { signal: c.signal, headers: { Accept: 'application/json' } });
+            return res.ok ? await res.json() : null;
+          } catch {
+            return null;
+          } finally {
+            clearTimeout(timer);
+          }
+        };
+
+        const [weaRes, advRes, mandiRes, orderRes, soilRes] = await Promise.allSettled([
+          fetchWithTimeout(`/api/v1/weather${farmQs}`),
+          fetchWithTimeout(`/api/v1/advisories${farmQs}`),
+          fetchWithTimeout('/api/v1/market/prices?limit=3'),
+          fetchWithTimeout('/api/v1/store/orders'),
+          fetchWithTimeout(`/api/v1/soil-moisture?state=${encodeURIComponent(userState)}`),
+        ]);
+
+        if (weaRes.status === 'fulfilled' && weaRes.value?.data) setWeather(weaRes.value.data);
+        if (advRes.status === 'fulfilled' && Array.isArray(advRes.value?.data)) setAdvisories(advRes.value.data);
+        if (mandiRes.status === 'fulfilled' && Array.isArray(mandiRes.value?.data)) {
+          setMandiPrices(mandiRes.value.data.slice(0, 3));
+        }
+        if (orderRes.status === 'fulfilled' && Array.isArray(orderRes.value?.data)) {
+          setRecentOrders(orderRes.value.data.slice(0, 1));
+        }
+        if (soilRes.status === 'fulfilled' && soilRes.value?.observations?.[0]) {
+          setSoilMoisture(soilRes.value.observations[0]);
+        }
+      } catch (err: any) {
+        setError(
+          err.name === 'AbortError'
+            ? 'Connection timed out while loading your dashboard.'
+            : err.message || 'Unable to load dashboard.'
+        );
+      } finally {
+        setLoading(false);
       }
-      if (advRes.status === 'fulfilled' && Array.isArray(advRes.value?.data)) {
-        setAdvisories(advRes.value.data);
-      }
-      if (mandiRes.status === 'fulfilled' && Array.isArray(mandiRes.value?.data)) {
-        setMandiPrices(mandiRes.value.data.slice(0, 3));
-      }
-      if (orderRes.status === 'fulfilled' && Array.isArray(orderRes.value?.data)) {
-        setRecentOrders(orderRes.value.data.slice(0, 1));
-      }
-      if (soilRes.status === 'fulfilled' && soilRes.value?.observations?.[0]) {
-        setSoilMoisture(soilRes.value.observations[0]);
-      }
-    } catch (err: any) {
-      console.error('[Dashboard] Error loading data:', err);
-      setError(err.name === 'AbortError' ? 'Connection timed out while loading your dashboard.' : err.message || 'Unable to load dashboard.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+}, [fetchDashboardData]);
 
-  return (
-    <DataState
-      status={loading ? 'loading' : error ? 'error' : 'success'}
-      errorMessage={error}
-      onRetry={fetchDashboardData}
-    >
-      <div className="space-y-6">
-        {/* Transparent Demo Mode Banner */}
-        {(weather?.current?.isDemo || (mandiPrices.length > 0 && mandiPrices[0]?.isDemo)) && (
-          <DemoModeBanner moduleName="Weather & Mandi Feeds" />
-        )}
+// Build real dynamic insight from user's actual crops & live weather (never fabricated!)
+const firstActiveCycle = summary?.farms
+  ?.flatMap((f: any) => f.fields || [])
+  ?.flatMap((fld: any) => fld.cropCycles || [])?.[0];
+const activeCropName = firstActiveCycle?.crop?.name || firstActiveCycle?.customCropName || null;
+const userLocation = [summary?.district, summary?.state].filter(Boolean).join(', ');
 
-        {/* Welcome Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-stone-200/90 shadow-sm">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-extrabold text-[#0F2D1F] tracking-tight">
-                {t('welcome_farmer', 'Good day')}, {summary?.userName || 'Farmer'}! 👋
-              </h1>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                Gujarat Region
-              </span>
-            </div>
-            <p className="text-xs text-stone-600 mt-1">
-              Your farm overview • {summary?.counts?.farms || 0} Farms • {summary?.counts?.fields || 0} Fields • {summary?.counts?.activeCycles || 0} Active Crops
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link href="/farms/new">
-              <Button size="sm" variant="outline">
-                <Plus size={14} className="mr-1" /> {t('add_farm', 'Add Farm')}
-              </Button>
-            </Link>
-            <Link href="/crops/new-cycle">
-              <Button size="sm">
-                <Plus size={14} className="mr-1" /> {t('start_crop_cycle', 'Start Crop Cycle')}
-              </Button>
-            </Link>
-            <Link href="/soil-moisture">
-              <Button size="sm" variant="outline">
-                <Droplets size={14} className="mr-1 text-cyan-700" /> Soil Moisture
-              </Button>
-            </Link>
-            <Link href="/mandi">
-              <Button size="sm" variant="outline">
-                <TrendingUp size={14} className="mr-1" /> {t('mandi_rates', 'Mandi Rates')}
-              </Button>
-            </Link>
-          </div>
-        </div>
+return (
+  <DataState
+    status={loading ? 'loading' : error ? 'error' : 'success'}
+    errorMessage={error}
+    onRetry={fetchDashboardData}
+  >
+    <div className="space-y-6">
+      {(weather?.current?.isDemo || (mandiPrices.length > 0 && mandiPrices[0]?.isDemo)) && (
+        <DemoModeBanner moduleName="Weather & Mandi Feeds" />
+      )}
 
-        {/* Weather Advisories Alert Banner */}
-        {advisories.length > 0 && (
-          <div className="space-y-2">
-            {advisories.map((adv, idx) => (
-              <div
-                key={idx}
-                className="p-4 bg-amber-50 border-l-4 border-amber-500 rounded-2xl text-amber-950 flex items-start gap-3 shadow-xs"
-              >
-                <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
-                <div className="flex-1 text-xs">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-sm">{adv.advice.title}</span>
-                    <ProvenanceChip type={weather?.current?.isDemo ? 'demo' : 'weather_service'} />
-                  </div>
-                  <p className="text-amber-900 leading-relaxed">{adv.advice.text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Stat Tiles */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="flex items-center gap-4 rounded-2xl">
-            <div className="w-12 h-12 bg-emerald-100 text-[#2F7D4F] rounded-xl flex items-center justify-center shrink-0">
-              <Tractor size={24} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{t('my_farms', 'My Farms')}</p>
-              <p className="text-2xl font-extrabold text-[#0F2D1F]">{summary?.counts?.farms || 0}</p>
-            </div>
-          </Card>
-
-          <Card className="flex items-center gap-4 rounded-2xl">
-            <div className="w-12 h-12 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center shrink-0">
-              <Grid size={24} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{t('total_fields', 'Total Fields')}</p>
-              <p className="text-2xl font-extrabold text-[#0F2D1F]">{summary?.counts?.fields || 0}</p>
-            </div>
-          </Card>
-
-          <Card className="flex items-center gap-4 rounded-2xl">
-            <div className="w-12 h-12 bg-purple-100 text-purple-700 rounded-xl flex items-center justify-center shrink-0">
-              <Sprout size={24} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{t('active_crops', 'Active Crops')}</p>
-              <p className="text-2xl font-extrabold text-[#0F2D1F]">{summary?.counts?.activeCycles || 0}</p>
-            </div>
-          </Card>
-
-          <Card className="flex items-center gap-4 rounded-2xl">
-            <div className="w-12 h-12 bg-amber-100 text-amber-700 rounded-xl flex items-center justify-center shrink-0">
-              <CheckSquare size={24} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{t('pending_tasks', 'Pending Tasks')}</p>
-              <p className="text-2xl font-extrabold text-[#0F2D1F]">{summary?.counts?.pendingTasks || 0}</p>
-            </div>
-          </Card>
-        </div>
-
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Left Column (2 Cols) */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Live Mandi Intelligence Widget */}
-            <Card className="space-y-4 rounded-3xl p-6 border border-stone-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <TrendingUp size={20} className="text-[#2F7D4F]" />
-                  <h3 className="font-bold text-stone-900 text-base">{t('live_mandi_rates', 'Live APMC Mandi Rates')}</h3>
-                </div>
-                <Link href="/mandi" className="text-xs font-bold text-[#2F7D4F] hover:underline flex items-center gap-1">
-                  {t('all_mandis', 'All Mandis')} <ArrowRight size={14} />
-                </Link>
-              </div>
-
-              {mandiPrices.length === 0 ? (
-                <p className="text-xs text-stone-500 italic">Mandi feed is currently refreshing...</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {mandiPrices.map((item) => {
-                    const isUp = item.comparison?.priceChange > 0;
-                    const isDown = item.comparison?.priceChange < 0;
-
-                    return (
-                      <div
-                        key={item.id}
-                        className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-2 flex flex-col justify-between"
-                      >
-                        <div className="flex items-start justify-between gap-1">
-                          <div>
-                            <span className="text-xs font-extrabold text-stone-900 block">{item.commodityName}</span>
-                            <span className="text-[10px] text-stone-500">{item.marketName}</span>
-                          </div>
-                          <ProvenanceChip
-                            type={item.isDemo ? 'simulated' : 'official_market'}
-                            size="xs"
-                          />
-                        </div>
-
-                        <div>
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-lg font-black text-[#0F2D1F]">₹{item.modalPrice}</span>
-                            <span className="text-[10px] text-stone-400">/{item.unit?.replace('₹/', '') || 'qtl'}</span>
-                          </div>
-                          {item.comparison?.previousModalPrice ? (
-                            <div className="text-[10px] font-bold mt-0.5">
-                              {isUp ? (
-                                <span className="text-emerald-700 flex items-center">
-                                  <TrendingUp size={11} className="mr-0.5" /> +₹{item.comparison.priceChange}
-                                </span>
-                              ) : isDown ? (
-                                <span className="text-rose-600 flex items-center">
-                                  <TrendingDown size={11} className="mr-0.5" /> -₹{Math.abs(item.comparison.priceChange)}
-                                </span>
-                              ) : (
-                                <span className="text-stone-400">Unchanged</span>
-                              )}
-                            </div>
-                          ) : null}
-                        </div>
-
-                        <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between text-[10px] text-stone-500">
-                          <span>Arrival: <strong className="text-stone-700">{item.arrival_date || item.priceDate || 'Recent'}</strong></span>
-                          {(item.lastSyncedAt || item.fetchedAt) && (
-                            <span>Synced: <strong className="text-stone-700">{new Date(item.lastSyncedAt || item.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
-
-            {/* Weather Widget */}
-            <Card className="space-y-4 rounded-3xl p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CloudSun size={20} className="text-[#2F7D4F]" />
-                  <h3 className="font-bold text-stone-900 text-base">Weather & Spray Conditions</h3>
-                </div>
-                <ProvenanceChip
-                  type={weather?.current?.isDemo ? 'simulated' : 'forecast'}
-                  label={weather?.current?.isDemo ? 'SIMULATED WEATHER' : 'Open-Meteo Forecast'}
-                  timestamp={weather?.current?.updatedAt || weather?.current?.time}
-                  source="Open-Meteo"
-                />
-              </div>
-
-              {weather?.current && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-stone-50 p-4 rounded-2xl border border-stone-200 text-center">
-                  <div>
-                    <span className="text-[11px] text-stone-500 font-medium">Temperature</span>
-                    <p className="text-xl font-extrabold text-stone-900">{weather.current.temperatureC}°C</p>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-stone-500 font-medium">Humidity</span>
-                    <p className="text-xl font-extrabold text-stone-900">{weather.current.humidityPct}%</p>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-stone-500 font-medium">Wind Speed</span>
-                    <p className="text-xl font-extrabold text-stone-900">{weather.current.windSpeedKmh} km/h</p>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-stone-500 font-medium">Rain Chance</span>
-                    <p className="text-xl font-extrabold text-stone-900">{weather.current.rainProbabilityPct}%</p>
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            {/* Government Soil Moisture Baseline Widget */}
-            {soilMoisture && (
-              <Card className="space-y-4 rounded-3xl p-6 border border-cyan-200/70 bg-gradient-to-br from-white via-cyan-50/20 to-white shadow-xs">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Droplets size={20} className="text-cyan-700" />
-                    <div>
-                      <h3 className="font-bold text-stone-900 text-base">District Soil Moisture Baseline</h3>
-                      <p className="text-[11px] text-stone-500">Official NRSC VIC Model (0–50 cm Root Zone)</p>
-                    </div>
-                  </div>
-                  <Link href="/soil-moisture" className="text-xs font-bold text-cyan-800 hover:underline flex items-center gap-1">
-                    Details & Sensors <ArrowRight size={14} />
-                  </Link>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-4 rounded-2xl border border-cyan-100 text-center">
-                  <div>
-                    <span className="text-[11px] text-stone-500 font-medium">District</span>
-                    <p className="text-base font-extrabold text-stone-900">{soilMoisture.district}</p>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-stone-500 font-medium">Volumetric (VWC)</span>
-                    <p className="text-xl font-black text-cyan-800">{soilMoisture.normalizedPercentage}%</p>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-stone-500 font-medium">Model Value</span>
-                    <p className="text-xs font-mono font-bold text-stone-700 mt-1">{soilMoisture.moistureValue} m³/m³</p>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-stone-500 font-medium">Agronomic Level</span>
-                    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border mt-1 ${soilMoisture.category?.badgeClass}`}>
-                      {soilMoisture.category?.label?.split('/')[0] || 'Optimal'}
+            {/* Executive Welcome & Quick Actions */}
+            <div className="bg-white p-6 rounded-3xl border border-stone-200/90 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h1 className="text-2xl font-extrabold text-[#0F2D1F] tracking-tight">
+                    {t('welcome_farmer', 'Good day')}, {summary?.userName || 'Farmer'}
+                  </h1>
+                  {userLocation && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
+                      <MapPin size={11} /> {userLocation}
                     </span>
-                  </div>
+                  )}
                 </div>
-
-                <div className="flex items-center justify-between text-[11px] text-stone-500 pt-1">
-                  <span>Observation Date: <strong>{soilMoisture.observationDate}</strong></span>
-                  <span className="text-cyan-800 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                    NRSC ISRO VIC Model Estimate
-                  </span>
-                </div>
-              </Card>
-            )}
-
-            {/* Farm & Field Overview */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-stone-900 text-base">My Farms & Active Crop Stages</h3>
-                <Link href="/farms" className="text-xs font-semibold text-[#2F7D4F] hover:underline flex items-center gap-1">
-                  View All Farms <ArrowRight size={14} />
-                </Link>
+                  <p className="text-xs sm:text-sm text-stone-600">
+                    {summary?.counts?.farms || 0} {t('my_farms', 'Farms')} • {summary?.counts?.fields || 0}{' '}
+                    {t('fields', 'Fields')} • {summary?.counts?.activeCycles || 0}{' '}
+                    {t('active_crops', 'Active Crops')} • {summary?.counts?.pendingTasks || 0}{' '}
+                    {t('pending_tasks', 'Pending Tasks')}
+                  </p>
               </div>
 
-              {summary?.farms?.length === 0 ? (
-                <DataState
-                  status="empty"
-                  emptyTitle="No farms registered yet"
-                  emptyDescription="Add your first farm to start tracking your crops, weather, and tasks."
-                  emptyAction={
-                    <Link href="/farms/new">
-                      <Button size="sm">Add First Farm</Button>
+              <div className="flex items-center gap-2 flex-wrap">
+                    <Link href="/fields/new">
+                      <Button size="sm" className="bg-[#2F7D4F] hover:bg-[#143D2A] text-white rounded-xl">
+                        <Plus size={14} className="mr-1" /> {t('add_field', 'Add Field')}
+                      </Button>
                     </Link>
-                  }
-                />
-              ) : (
-                <div className="space-y-4">
-                  {summary?.farms?.map((farm: any) => (
-                    <Card key={farm.id} className="space-y-3 rounded-3xl p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-bold text-stone-900 text-base">{farm.name}</h4>
-                          <p className="text-xs text-stone-500">
-                            {farm.village ? `${farm.village}, ` : ''}{farm.district}, {farm.state} • {farm.areaInputValue} {farm.areaInputUnit}
-                          </p>
-                        </div>
-                        <ProvenanceChip type="user_entered" />
+                    <Link href="/crops/new-cycle">
+                        <Button size="sm" variant="outline" className="rounded-xl">
+                          <Sprout size={14} className="mr-1 text-[#2F7D4F]" /> {t('start_crop_cycle', 'Start Crop')}
+                        </Button>
+                    </Link>
+                        <Link href="/diagnosis">
+                          <Button size="sm" variant="outline" className="rounded-xl">
+                            <ScanLine size={14} className="mr-1 text-rose-600" /> {t('crop_disease_ai', 'Scan Leaf')}
+                          </Button>
+                        </Link>
                       </div>
+                    </div>
 
-                      {farm.fields?.length > 0 ? (
-                        <div className="space-y-3 pt-2">
-                          {farm.fields.map((field: any) => (
-                            <div key={field.id} className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-stone-800">{field.name}</span>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold uppercase">
-                                  {field.status}
-                                </span>
+                    {/* Weather Advisory Alerts */}
+                    {advisories.length > 0 && (
+                      <div className="space-y-2">
+                        {advisories.map((adv, idx) => (
+                          <div
+                            key={idx}
+                            className="p-4 bg-amber-50 border-l-4 border-amber-500 rounded-2xl text-amber-950 flex items-start gap-3 shadow-xs"
+                          >
+                            <AlertTriangle size={19} className="text-amber-600 shrink-0 mt-0.5" />
+                            <div className="flex-1 text-xs">
+                                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                  <span className="font-bold text-sm">{adv.advice?.title}</span>
+                                  <ProvenanceChip type={weather?.current?.isDemo ? 'demo' : 'weather_service'} />
+                                </div>
+                                <p className="text-amber-900 leading-relaxed">{adv.advice?.text}</p>
                               </div>
-                              {field.cropCycles?.[0] && (
-                                <CropStageBar
-                                  stages={field.cropCycles[0].stages?.map((st: any) => ({
-                                    id: st.id,
-                                    name: st.nameSnapshot,
-                                    status: st.status,
-                                  }))}
-                                />
+                            </div>
+            ))}
+                          </div>
+                        )}
+
+                        {/* Clickable KPI Summary Cards */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                          <Link href="/farms" className="group">
+                            <Card className="p-4 flex items-center gap-3.5 rounded-2xl hover:border-emerald-400 transition-all">
+                              <div className="w-11 h-11 bg-emerald-50 border border-emerald-200/70 text-[#2F7D4F] rounded-xl flex items-center justify-center shrink-0">
+                                <Tractor size={22} />
+                              </div>
+                              <div>
+                                <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">{t('my_farms', 'My Farms')}</p>
+                                <p className="text-2xl font-black text-[#0F2D1F]">{summary?.counts?.farms || 0}</p>
+                              </div>
+                            </Card>
+                          </Link>
+
+                          <Link href="/fields" className="group">
+                            <Card className="p-4 flex items-center gap-3.5 rounded-2xl hover:border-emerald-400 transition-all">
+                              <div className="w-11 h-11 bg-sky-50 border border-sky-200/70 text-sky-700 rounded-xl flex items-center justify-center shrink-0">
+                                <Grid size={22} />
+                              </div>
+                              <div>
+                                <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">{t('total_fields', 'Fields')}</p>
+                                <p className="text-2xl font-black text-[#0F2D1F]">{summary?.counts?.fields || 0}</p>
+                              </div>
+                            </Card>
+                          </Link>
+
+                          <Link href="/crops" className="group">
+                            <Card className="p-4 flex items-center gap-3.5 rounded-2xl hover:border-emerald-400 transition-all">
+                              <div className="w-11 h-11 bg-lime-50 border border-lime-200/70 text-lime-700 rounded-xl flex items-center justify-center shrink-0">
+                                <Sprout size={22} />
+                              </div>
+                              <div>
+                                <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">{t('active_crops', 'Active Crops')}</p>
+                                <p className="text-2xl font-black text-[#0F2D1F]">{summary?.counts?.activeCycles || 0}</p>
+                              </div>
+                            </Card>
+                          </Link>
+
+                          <Link href="/tasks" className="group">
+                            <Card className="p-4 flex items-center gap-3.5 rounded-2xl hover:border-emerald-400 transition-all">
+                              <div className="w-11 h-11 bg-amber-50 border border-amber-200/70 text-amber-700 rounded-xl flex items-center justify-center shrink-0">
+                                <CheckSquare size={22} />
+                              </div>
+                              <div>
+                                <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">{t('pending_tasks', 'Pending Tasks')}</p>
+                                <p className="text-2xl font-black text-[#0F2D1F]">{summary?.counts?.pendingTasks || 0}</p>
+                              </div>
+                            </Card>
+                          </Link>
+                        </div>
+
+                        {/* Main 2-Column Content Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          {/* Left 2 Columns */}
+                          <div className="lg:col-span-2 space-y-6">
+                              {/* Weather Strip */}
+                              <Card className="space-y-4 rounded-2xl p-5">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <CloudSun size={19} className="text-[#2F7D4F]" />
+                                    <h3 className="font-bold text-stone-900 text-base">{t('weather', 'Weather & Spray Conditions')}</h3>
+                                  </div>
+                                  <Link href="/weather" className="text-xs font-bold text-[#2F7D4F] hover:underline flex items-center gap-1">
+                                    7-Day Forecast <ArrowRight size={13} />
+                                  </Link>
+                                </div>
+
+                                {weather?.current ? (
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#F7F8F5] p-3.5 rounded-xl border border-stone-200/70 text-center">
+                                    <div>
+                                      <span className="text-[11px] text-stone-500 font-medium">Temperature</span>
+                                      <p className="text-lg font-extrabold text-stone-900">{weather.current.temperatureC}°C</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-[11px] text-stone-500 font-medium">Humidity</span>
+                                      <p className="text-lg font-extrabold text-stone-900">{weather.current.humidityPct}%</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-[11px] text-stone-500 font-medium">Wind</span>
+                                      <p className="text-lg font-extrabold text-stone-900">{weather.current.windSpeedKmh} km/h</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-[11px] text-stone-500 font-medium">Rain Chance</span>
+                                      <p className="text-lg font-extrabold text-stone-900">{weather.current.rainProbabilityPct}%</p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-stone-500">Weather forecast unavailable right now.</p>
+                                )}
+                              </Card>
+
+                              {/* Live Mandi Prices */}
+                              <Card className="space-y-4 rounded-2xl p-5">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                    <TrendingUp size={19} className="text-[#2F7D4F]" />
+                                    <h3 className="font-bold text-stone-900 text-base">{t('live_mandi_rates', 'Live Mandi Prices')}</h3>
+                                  </div>
+                                  <Link href="/mandi" className="text-xs font-bold text-[#2F7D4F] hover:underline flex items-center gap-1">
+                                    {t('all_mandis', 'All Mandis')} <ArrowRight size={13} />
+                                  </Link>
+                                </div>
+
+                                {mandiPrices.length === 0 ? (
+                <p className="text-xs text-stone-500">Mandi price feed is refreshing...</p>
+                                ) : (
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    {mandiPrices.map((item) => {
+                                      const isUp = item.comparison?.priceChange > 0;
+                                      const isDown = item.comparison?.priceChange < 0;
+
+                                      return (
+                                        <div
+                                          key={item.id}
+                                          className="p-3.5 bg-[#F7F8F5] rounded-xl border border-stone-200/80 space-y-2 flex flex-col justify-between"
+                                        >
+                                          <div className="flex items-start justify-between gap-1">
+                                            <div>
+                                              <span className="text-xs font-extrabold text-stone-900 block">{item.commodityName}</span>
+                                              <span className="text-[10px] text-stone-500">{item.marketName}</span>
+                                            </div>
+                                            <ProvenanceChip type={item.isDemo ? 'simulated' : 'official_market'} size="xs" />
+                                          </div>
+
+                                          <div>
+                                            <div className="flex items-baseline gap-1">
+                                              <span className="text-lg font-black text-[#0F2D1F]">₹{item.modalPrice}</span>
+                                              <span className="text-[10px] text-stone-400">/{item.unit?.replace('₹/', '') || 'qtl'}</span>
+                                            </div>
+                                            {item.comparison?.previousModalPrice ? (
+                                              <div className="text-[10px] font-bold mt-0.5">
+                                                {isUp ? (
+                                                  <span className="text-emerald-700 flex items-center">
+                                                    <TrendingUp size={11} className="mr-0.5" /> +₹{item.comparison.priceChange}
+                                                  </span>
+                                                ) : isDown ? (
+                                                  <span className="text-rose-600 flex items-center">
+                                                    <TrendingDown size={11} className="mr-0.5" /> -₹{Math.abs(item.comparison.priceChange)}
+                                                  </span>
+                                                ) : (
+                                <span className="text-stone-400">Stable</span>
+                                                )}
+                                              </div>
+                                            ) : null}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </Card>
+
+                              {/* Farms & Active Crops */}
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-bold text-stone-900 text-base">Your Farms &amp; Active Crops</h3>
+                                    <Link href="/fields" className="text-xs font-bold text-[#2F7D4F] hover:underline flex items-center gap-1">
+                                      Manage Fields <ArrowRight size={13} />
+                                    </Link>
+                                </div>
+
+              {!summary?.farms || summary.farms.length === 0 ? (
+                                  <Card className="p-8 text-center space-y-3 rounded-2xl">
+                                    <Tractor size={28} className="mx-auto text-stone-400" />
+                                    <p className="font-bold text-stone-800 text-sm">No farms added yet</p>
+                                    <p className="text-xs text-stone-500">Add your first farm to track fields, crops, and weather.</p>
+                                    <Link href="/farms/new" className="inline-block">
+                                      <Button size="sm">Add Your First Farm</Button>
+                                    </Link>
+                                  </Card>
+                                ) : (
+                                          <div className="space-y-3">
+                                            {summary.farms.map((farm: any) => (
+                                              <Card key={farm.id} className="space-y-3 rounded-2xl p-5">
+                                                <div className="flex items-center justify-between gap-2">
+                                                  <div>
+                                                    <Link href={`/farms/${farm.id}`} className="font-bold text-stone-900 text-base hover:text-[#2F7D4F]">
+                                                      {farm.name}
+                                                    </Link>
+                                                    <p className="text-xs text-stone-500">
+                                                      {[farm.village, farm.district, farm.state].filter(Boolean).join(', ')}
+                                                      {farm.areaInputValue ? ` • ${farm.areaInputValue} ${farm.areaInputUnit || 'acre'}` : ''}
+                                                    </p>
+                                                  </div>
+                                                  <Link href={`/farms/${farm.id}`} className="text-xs font-bold text-[#2F7D4F] hover:underline">
+                                                    Details →
+                                                  </Link>
+                                                </div>
+
+                                                {farm.fields?.length > 0 ? (
+                                                    <div className="space-y-2.5 pt-1">
+                                                      {farm.fields.map((field: any) => (
+                                                          <div key={field.id} className="p-3 bg-[#F7F8F5] rounded-xl border border-stone-200/70 space-y-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-xs font-bold text-stone-800">
+                                                                  {field.name}
+                                                                  {field.cropCycles?.[0]?.crop?.name ? ` — ${field.cropCycles[0].crop.name}` : ''}
+                                                                </span>
+                                                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold uppercase">
+                                                                  {field.status}
+                                                                </span>
+                                                            </div>
+                                                              {
+                                                                field.cropCycles?.[0]?.stages?.length > 0 && (
+                                                                  <CropStageBar
+                                                                      stages={
+                                                                        field.cropCycles[0].stages.map((st: any) => ({
+                                                                          id: st.id,
+                                                                          name: st.nameSnapshot,
+                                                                          status: st.status,
+                                                                        }))
+                                                                      }
+                                                                      />
                               )}
                             </div>
                           ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-stone-500 italic">No fields created under this farm yet.</p>
+                                                        </div>
+                                                      ) : (
+                                                      <p className="text-xs text-stone-500">No fields added under this farm yet.</p>
                       )}
-                    </Card>
+                                                    </Card>
                   ))}
-                </div>
-              )}
-            </div>
+                                                  </div>
+                                                )}
+                                              </div>
           </div>
 
-          {/* Right Column (1 Col) */}
-          <div className="space-y-6">
-            {/* Today's Tasks */}
-            <Card className="space-y-4 rounded-3xl p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CheckSquare size={18} className="text-[#2F7D4F]" />
-                  <h3 className="font-bold text-stone-900 text-base">Today's Tasks</h3>
-                </div>
-                <Link href="/tasks" className="text-xs font-semibold text-[#2F7D4F] hover:underline">
-                  Manage
-                </Link>
-              </div>
+                                              {/* Right Column */}
+                                              <div className="space-y-5">
+                                                {/* Pending Tasks */}
+                                                <Card className="space-y-3.5 rounded-2xl p-5">
+                                                  <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                      <CheckSquare size={17} className="text-[#2F7D4F]" />
+                                                      <h3 className="font-bold text-stone-900 text-sm">Upcoming Tasks</h3>
+                                                    </div>
+                                                      <Link href="/tasks" className="text-xs font-bold text-[#2F7D4F] hover:underline">
+                                                        Manage
+                                                      </Link>
+                                                  </div>
 
-              {summary?.tasks?.length === 0 ? (
-                <p className="text-xs text-stone-500 text-center py-4">No tasks due today. You're all caught up!</p>
-              ) : (
-                <div className="space-y-2">
-                  {summary?.tasks?.map((task: any) => (
-                    <div
-                      key={task.id}
-                      className="p-3 bg-stone-50 border border-stone-200 rounded-xl flex items-start justify-between gap-2"
-                    >
-                      <div className="space-y-1">
-                        <p className="text-xs font-bold text-stone-900">{task.title}</p>
-                        <p className="text-[10px] text-stone-500">
-                          {task.farm?.name} • Priority: <span className="capitalize font-semibold">{task.priority}</span>
-                        </p>
-                      </div>
-                      <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 font-bold rounded-md uppercase">
-                        {task.status}
-                      </span>
-                    </div>
+              {!summary?.tasks || summary.tasks.length === 0 ? (
+                                                    <p className="text-xs text-stone-500 text-center py-4">No pending tasks. You&apos;re all caught up!</p>
+                                                  ) : (
+                                                    <div className="space-y-2">
+                                                        {
+                                                          summary.tasks.map((task: any) => (
+                                                            <div
+                                                              key={task.id}
+                                                              className="p-3 bg-[#F7F8F5] border border-stone-200/70 rounded-xl flex items-start justify-between gap-2"
+                                                            >
+                                                                <div className="space-y-0.5 min-w-0">
+                                                                  <p className="text-xs font-bold text-stone-900 truncate">{task.title}</p>
+                                                                  <p className="text-[10px] text-stone-500">{task.farm?.name}</p>
+                                                                </div>
+                                                                  <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 font-bold rounded uppercase shrink-0">
+                                                                    {task.priority}
+                                                                  </span>
+                                                              </div>
                   ))}
-                </div>
-              )}
+                                                            </div>
+                                                          )}
             </Card>
 
-            {/* Quick Agri-Input Procurement Shortcuts */}
-            <Card className="space-y-3 rounded-3xl p-6 border border-stone-200">
-              <div className="flex items-center gap-2 text-stone-900">
-                <Package size={18} className="text-amber-600" />
-                <h3 className="font-bold text-sm">Fertilizers & Inputs</h3>
-              </div>
-              <p className="text-xs text-stone-600 leading-relaxed">
-                Procure certified urea, DAP, micronutrients, or inspect crop stage schedules.
-              </p>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <Link
-                  href="/store"
-                  className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-xl text-xs font-bold text-center transition-colors"
-                >
-                  🛒 Fertilizer Store
-                </Link>
-                <Link
-                  href="/guidance"
-                  className="p-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-bold text-center transition-colors"
-                >
-                  📖 Nutrient Guide
-                </Link>
-              </div>
+                                                    {/* District Soil Moisture Snapshot */}
+                                                    {soilMoisture && (
+                                                      <Card className="space-y-3 rounded-2xl p-5 border border-cyan-200/70">
+                                                        <div className="flex items-center justify-between">
+                                                          <div className="flex items-center gap-2">
+                                                            <Droplets size={17} className="text-cyan-700" />
+                                                            <h3 className="font-bold text-stone-900 text-sm">Soil Moisture</h3>
+                                                          </div>
+                                                          <Link href="/soil-moisture" className="text-xs font-bold text-cyan-800 hover:underline">
+                                                            Details →
+                                                          </Link>
+                                                        </div>
+                                                        <div className="flex items-center justify-between bg-cyan-50/50 p-3 rounded-xl border border-cyan-100">
+                                                          <div>
+                                                            <span className="text-[11px] text-stone-500 block">{soilMoisture.district}</span>
+                                                            <span className="text-xl font-black text-cyan-900">{soilMoisture.normalizedPercentage}%</span>
+                                                          </div>
+                                                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${soilMoisture.category?.badgeClass}`}>
+                                                            {soilMoisture.category?.label?.split('/')[0] || 'Optimal'}
+                                                          </span>
+                                                        </div>
+                                                      </Card>
+                                                    )}
 
-              {recentOrders.length > 0 && (
-                <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500">
-                  <span>Order #{recentOrders[0].orderNumber}</span>
-                  <Link href={`/orders/${recentOrders[0].id}`} className="font-bold text-[#2F7D4F] hover:underline">
-                    Track ({recentOrders[0].status}) →
-                  </Link>
-                </div>
-              )}
-            </Card>
+                                                    {/* Fertilizer Store & Orders Shortcut */}
+                                                    <Card className="space-y-3 rounded-2xl p-5">
+                                                      <div className="flex items-center gap-2 text-stone-900">
+                                                        <Package size={17} className="text-amber-600" />
+                                                        <h3 className="font-bold text-sm">Fertilizer Store &amp; Guide</h3>
+                                                      </div>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                          <Link
+                                                            href="/store"
+                                                            className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-xl text-xs font-bold text-center transition-colors"
+                                                          >
+                                                            Open Store
+                                                          </Link>
+                                                          <Link
+                                                            href="/guidance"
+                                                            className="p-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-bold text-center transition-colors"
+                                                          >
+                                                            Nutrient Guide
+                                                          </Link>
+                                                        </div>
+                                                        {recentOrders.length > 0 && (
+                                                          <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500">
+                                                            <span>Order #{recentOrders[0].orderNumber}</span>
+                                                            <Link href={`/orders/${recentOrders[0].id}`} className="font-bold text-[#2F7D4F] hover:underline">
+                                                              Track →
+                                                            </Link>
+                                                          </div>
+                                                        )}
+                                                    </Card>
 
-            {/* AI Insight Card */}
-            <Card className="bg-gradient-to-br from-[#0F2D1F] to-[#2F7D4F] text-white space-y-3 rounded-3xl p-6 border-none shadow-md">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={20} className="text-emerald-300" />
-                <h3 className="font-bold text-sm">Smart AI Agronomy Insight</h3>
-              </div>
-              <p className="text-xs text-emerald-100 leading-relaxed">
-                Based on your cotton stage (Flowering) and current 58% humidity, inspect under-leaves for jassids during morning rounds.
-              </p>
-              <Link href="/assistant" className="inline-block pt-1">
-                <span className="text-xs font-bold text-white underline hover:text-emerald-200 flex items-center gap-1">
-                  Ask AI Assistant →
-                </span>
-              </Link>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </DataState>
-  );
+                                                      {/* Dynamic AI Assistant Card */}
+                                                      <Card className="bg-gradient-to-br from-[#0F2D1F] to-[#24663F] text-white space-y-3 rounded-2xl p-5 border-none shadow-md">
+                                                        <div className="flex items-center gap-2">
+                                                          <Bot size={19} className="text-emerald-300" />
+                                                          <h3 className="font-bold text-sm">AI Farming Assistant</h3>
+                                                        </div>
+                                                        <p className="text-xs text-emerald-100 leading-relaxed">
+                                                          {activeCropName && weather?.current
+                                                            ? `Your ${activeCropName} crop is active with ${weather.current.temperatureC}°C and ${weather.current.rainProbabilityPct}% rain chance today. Ask for personalized stage advice.`
+                                                            : 'Ask questions about your fields, fertilizers, irrigation timing, or mandi trends in English, Hindi, or Gujarati.'}
+                                                        </p>
+                                                          <Link
+                                                            href="/assistant"
+                                                            className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-white/15 hover:bg-white/25 px-3.5 py-2 rounded-xl transition-colors"
+                                                          >
+                                                            <ShieldCheck size={14} className="text-emerald-300" /> Ask AI Assistant →
+                                                          </Link>
+                                                      </Card>
+                                                    </div>
+                                                  </div>
+                                              </div>
+                                            </DataState>
+                                            );
 }

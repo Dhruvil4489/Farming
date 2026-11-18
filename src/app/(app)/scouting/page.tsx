@@ -90,8 +90,8 @@ export default function ScoutingPage() {
           }
         }
       })
-      .catch(() => {/* non-fatal: user can still type a field ID */});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      .catch(() => {/* non-fatal: user can still type a field ID */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---- Load observation history ----
@@ -244,13 +244,12 @@ export default function ScoutingPage() {
                 ))}
               </select>
             ) : (
-              <Input
-                id="scouting-field-id"
-                placeholder="Field ID (add a field first in the Fields section)"
-                value={form.fieldId}
-                onChange={(e) => setForm({ ...form, fieldId: e.target.value })}
-                required
-              />
+              <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl flex items-center justify-between text-xs">
+                <span className="text-stone-600">No fields added yet.</span>
+                <Link href="/fields/new" className="font-bold text-[#2F7D4F] hover:underline">
+                  Add Your First Field →
+                </Link>
+              </div>
             )}
           </div>
 
@@ -279,11 +278,10 @@ export default function ScoutingPage() {
                   type="button"
                   id={`scouting-severity-${sev}`}
                   onClick={() => setForm({ ...form, severity: sev })}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                    form.severity === sev
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${form.severity === sev
                       ? 'bg-[#2F7D4F] text-white border-[#2F7D4F]'
                       : 'bg-stone-50 border-stone-300 text-stone-700'
-                  }`}
+                    }`}
                 >
                   Level {sev} {sev === 3 ? '(Urgent)' : ''}
                 </button>
