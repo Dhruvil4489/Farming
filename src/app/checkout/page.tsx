@@ -14,47 +14,76 @@ import {
   Banknote,
 } from 'lucide-react';
 import { SiteHeader } from '@/components/domain/SiteHeader';
+import { ProductImage } from '@/components/ui/ProductImage';
+
+import { useI18n } from '@/providers/I18nProvider';
 
 export default function CheckoutPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [cart, setCart] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Form Fields
+  // Form Fields — dynamically populated from authenticated farmer profile
   const [formData, setFormData] = useState({
-    deliveryName: 'Ramesh Patel',
-    deliveryPhone: '+919876543211',
-    deliveryAddress: 'Survey No. 42, Patel Organic Farm, Near Padra Canal',
-    deliveryVillage: 'Padra',
-    deliveryDistrict: 'Vadodara',
+    deliveryName: '',
+    deliveryPhone: '',
+    deliveryAddress: '',
+    deliveryVillage: '',
+    deliveryDistrict: '',
     deliveryState: 'Gujarat',
-    deliveryPincode: '391440',
+    deliveryPincode: '',
     paymentMethod: 'demo_checkout', // demo_checkout | cod
-    notes: 'Please call driver upon arrival at farm gate.',
+    notes: '',
   });
 
   useEffect(() => {
-    const fetchCart = async () => {
-      try {
-        const res = await fetch('/api/v1/store/cart');
-        if (res.ok) {
-          const json = await res.json();
-          setCart(json.data);
-          if (!json.data || json.data.items?.length === 0) {
-            router.push('/cart');
-          }
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      const fetchCheckoutData = async () => {
+        try {
+            const [cartRes, meRes] = await Promise.all([
+              fetch('/api/v1/store/cart'),
+              fetch('/api/v1/me'),
+            ]);
 
-    fetchCart();
-  }, [router]);
+            if (cartRes.status === 401) {
+              router.push('/login?redirect=/checkout');
+              return;
+            }
+
+            if (cartRes.ok) {
+              const json = await cartRes.json();
+              setCart(json.data);
+              if (!json.data || json.data.items?.length === 0) {
+                router.push('/cart');
+                return;
+              }
+            }
+
+            if (meRes.ok) {
+              const meJson = await meRes.json();
+              const u = meJson?.data;
+              if (u) {
+                setFormData((prev) => ({
+                  ...prev,
+                  deliveryName: prev.deliveryName || u.name || '',
+                  deliveryPhone: prev.deliveryPhone || u.phone || '',
+                  deliveryVillage: prev.deliveryVillage || u.village || '',
+                  deliveryDistrict: prev.deliveryDistrict || u.district || '',
+                  deliveryState: prev.deliveryState || u.state || 'Gujarat',
+                }));
+              }
+            }
+          } catch (err) {
+            console.error(err);
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        fetchCheckoutData();
+      }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +135,7 @@ export default function CheckoutPage() {
         <div className="flex items-center justify-between pb-4 border-b border-stone-200">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
-              Order Checkout & Farm Delivery
+              {t('checkout_title', 'Order Checkout')} & Farm Delivery
             </h1>
             <p className="text-xs text-stone-500 mt-0.5">
               Specify your farm plot delivery address and review payment mode.
@@ -234,11 +263,10 @@ export default function CheckoutPage() {
 
               <div className="space-y-3">
                 {/* Demo Checkout Option */}
-                <label className={`p-4 rounded-2xl border flex items-start gap-3 cursor-pointer transition-colors ${
-                  formData.paymentMethod === 'demo_checkout'
-                    ? 'border-emerald-600 bg-emerald-50/50'
-                    : 'border-stone-200 hover:bg-stone-50'
-                }`}>
+                <label className={`p-4 rounded-2xl border flex items-start gap-3 cursor-pointer transition-colors ${formData.paymentMethod === 'demo_checkout'
+                  ? 'border-emerald-600 bg-emerald-50/50'
+                  : 'border-stone-200 hover:bg-stone-50'
+                  }`}>
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -258,11 +286,10 @@ export default function CheckoutPage() {
                 </label>
 
                 {/* Cash on Delivery */}
-                <label className={`p-4 rounded-2xl border flex items-start gap-3 cursor-pointer transition-colors ${
-                  formData.paymentMethod === 'cod'
-                    ? 'border-emerald-600 bg-emerald-50/50'
-                    : 'border-stone-200 hover:bg-stone-50'
-                }`}>
+                <label className={`p-4 rounded-2xl border flex items-start gap-3 cursor-pointer transition-colors ${formData.paymentMethod === 'cod'
+                  ? 'border-emerald-600 bg-emerald-50/50'
+                  : 'border-stone-200 hover:bg-stone-50'
+                  }`}>
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -293,53 +320,60 @@ export default function CheckoutPage() {
           <div className="space-y-4">
             <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
               <h2 className="text-base font-bold text-stone-900 pb-3 border-b border-stone-100">
-                Order Review ({cart.itemCount} items)
+                Order Review ({cart?.itemCount || 0} items)
               </h2>
 
               <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
                 {items.map((item: any) => (
-                  <div key={item.id} className="flex justify-between text-xs pb-2 border-b border-stone-50">
-                    <div>
-                      <p className="font-bold text-stone-900 line-clamp-1">{item.product.name}</p>
-                      <p className="text-[10px] text-stone-400">
-                        {item.quantity} × ₹{item.product.price} ({item.product.packSize})
-                      </p>
-                    </div>
-                    <span className="font-bold text-stone-900">₹{item.lineTotal.toFixed(2)}</span>
-                  </div>
+                      <div key={item.id} className="flex items-center justify-between gap-2.5 text-xs pb-2 border-b border-stone-50">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#F5F7F4] border border-stone-200/70 shrink-0">
+                          <ProductImage
+                            src={item.product.imageUrl}
+                            alt={item.product.name}
+                            className="w-full h-full object-contain p-0.5"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-stone-900 line-clamp-1">{item.product.name}</p>
+                          <p className="text-[10px] text-stone-400">
+                            {item.quantity} × ₹{item.product.price} ({item.product.packSize})
+                          </p>
+                        </div>
+                        <span className="font-bold text-stone-900 shrink-0">₹{item.lineTotal.toFixed(2)}</span>
+                      </div>
                 ))}
-              </div>
+                    </div>
 
-              <div className="pt-2 border-t border-stone-100 space-y-2 text-xs text-stone-600">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span className="font-bold text-stone-900">₹{subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Farm Delivery Fee</span>
-                  <span>{deliveryFee === 0 ? <strong className="text-emerald-700">FREE</strong> : `₹${deliveryFee.toFixed(2)}`}</span>
-                </div>
-                <div className="pt-2 border-t border-stone-200 flex justify-between text-sm font-black text-[#0F2D1F]">
-                  <span>Total Amount</span>
-                  <span className="text-xl">₹{total.toFixed(2)}</span>
-                </div>
-              </div>
+                    <div className="pt-2 border-t border-stone-100 space-y-2 text-xs text-stone-600">
+                      <div className="flex justify-between">
+                        <span>Subtotal</span>
+                        <span className="font-bold text-stone-900">₹{subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Farm Delivery Fee</span>
+                        <span>{deliveryFee === 0 ? <strong className="text-emerald-700">FREE</strong> : `₹${deliveryFee.toFixed(2)}`}</span>
+                      </div>
+                      <div className="pt-2 border-t border-stone-200 flex justify-between text-sm font-black text-[#0F2D1F]">
+                        <span>Total Amount</span>
+                        <span className="text-xl">₹{total.toFixed(2)}</span>
+                      </div>
+                    </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-4 bg-[#2F7D4F] hover:bg-[#25663f] disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg transition-colors cursor-pointer flex items-center justify-center gap-2"
-              >
-                {submitting ? 'Placing Order...' : 'Confirm & Place Order'} <ArrowRight size={15} />
-              </button>
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="w-full py-4 bg-[#2F7D4F] hover:bg-[#25663f] disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg transition-colors cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {submitting ? 'Placing Order...' : t('place_order', 'Confirm & Place Order')} <ArrowRight size={15} />
+                    </button>
 
-              <div className="text-center text-[10px] text-stone-400">
-                Transactional inventory adjustment and receipt generation.
-              </div>
-            </div>
+                    <div className="text-center text-[10px] text-stone-400">
+                      Transactional inventory adjustment and receipt generation.
+                    </div>
+                  </div>
           </div>
-        </form>
+            </form>
+          </div>
       </div>
-    </div>
-  );
+      );
 }

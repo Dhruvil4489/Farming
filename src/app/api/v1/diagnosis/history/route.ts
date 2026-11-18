@@ -8,6 +8,7 @@ import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedUser } from '@/lib/auth';
+import { getAgronomicPathology } from '@/lib/crop-disease-knowledge';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,21 +58,38 @@ export async function GET(request: NextRequest) {
 
       // Extract filename from imagePath
       const filename = r.imagePath.replace(/^diagnoses[\/\\]/, '');
+      const pathology = getAgronomicPathology(r.predictedLabel);
+      let severity: 'mild' | 'moderate' | 'severe' | 'none' = 'none';
+      if (r.isHealthy) {
+        severity = 'none';
+      } else if (pathology) {
+        severity = pathology.defaultSeverity;
+        if (r.confidence && r.confidence > 0.85 && severity === 'moderate') {
+          severity = 'severe';
+        }
+      }
 
       return {
         id: r.id,
         status: r.status,
+        selectedCrop: r.selectedCrop,
+        detectedCrop: r.detectedCrop,
         predictedLabel: r.predictedLabel,
         crop: r.cropName,
         disease: r.diseaseName,
         isHealthy: r.isHealthy,
         confidence: r.confidence,
+        severity: r.severity || severity,
         topK,
         uncertaintyReason: r.uncertaintyReason,
+        pathology,
+        modelId: r.modelId || r.modelName,
         modelName: r.modelName,
         modelVersion: r.modelVersion,
         field: r.field,
         notes: r.notes,
+        feedbackRating: r.feedbackRating,
+        feedbackAccurate: r.feedbackAccurate,
         diagnosedAt: r.diagnosedAt.toISOString(),
         imageFilename: filename,
         fileSizeBytes: r.fileSizeBytes,

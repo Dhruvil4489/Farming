@@ -12,8 +12,12 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { SiteHeader } from '@/components/domain/SiteHeader';
+import { ProductImage } from '@/components/ui/ProductImage';
+
+import { useI18n } from '@/providers/I18nProvider';
 
 export default function CartPage() {
+  const { t } = useI18n();
   const [cart, setCart] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -138,11 +142,13 @@ export default function CartPage() {
                   className="bg-white p-5 sm:p-6 rounded-3xl border border-stone-200/90 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                 >
                   <div className="flex items-center gap-4">
-                    <img
-                      src={item.product.imageUrl}
-                      alt={item.product.name}
-                      className="w-20 h-20 rounded-2xl object-cover bg-stone-100 shrink-0"
-                    />
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden bg-[#F5F7F4] border border-stone-200/70 shrink-0">
+                      <ProductImage
+                        src={item.product.imageUrl}
+                        alt={item.product.name}
+                        className="w-full h-full object-contain p-1.5"
+                      />
+                    </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-[#2F7D4F]">
                         {item.product.brand?.name} • {item.product.packSize}

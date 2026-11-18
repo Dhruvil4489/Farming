@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { DataState } from '@/components/ui/DataState';
+import { ProductImage } from '@/components/ui/ProductImage';
 
 export default function FarmerPortalOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -106,7 +107,10 @@ export default function FarmerPortalOrdersPage() {
                     {getStatusBadge(order.status)}
                   </div>
                   <p className="text-xs text-stone-500 mt-1">
-                    Placed on: {new Date(order.createdAt).toLocaleDateString()} • Destination: {order.deliveryVillage || order.deliveryDistrict}, {order.deliveryDistrict}
+                    Placed on: {new Date(order.createdAt).toLocaleDateString('en-IN')} • Destination:{' '}
+                    {[order.deliveryVillage, order.deliveryDistrict, order.deliveryState]
+                      .filter((v, i, arr) => v && arr.indexOf(v) === i)
+                      .join(', ')}
                   </p>
                 </div>
                 <div className="text-left sm:text-right">
@@ -122,41 +126,50 @@ export default function FarmerPortalOrdersPage() {
               {/* Order Items List */}
               <div className="divide-y divide-stone-100">
                 {order.items?.map((item: any) => (
-                  <div key={item.id} className="py-2.5 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-bold text-stone-800">{item.productNameSnapshot}</span>
-                      <p className="text-[11px] text-stone-500">
-                        {item.packSizeSnapshot} • Qty: {item.quantity}
-                      </p>
+                      <div key={item.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-11 h-11 rounded-xl overflow-hidden bg-[#F5F7F4] border border-stone-200/70 shrink-0">
+                            <ProductImage
+                              src={item.product?.imageUrl}
+                              alt={item.productNameSnapshot}
+                              className="w-full h-full object-contain p-1"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-bold text-stone-800 block truncate">{item.productNameSnapshot}</span>
+                            <p className="text-[11px] text-stone-500">
+                              {item.packSizeSnapshot} • Qty: {item.quantity}
+                            </p>
+                          </div>
+                        </div>
+                          <span className="font-bold text-stone-900 shrink-0">
+                            ₹{item.totalPrice?.toLocaleString('en-IN')}
+                          </span>
+                      </div>
+                ))}
                     </div>
-                    <span className="font-bold text-stone-900">
-                      ₹{item.totalPrice?.toLocaleString('en-IN')}
-                    </span>
+
+                    {/* Delivery Details & Tracking CTA */}
+                    <div className="pt-3 border-t border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2 text-stone-500">
+                        <Truck size={14} className="text-[#2F7D4F]" />
+                        <span>
+                          Recipient: <strong>{order.deliveryName}</strong> ({order.deliveryPhone})
+                        </span>
+                      </div>
+
+                      <Link
+                        href={`/orders/${order.id}`}
+                        className="font-bold text-[#2F7D4F] hover:underline flex items-center gap-1"
+                      >
+                        <span>View Delivery Tracking</span>
+                        <ArrowRight size={13} />
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>
-
-              {/* Delivery Details & Tracking CTA */}
-              <div className="pt-3 border-t border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2 text-stone-500">
-                  <Truck size={14} className="text-[#2F7D4F]" />
-                  <span>
-                    Recipient: <strong>{order.deliveryName}</strong> ({order.deliveryPhone})
-                  </span>
-                </div>
-
-                <Link
-                  href={`/orders/${order.id}`}
-                  className="font-bold text-[#2F7D4F] hover:underline flex items-center gap-1"
-                >
-                  <span>View Delivery Tracking</span>
-                  <ArrowRight size={13} />
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
-      </DataState>
+            </DataState>
     </div>
-  );
+        );
 }

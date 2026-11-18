@@ -29,8 +29,8 @@ export function LoginForm() {
     queryError === 'invalid_credentials'
       ? 'Unable to sign in with those details. Check your credentials and try again.'
       : queryError === 'rate_limited'
-      ? 'Too many login attempts. Please wait a minute before trying again.'
-      : '';
+        ? 'Too many login attempts. Please wait a minute before trying again.'
+        : '';
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -185,7 +185,6 @@ export function LoginForm() {
             id="login-submit-button"
             type="submit"
             isLoading={loading}
-            onClick={handleSubmit}
             className="w-full min-h-[48px] bg-[#2F7D4F] hover:bg-[#25663f] text-white font-bold text-sm rounded-xl shadow-md transition-all hover:shadow-lg active:scale-[0.99] cursor-pointer"
           >
             <LogIn size={18} className="mr-2" /> Sign In

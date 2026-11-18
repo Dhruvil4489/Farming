@@ -228,9 +228,8 @@ export function NutrientGuidanceExplorer({
                 </h3>
               </div>
               <span
-                className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                  soilAudit?.hasLabTest ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'
-                }`}
+                className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${soilAudit?.hasLabTest ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'
+                  }`}
               >
                 {soilAudit?.hasLabTest ? 'Verified Lab Test On Record' : 'No Lab Test Linked (Baseline Advisory)'}
               </span>
@@ -242,11 +241,10 @@ export function NutrientGuidanceExplorer({
                 Object.entries(soilAudit.parameters).map(([key, param]: [string, any]) => (
                   <div
                     key={key}
-                    className={`p-3 rounded-2xl border text-xs ${
-                      param.isKnown
+                    className={`p-3 rounded-2xl border text-xs ${param.isKnown
                         ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
                         : 'bg-stone-50 border-stone-200/80 text-stone-500'
-                    }`}
+                      }`}
                   >
                     <span className="text-[10px] font-bold block opacity-75">{param.label}</span>
                     <strong className="text-sm font-extrabold block mt-0.5">
@@ -259,217 +257,211 @@ export function NutrientGuidanceExplorer({
                 ))}
             </div>
 
-            {/* Advisory Attribution & Missing Inputs Warning */}
+            {/* Friendly Soil Context Notice — Never Forces Lab Values */}
             <div
-              className={`p-4 rounded-2xl border text-xs space-y-1.5 ${
-                soilAudit?.hasLabTest
+              className={`p-4 rounded-2xl border text-xs space-y-1.5 ${soilAudit?.hasLabTest
                   ? 'bg-emerald-50/40 border-emerald-200 text-emerald-950'
-                  : 'bg-amber-50/70 border-amber-200 text-amber-950'
+                  : 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
               }`}
             >
-              <div className="flex items-center gap-2 font-bold">
-                {soilAudit?.hasLabTest ? <ShieldCheck size={16} /> : <AlertTriangle size={16} className="text-amber-600" />}
-                <span>
-                  {soilAudit?.hasLabTest
-                    ? 'Soil Test Correlated Advisory'
-                    : 'University Baseline Advisory Notice (Zero Guesswork Policy)'}
-                </span>
-              </div>
-              <p className="text-[11px] leading-relaxed opacity-90">
-                {soilAudit?.advisoryNotes}
-              </p>
-              {!soilAudit?.hasLabTest && (
-                <div className="pt-1 flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-bold text-amber-900">
-                    Missing parameters: {soilAudit?.missingInputs?.join(', ')}.
-                  </span>
-                  <Link href="/soil" className="text-[10px] font-bold text-[#2F7D4F] underline hover:text-[#143D2A]">
-                    Upload Soil Health Card in Soil Health module →
+            <div className="flex items-center gap-2 font-bold">
+              <ShieldCheck size={16} className="text-[#2F7D4F]" />
+              <span>
+                {soilAudit?.hasLabTest
+                ? 'Tailored to Your Soil Test Report'
+                    : 'Ready to Use — No Lab Soil Test Needed'}
+              </span>
+            </div>
+            <p className="text-[11px] leading-relaxed opacity-90">
+              {soilAudit?.advisoryNotes}
+            </p>
+            {!soilAudit?.hasLabTest && (
+              <div className="pt-1 flex flex-wrap items-center gap-2">
+                  <Link href="/soil" className="text-[11px] font-bold text-[#2F7D4F] underline hover:text-[#143D2A]">
+                    Optional: Set your soil type or Soil Health Card →
                   </Link>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
-
-      {/* MAIN BODY CONTAINER */}
-      <div className={isPortal ? 'space-y-6' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-8'}>
-        {/* Category Quick Cards */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-bold text-stone-900 uppercase tracking-wider">
-            Standard Agricultural Nutrient Categories
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(selectedCategory === cat.slug ? '' : cat.slug)}
-                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                  selectedCategory === cat.slug
-                    ? 'bg-[#143D2A] text-white border-emerald-500 shadow-md scale-[1.01]'
-                    : 'bg-white text-stone-900 border-stone-200 hover:border-emerald-300'
-                }`}
-              >
-                <span
-                  className={`text-[10px] font-extrabold uppercase tracking-wider block ${
-                    selectedCategory === cat.slug ? 'text-emerald-300' : 'text-[#2F7D4F]'
-                  }`}
-                >
-                  {cat.nutrientProfile}
-                </span>
-                <p className="font-bold text-sm mt-0.5">{cat.name}</p>
-                <p
-                  className={`text-[11px] line-clamp-1 mt-1 ${
-                    selectedCategory === cat.slug ? 'text-emerald-200' : 'text-stone-500'
-                  }`}
-                >
-                  {cat.applicationRole}
-                </p>
-              </button>
-            ))}
-          </div>
         </div>
+  )
+}
 
-        {/* Filter Controls Bar */}
-        <div className="bg-white p-4 rounded-3xl border border-stone-200/80 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <div className="relative flex-1 sm:max-w-md">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search stage (e.g. Basal, Flowering) or nutrient requirement..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 focus:outline-none focus:border-emerald-600 text-xs text-stone-800 placeholder:text-stone-400"
-            />
-          </div>
-
-          <div className="flex items-center gap-3 justify-between sm:justify-end">
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">Crop</label>
-              <select
-                value={selectedCrop}
-                onChange={(e) => setSelectedCrop(e.target.value)}
-                className="p-2 rounded-xl border border-stone-200 bg-stone-50/50 font-medium text-xs focus:outline-none focus:border-emerald-600 cursor-pointer text-stone-800"
-              >
-                <option value="">All Crops</option>
-                <option value="wheat">Wheat</option>
-                <option value="cotton">Cotton</option>
-                <option value="groundnut">Groundnut</option>
-              </select>
-            </div>
-            <button
-              onClick={() => {
-                setSelectedCrop('');
-                setSelectedCategory('');
-                setSearchQuery('');
-              }}
-              className="text-xs font-bold text-stone-500 hover:text-stone-800 px-3 py-2 rounded-xl border border-stone-200 hover:bg-stone-50 transition-colors cursor-pointer"
-            >
-              Reset Filters
-            </button>
-          </div>
-        </div>
-
-        {/* Stage-by-Stage Guidance Cards */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-extrabold text-stone-900 tracking-tight">
-              Phenological Stage Nutrient Recommendations
-            </h2>
-            <span className="text-xs text-stone-500 font-medium">
-              Showing <strong>{filteredGuidances.length}</strong> recommendations
-            </span>
-          </div>
-
-          {loading ? (
-            <div className="p-16 text-center text-xs text-stone-500">Loading agronomic guidance schedules...</div>
-          ) : filteredGuidances.length === 0 ? (
-            <div className="p-16 bg-white rounded-3xl border border-stone-200 text-center space-y-3">
-              <BookOpen size={32} className="mx-auto text-stone-400" />
-              <p className="font-bold text-stone-800 text-sm">No nutrient guidance found for this filter</p>
-              <p className="text-xs text-stone-500">Try choosing "All Crops" or resetting category filters.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredGuidances.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-white rounded-3xl border border-stone-200/80 p-6 shadow-xs space-y-4 hover:border-emerald-300 transition-colors"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-stone-100">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded">
-                          {item.cropName}
-                        </span>
-                        <span className="text-[10px] font-bold text-stone-500">{item.state}</span>
-                      </div>
-                      <h3 className="text-lg font-black text-stone-900 mt-1">
-                        {item.cropStage}
-                      </h3>
-                      <p className="text-xs font-bold text-[#2F7D4F] mt-0.5">
-                        Timing: {item.recommendedTiming} • Method: {item.applicationMethod}
-                      </p>
-                    </div>
-
-                    <div className="text-right sm:text-right text-xs">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">
-                        Nutrient Requirement
-                      </span>
-                      <span className="font-extrabold text-[#0F2D1F] text-sm block mt-0.5">
-                        {item.nutrientRequirement}
-                      </span>
-                      {item.fertilizerCategory && (
-                        <span className="text-[11px] font-medium text-stone-500 block">
-                          Suggested: {item.fertilizerCategory.name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Guidance Details */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    <div className="space-y-1.5 p-4 bg-stone-50/70 rounded-2xl border border-stone-100">
-                      <h4 className="font-bold text-stone-900 flex items-center gap-1.5">
-                        <CheckCircle2 size={14} className="text-emerald-700" /> Agronomic Application Protocol
-                      </h4>
-                      <p className="text-stone-600 leading-relaxed text-[11px]">{item.guidanceText}</p>
-                    </div>
-
-                    <div className="space-y-1.5 p-4 bg-emerald-50/40 rounded-2xl border border-emerald-100/60">
-                      <h4 className="font-bold text-emerald-950 flex items-center gap-1.5">
-                        <Info size={14} className="text-emerald-700" /> Physiological Role & Precautions
-                      </h4>
-                      <p className="text-emerald-900 leading-relaxed text-[11px]">{item.whyItMatters}</p>
-                      {item.importantPrecautions && (
-                        <p className="text-amber-800 text-[10px] font-semibold mt-1">
-                          ⚠️ {item.importantPrecautions}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Footer with Source & Store Link */}
-                  <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
-                    <span className="text-[10px] text-stone-400 flex items-center gap-1">
-                      <ShieldCheck size={12} className="text-emerald-600" /> Published by: <strong>{item.sourceAuthority}</strong>
-                    </span>
-
-                    <Link href={`/store?crop=${item.cropSlug}`}>
-                      <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-[#2F7D4F] hover:text-white text-xs font-bold text-stone-700 transition-colors cursor-pointer">
-                        <Package size={13} />
-                        <span>Procure Inputs for {item.cropName}</span>
-                        <ArrowRight size={12} />
-                      </button>
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+{/* MAIN BODY CONTAINER */ }
+<div className={isPortal ? 'space-y-6' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-8'}>
+  {/* Category Quick Cards */}
+  <div className="space-y-3">
+    <h2 className="text-sm font-bold text-stone-900 uppercase tracking-wider">
+      Standard Agricultural Nutrient Categories
+    </h2>
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {categories.map((cat) => (
+        <button
+          key={cat.id}
+          onClick={() => setSelectedCategory(selectedCategory === cat.slug ? '' : cat.slug)}
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${selectedCategory === cat.slug
+              ? 'bg-[#143D2A] text-white border-emerald-500 shadow-md scale-[1.01]'
+              : 'bg-white text-stone-900 border-stone-200 hover:border-emerald-300'
+            }`}
+        >
+          <span
+            className={`text-[10px] font-extrabold uppercase tracking-wider block ${selectedCategory === cat.slug ? 'text-emerald-300' : 'text-[#2F7D4F]'
+              }`}
+          >
+            {cat.nutrientProfile}
+          </span>
+          <p className="font-bold text-sm mt-0.5">{cat.name}</p>
+          <p
+            className={`text-[11px] line-clamp-1 mt-1 ${selectedCategory === cat.slug ? 'text-emerald-200' : 'text-stone-500'
+              }`}
+          >
+            {cat.applicationRole}
+          </p>
+        </button>
+      ))}
     </div>
+  </div>
+
+  {/* Filter Controls Bar */}
+  <div className="bg-white p-4 rounded-3xl border border-stone-200/80 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+    <div className="relative flex-1 sm:max-w-md">
+      <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder="Search stage (e.g. Basal, Flowering) or nutrient requirement..."
+        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 focus:outline-none focus:border-emerald-600 text-xs text-stone-800 placeholder:text-stone-400"
+      />
+    </div>
+
+    <div className="flex items-center gap-3 justify-between sm:justify-end">
+      <div className="flex items-center gap-2">
+        <label className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">Crop</label>
+        <select
+          value={selectedCrop}
+          onChange={(e) => setSelectedCrop(e.target.value)}
+          className="p-2 rounded-xl border border-stone-200 bg-stone-50/50 font-medium text-xs focus:outline-none focus:border-emerald-600 cursor-pointer text-stone-800"
+        >
+          <option value="">All Crops</option>
+          <option value="wheat">Wheat</option>
+          <option value="cotton">Cotton</option>
+          <option value="groundnut">Groundnut</option>
+        </select>
+      </div>
+      <button
+        onClick={() => {
+          setSelectedCrop('');
+          setSelectedCategory('');
+          setSearchQuery('');
+        }}
+        className="text-xs font-bold text-stone-500 hover:text-stone-800 px-3 py-2 rounded-xl border border-stone-200 hover:bg-stone-50 transition-colors cursor-pointer"
+      >
+        Reset Filters
+      </button>
+    </div>
+  </div>
+
+  {/* Stage-by-Stage Guidance Cards */}
+  <div className="space-y-4">
+    <div className="flex items-center justify-between">
+      <h2 className="text-base font-extrabold text-stone-900 tracking-tight">
+        Phenological Stage Nutrient Recommendations
+      </h2>
+      <span className="text-xs text-stone-500 font-medium">
+        Showing <strong>{filteredGuidances.length}</strong> recommendations
+      </span>
+    </div>
+
+    {loading ? (
+      <div className="p-16 text-center text-xs text-stone-500">Loading agronomic guidance schedules...</div>
+    ) : filteredGuidances.length === 0 ? (
+      <div className="p-16 bg-white rounded-3xl border border-stone-200 text-center space-y-3">
+        <BookOpen size={32} className="mx-auto text-stone-400" />
+        <p className="font-bold text-stone-800 text-sm">No nutrient guidance found for this filter</p>
+        <p className="text-xs text-stone-500">Try choosing "All Crops" or resetting category filters.</p>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {filteredGuidances.map((item) => (
+          <div
+            key={item.id}
+            className="bg-white rounded-3xl border border-stone-200/80 p-6 shadow-xs space-y-4 hover:border-emerald-300 transition-colors"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-stone-100">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded">
+                    {item.cropName}
+                  </span>
+                  <span className="text-[10px] font-bold text-stone-500">{item.state}</span>
+                </div>
+                <h3 className="text-lg font-black text-stone-900 mt-1">
+                  {item.cropStage}
+                </h3>
+                <p className="text-xs font-bold text-[#2F7D4F] mt-0.5">
+                  Timing: {item.recommendedTiming} • Method: {item.applicationMethod}
+                </p>
+              </div>
+
+              <div className="text-right sm:text-right text-xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">
+                  Nutrient Requirement
+                </span>
+                <span className="font-extrabold text-[#0F2D1F] text-sm block mt-0.5">
+                  {item.nutrientRequirement}
+                </span>
+                {item.fertilizerCategory && (
+                  <span className="text-[11px] font-medium text-stone-500 block">
+                    Suggested: {item.fertilizerCategory.name}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Guidance Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="space-y-1.5 p-4 bg-stone-50/70 rounded-2xl border border-stone-100">
+                <h4 className="font-bold text-stone-900 flex items-center gap-1.5">
+                  <CheckCircle2 size={14} className="text-emerald-700" /> Agronomic Application Protocol
+                </h4>
+                <p className="text-stone-600 leading-relaxed text-[11px]">{item.guidanceText}</p>
+              </div>
+
+              <div className="space-y-1.5 p-4 bg-emerald-50/40 rounded-2xl border border-emerald-100/60">
+                <h4 className="font-bold text-emerald-950 flex items-center gap-1.5">
+                  <Info size={14} className="text-emerald-700" /> Physiological Role & Precautions
+                </h4>
+                <p className="text-emerald-900 leading-relaxed text-[11px]">{item.whyItMatters}</p>
+                {item.importantPrecautions && (
+                  <p className="text-amber-800 text-[10px] font-semibold mt-1">
+                    ⚠️ {item.importantPrecautions}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Footer with Source & Store Link */}
+            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
+              <span className="text-[10px] text-stone-400 flex items-center gap-1">
+                <ShieldCheck size={12} className="text-emerald-600" /> Published by: <strong>{item.sourceAuthority}</strong>
+              </span>
+
+              <Link href={`/store?crop=${item.cropSlug}`}>
+                <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-[#2F7D4F] hover:text-white text-xs font-bold text-stone-700 transition-colors cursor-pointer">
+                  <Package size={13} />
+                  <span>Procure Inputs for {item.cropName}</span>
+                  <ArrowRight size={12} />
+                </button>
+              </Link>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
+    </div >
   );
 }

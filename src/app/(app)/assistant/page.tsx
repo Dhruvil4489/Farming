@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Send, ShieldCheck, Sparkles, AlertCircle, BookOpen, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Bot, Send, AlertCircle, BookOpen, CheckCircle2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ProvenanceChip } from '@/components/ui/ProvenanceChip';
 import { getTranslation } from '@/lib/i18n';
+import { useI18n } from '@/providers/I18nProvider';
 
 interface Observation {
   text: string;
@@ -73,12 +74,25 @@ export default function AssistantPage() {
     },
   ]);
 
+  const { locale } = useI18n();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<ProviderStatus | null>(null);
   const [fields, setFields] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedFieldId, setSelectedFieldId] = useState<string>('');
-  const [language, setLanguage] = useState<'en' | 'hi' | 'gu'>('en');
+  const [language, setLanguage] = useState<'en' | 'hi' | 'gu'>(locale);
+
+  useEffect(() => {
+    setLanguage(locale);
+  }, [locale]);
+
+  // Pre-fill question if navigated via /assistant?q=...
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const q = new URLSearchParams(window.location.search).get('q');
+      if (q) setInput(q);
+    }
+  }, []);
 
   // Load provider status and user fields on mount
   useEffect(() => {
@@ -89,7 +103,7 @@ export default function AssistantPage() {
           setStatus(json.data.provider);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     fetch('/api/v1/fields')
       .then((res) => res.json())
@@ -99,7 +113,7 @@ export default function AssistantPage() {
           setSelectedFieldId(json.data[0].id);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const handleSend = async (e: React.FormEvent) => {
@@ -174,28 +188,26 @@ export default function AssistantPage() {
         <div className="flex items-center gap-2">
           {status && (
             <span
-              className={`text-[11px] px-2.5 py-1 rounded-full font-semibold border flex items-center gap-1.5 ${
-                status.status === 'ready'
+              className={`text-[11px] px-2.5 py-1 rounded-full font-semibold border flex items-center gap-1.5 ${status.status === 'ready'
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                   : status.status === 'mock_active'
-                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                  : 'bg-rose-50 text-rose-800 border-rose-200'
-              }`}
+                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                    : 'bg-rose-50 text-rose-800 border-rose-200'
+                }`}
             >
               <span
-                className={`w-2 h-2 rounded-full ${
-                  status.status === 'ready'
+                className={`w-2 h-2 rounded-full ${status.status === 'ready'
                     ? 'bg-emerald-500'
                     : status.status === 'mock_active'
-                    ? 'bg-amber-500'
-                    : 'bg-rose-500'
-                }`}
+                      ? 'bg-amber-500'
+                      : 'bg-rose-500'
+                  }`}
               />
               {status.status === 'ready'
                 ? `Live AI: ${status.name}`
                 : status.status === 'mock_active'
-                ? 'Mock Grounding Engine (Dev)'
-                : 'Config Required'}
+                  ? 'Mock Grounding Engine (Dev)'
+                  : 'Config Required'}
             </span>
           )}
           <ProvenanceChip type="ai_analysis" />
@@ -298,13 +310,12 @@ export default function AssistantPage() {
                     </div>
                   </div>
                   <span
-                    className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                      msg.confidence === 'high'
+                    className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${msg.confidence === 'high'
                         ? 'bg-emerald-100 text-emerald-800'
                         : msg.confidence === 'medium'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-stone-100 text-stone-800'
-                    }`}
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-stone-100 text-stone-800'
+                      }`}
                   >
                     Confidence: {msg.confidence || 'Medium'}
                   </span>
@@ -325,12 +336,12 @@ export default function AssistantPage() {
                           obs.provenance === 'measured'
                             ? 'measured'
                             : obs.provenance === 'weather_service'
-                            ? 'forecast'
-                            : obs.provenance === 'market_data'
-                            ? 'official_market'
-                            : obs.provenance === 'knowledge_base'
-                            ? 'verified_source'
-                            : 'user_entered';
+                              ? 'forecast'
+                              : obs.provenance === 'market_data'
+                                ? 'official_market'
+                                : obs.provenance === 'knowledge_base'
+                                  ? 'verified_source'
+                                  : 'user_entered';
 
                         return (
                           <li key={oIdx} className="flex items-start gap-2">
@@ -361,13 +372,12 @@ export default function AssistantPage() {
                         <div className="flex items-center justify-between">
                           <p className="font-bold text-[#143D2A]">{rec.action}</p>
                           <span
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
-                              rec.priority === 'high'
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${rec.priority === 'high'
                                 ? 'bg-rose-100 text-rose-800'
                                 : rec.priority === 'medium'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-stone-200 text-stone-700'
-                            }`}
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-stone-200 text-stone-700'
+                              }`}
                           >
                             {rec.priority} priority
                           </span>

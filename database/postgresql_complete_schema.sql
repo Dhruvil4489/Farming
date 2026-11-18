@@ -400,6 +400,7 @@ CREATE TABLE IF NOT EXISTS "FarmObservation" (
 -- Table: IrrigationRecord (Water applications log)
 CREATE TABLE IF NOT EXISTS "IrrigationRecord" (
     "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
     "fieldId" TEXT NOT NULL,
     "cropCycleId" TEXT,
     "irrigatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -411,8 +412,86 @@ CREATE TABLE IF NOT EXISTS "IrrigationRecord" (
     "notes" TEXT,
     "source" TEXT NOT NULL DEFAULT 'manual',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "IrrigationRecord_pkey" PRIMARY KEY ("id")
+);
+
+-- Table: CropDiagnosisRecord (AI computer vision pathology records)
+CREATE TABLE IF NOT EXISTS "CropDiagnosisRecord" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "fieldId" TEXT NOT NULL,
+    "cropCycleId" TEXT,
+    "imagePath" TEXT NOT NULL,
+    "originalFilename" TEXT NOT NULL,
+    "mimeType" TEXT NOT NULL,
+    "fileSizeBytes" INTEGER NOT NULL,
+    "status" TEXT NOT NULL,
+    "selectedCrop" TEXT,
+    "detectedCrop" TEXT,
+    "predictedLabel" TEXT,
+    "cropName" TEXT,
+    "diseaseName" TEXT,
+    "isHealthy" BOOLEAN,
+    "confidence" DOUBLE PRECISION,
+    "severity" TEXT,
+    "topKJson" TEXT NOT NULL DEFAULT '[]',
+    "uncertaintyReason" TEXT,
+    "modelId" TEXT,
+    "modelName" TEXT NOT NULL DEFAULT 'agri-plant-disease-resnet50',
+    "modelVersion" TEXT NOT NULL DEFAULT '1.0.0',
+    "source" TEXT NOT NULL DEFAULT 'farmer_upload',
+    "notes" TEXT,
+    "feedbackRating" INTEGER,
+    "feedbackNotes" TEXT,
+    "feedbackAccurate" BOOLEAN,
+    "metadataJson" TEXT,
+    "diagnosedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deletedAt" TIMESTAMP(3),
+
+    CONSTRAINT "CropDiagnosisRecord_pkey" PRIMARY KEY ("id")
+);
+
+-- Table: AiModelRegistry (Centralized registry for multi-model architecture)
+CREATE TABLE IF NOT EXISTS "AiModelRegistry" (
+    "id" TEXT NOT NULL,
+    "modelId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "version" TEXT NOT NULL,
+    "architecture" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "targetCropsJson" TEXT NOT NULL,
+    "supportedClassesCount" INTEGER NOT NULL,
+    "classesJson" TEXT NOT NULL,
+    "datasetSource" TEXT NOT NULL,
+    "license" TEXT NOT NULL,
+    "accuracy" DOUBLE PRECISION,
+    "precision" DOUBLE PRECISION,
+    "recall" DOUBLE PRECISION,
+    "f1Score" DOUBLE PRECISION,
+    "status" TEXT NOT NULL DEFAULT 'active',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AiModelRegistry_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "AiModelRegistry_modelId_key" UNIQUE ("modelId")
+);
+
+-- Table: DiagnosisFeedback (Farmer verification & diagnostic audit)
+CREATE TABLE IF NOT EXISTS "DiagnosisFeedback" (
+    "id" TEXT NOT NULL,
+    "diagnosisId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "isAccurate" BOOLEAN NOT NULL,
+    "correctedDisease" TEXT,
+    "rating" INTEGER,
+    "comments" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DiagnosisFeedback_pkey" PRIMARY KEY ("id")
 );
 
 -- =====================================================================
@@ -923,11 +1002,33 @@ BEGIN
     END IF;
 
     -- Irrigation
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'IrrigationRecord_userId_fkey') THEN
+        ALTER TABLE "IrrigationRecord" ADD CONSTRAINT "IrrigationRecord_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'IrrigationRecord_fieldId_fkey') THEN
         ALTER TABLE "IrrigationRecord" ADD CONSTRAINT "IrrigationRecord_fieldId_fkey" FOREIGN KEY ("fieldId") REFERENCES "Field"("id") ON DELETE CASCADE ON UPDATE CASCADE;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'IrrigationRecord_cropCycleId_fkey') THEN
         ALTER TABLE "IrrigationRecord" ADD CONSTRAINT "IrrigationRecord_cropCycleId_fkey" FOREIGN KEY ("cropCycleId") REFERENCES "CropCycle"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+
+    -- CropDiagnosisRecord
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CropDiagnosisRecord_userId_fkey') THEN
+        ALTER TABLE "CropDiagnosisRecord" ADD CONSTRAINT "CropDiagnosisRecord_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CropDiagnosisRecord_fieldId_fkey') THEN
+        ALTER TABLE "CropDiagnosisRecord" ADD CONSTRAINT "CropDiagnosisRecord_fieldId_fkey" FOREIGN KEY ("fieldId") REFERENCES "Field"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CropDiagnosisRecord_cropCycleId_fkey') THEN
+        ALTER TABLE "CropDiagnosisRecord" ADD CONSTRAINT "CropDiagnosisRecord_cropCycleId_fkey" FOREIGN KEY ("cropCycleId") REFERENCES "CropCycle"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+
+    -- DiagnosisFeedback
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'DiagnosisFeedback_diagnosisId_fkey') THEN
+        ALTER TABLE "DiagnosisFeedback" ADD CONSTRAINT "DiagnosisFeedback_diagnosisId_fkey" FOREIGN KEY ("diagnosisId") REFERENCES "CropDiagnosisRecord"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'DiagnosisFeedback_userId_fkey') THEN
+        ALTER TABLE "DiagnosisFeedback" ADD CONSTRAINT "DiagnosisFeedback_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
     END IF;
 
     -- Files & Notifications

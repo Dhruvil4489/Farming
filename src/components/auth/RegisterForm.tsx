@@ -241,7 +241,6 @@ export function RegisterForm() {
             id="register-submit-button"
             type="submit"
             isLoading={loading}
-            onClick={handleSubmit}
             className="w-full min-h-[48px] bg-[#2F7D4F] hover:bg-[#25663f] text-white font-bold text-sm rounded-xl shadow-md transition-all hover:shadow-lg active:scale-[0.99] cursor-pointer"
           >
             <UserPlus size={18} className="mr-2" /> Complete Registration

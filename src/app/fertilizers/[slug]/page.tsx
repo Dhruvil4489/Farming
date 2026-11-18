@@ -15,6 +15,7 @@ import {
   Package,
 } from 'lucide-react';
 import { SiteHeader } from '@/components/domain/SiteHeader';
+import { ProductImage } from '@/components/ui/ProductImage';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -62,6 +63,12 @@ export default function ProductDetailPage() {
           setToastMsg(`Added ${quantity} × ${product.name} to cart!`);
           setTimeout(() => setToastMsg(''), 3000);
         }
+      } else if (res.status === 401) {
+        router.push(`/login?redirect=/fertilizers/${slug}`);
+      } else {
+        const json = await res.json().catch(() => null);
+        setToastMsg(json?.error?.message || 'Could not add to cart');
+        setTimeout(() => setToastMsg(''), 3000);
       }
     } catch (err) {
       console.error(err);
@@ -123,18 +130,18 @@ export default function ProductDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 bg-white p-6 sm:p-10 rounded-3xl border border-stone-200/90 shadow-sm">
           {/* Left: Image Showcase */}
           <div className="space-y-4">
-            <div className="relative h-[380px] sm:h-[460px] rounded-2xl overflow-hidden bg-stone-100 border border-stone-100">
-              <img
-                src={product.imageUrl}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-              <span className="absolute top-4 left-4 px-3 py-1 rounded-full bg-white/95 backdrop-blur-md text-stone-900 font-extrabold text-xs shadow-md">
-                Brand: {product.brand?.name}
-              </span>
-              <span className="absolute top-4 right-4 px-3 py-1 rounded-full bg-emerald-900 text-white font-bold text-xs shadow-md">
-                Pack: {product.packSize}
-              </span>
+                <div className="relative h-[380px] sm:h-[460px] rounded-2xl overflow-hidden bg-[#F5F7F4] border border-stone-200/70">
+                <ProductImage
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="w-full h-full object-contain p-6"
+                />
+                <span className="absolute top-4 left-4 px-3 py-1 rounded-full bg-white/95 backdrop-blur-md text-stone-900 font-extrabold text-xs shadow-md">
+                  Brand: {product.brand?.name}
+                </span>
+                <span className="absolute top-4 right-4 px-3 py-1 rounded-full bg-emerald-900 text-white font-bold text-xs shadow-md">
+                  Pack: {product.packSize}
+                </span>
             </div>
 
             <div className="p-4 bg-stone-50 rounded-2xl border border-stone-100 flex items-center justify-between text-xs text-stone-600">

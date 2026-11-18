@@ -2,12 +2,16 @@ import { NextRequest } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
+import { toHectares, resolveCropName } from '@/lib/units';
+import { StageMaterializer } from '@/services/StageMaterializer';
 import { z } from 'zod';
 
 const fieldSchema = z.object({
-  farmId: z.string().min(1, 'Farm ID is required'),
-  name: z.string().min(2, 'Field name must be at least 2 characters'),
+  farmId: z.string().min(1, 'Please select a farm'),
+  name: z.string().trim().min(2, 'Field name must be at least 2 characters'),
   areaHa: z.number().positive().optional(),
+  areaInputValue: z.number().positive().optional(),
+  areaInputUnit: z.enum(['acre', 'hectare', 'bigha', 'guntha']).optional(),
   areaSource: z.enum(['manual', 'computed']).default('manual'),
   boundaryGeoJson: z.string().optional(),
   centroidLat: z.number().optional(),
@@ -16,68 +20,163 @@ const fieldSchema = z.object({
   soilType: z.enum(['sandy', 'loamy', 'clay', 'black', 'red', 'alluvial', 'other', 'unknown']).optional(),
   status: z.enum(['empty', 'planned', 'active', 'fallow']).default('empty'),
   notes: z.string().optional(),
+  // Optional crop info when creating a field
+  cropId: z.string().optional(),
+  customCropName: z.string().optional(),
 });
 
 export async function GET(req: NextRequest) {
-  const user = await getAuthenticatedUser();
-  if (!user) return apiError('Unauthorized', 'unauthorized', 401);
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) return apiError('Please sign in to view your fields.', 'unauthorized', 401);
 
-  const { searchParams } = new URL(req.url);
-  const farmId = searchParams.get('farm_id');
+    const { searchParams } = new URL(req.url);
+    const farmId = searchParams.get('farm_id');
 
-  const fields = await prisma.field.findMany({
-    where: {
-      farm: { userId: user.id },
-      ...(farmId ? { farmId } : {}),
-      deletedAt: null,
-    },
-    include: {
-      farm: { select: { id: true, name: true } },
-      cropCycles: {
-        where: { deletedAt: null, status: { notIn: ['completed'] } },
-        include: { crop: true },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+          const fields = await prisma.field.findMany({
+            where: {
+              farm: { userId: user.id, deletedAt: null },
+              ...(farmId ? { farmId } : {}),
+              deletedAt: null,
+            },
+                  include: {
+                    farm: {
+                      select: {
+                        id: true,
+                        name: true,
+                        village: true,
+                        district: true,
+                        state: true,
+                        lat: true,
+                        lng: true,
+                      },
+                    },
+                      cropCycles: {
+                        where: { deletedAt: null, status: { notIn: ['completed'] } },
+                        include: {
+                          crop: {
+                            include: { translations: true },
+                          },
+                          variety: true,
+                          stages: {
+                            orderBy: { orderIndex: 'asc' },
+                          },
+                        },
+                        orderBy: { createdAt: 'desc' },
+                      },
+                      diagnoses: {
+                        where: { deletedAt: null },
+                        orderBy: { diagnosedAt: 'desc' },
+                        take: 3,
+                        select: {
+                          id: true,
+                          cropName: true,
+                          diseaseName: true,
+                          severity: true,
+                          isHealthy: true,
+                          diagnosedAt: true,
+                        },
+                      },
+                    },
+          orderBy: { createdAt: 'desc' },
+        });
 
-  return apiSuccess(fields);
+    // Normalize crop names and current stage snapshot for consistent UI consumption
+    const normalized = fields.map((field) => ({
+      ...field,
+      cropCycles: field.cropCycles.map((cycle) => {
+        const currentStage =
+          cycle.stages.find((s) => s.status === 'current') || cycle.stages[0] || null;
+        return {
+          ...cycle,
+          crop: cycle.crop
+            ? {
+              ...cycle.crop,
+              name: resolveCropName(cycle.crop, cycle.customCropName, user.preferredLanguage),
+            }
+            : null,
+          currentStageName: currentStage?.nameSnapshot || null,
+        };
+      }),
+    }));
+
+    return apiSuccess(normalized);
+  } catch (err) {
+    console.error('[GET /api/v1/fields] Error:', err);
+    return apiError(
+      'Unable to load your fields right now. Please try again.',
+      'fields_load_failed',
+      500
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getAuthenticatedUser();
-  if (!user) return apiError('Unauthorized', 'unauthorized', 401);
-
   try {
-    const body = await req.json();
-    const parsed = fieldSchema.parse(body);
+    const user = await getAuthenticatedUser();
+    if (!user) return apiError('Please sign in to add a field.', 'unauthorized', 401);
 
-    const farm = await prisma.farm.findFirst({
-      where: { id: parsed.farmId, userId: user.id, deletedAt: null },
-    });
-    if (!farm) return apiError('Farm not found or unowned', 'not_found', 404);
+      const body = await req.json();
+      const parsed = fieldSchema.parse(body);
 
-    const field = await prisma.field.create({
-      data: {
-        farmId: parsed.farmId,
-        name: parsed.name,
-        areaHa: parsed.areaHa || null,
-        areaSource: parsed.areaSource,
-        boundaryGeoJson: parsed.boundaryGeoJson || null,
-        centroidLat: parsed.centroidLat || farm.lat || null,
-        centroidLng: parsed.centroidLng || farm.lng || null,
-        irrigationType: parsed.irrigationType || 'drip',
-        soilType: parsed.soilType || 'unknown',
-        status: parsed.status,
-        notes: parsed.notes || null,
-      },
-    });
+      const farm = await prisma.farm.findFirst({
+        where: { id: parsed.farmId, userId: user.id, deletedAt: null },
+      });
+      if (!farm) return apiError('Selected farm was not found.', 'not_found', 404);
 
-    return apiSuccess(field, undefined, 201);
-  } catch (err: any) {
-    if (err instanceof z.ZodError) {
-      return apiError('Validation failed', 'validation_failed', 422, err.flatten().fieldErrors as any);
+      const computedAreaHa =
+        parsed.areaHa ?? toHectares(parsed.areaInputValue, parsed.areaInputUnit) ?? null;
+
+      const hasInitialCrop = Boolean(parsed.cropId && parsed.cropId.trim());
+
+      const field = await prisma.field.create({
+        data: {
+          farmId: parsed.farmId,
+          name: parsed.name,
+          areaHa: computedAreaHa,
+          areaSource: parsed.areaSource,
+          boundaryGeoJson: parsed.boundaryGeoJson || null,
+          centroidLat: parsed.centroidLat ?? farm.lat ?? null,
+          centroidLng: parsed.centroidLng ?? farm.lng ?? null,
+          irrigationType: parsed.irrigationType || 'drip',
+          soilType: parsed.soilType || 'unknown',
+          status: hasInitialCrop ? 'active' : parsed.status,
+          notes: parsed.notes?.trim() || null,
+        },
+        include: {
+          farm: {
+            select: { id: true, name: true, village: true, district: true, state: true },
+          },
+        },
+      });
+
+      // Optional initial crop cycle if farmer chose a crop during creation
+      if (hasInitialCrop && parsed.cropId) {
+        const cropExists = await prisma.crop.findUnique({ where: { id: parsed.cropId } });
+        if (cropExists) {
+          const sowing = new Date();
+          const cycle = await prisma.cropCycle.create({
+            data: {
+              fieldId: field.id,
+              cropId: cropExists.id,
+              customCropName: parsed.customCropName?.trim() || null,
+              sowingDate: sowing,
+              areaHa: computedAreaHa,
+              irrigationType: field.irrigationType,
+              status: 'growing',
+            },
+          });
+          await StageMaterializer.materialize(cycle.id, cropExists.id, sowing).catch(() => { });
+        }
+      }
+
+      return apiSuccess(field, undefined, 201);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        const firstMsg = err.issues[0]?.message || 'Please check the entered field details.';
+        return apiError(firstMsg, 'validation_failed', 422, err.flatten().fieldErrors as any);
+      }
+      console.error('[POST /api/v1/fields] Error:', err);
+      return apiError('Could not save this field. Please try again.', 'create_failed', 400);
     }
-    return apiError('Failed to create field', 'create_failed', 400);
   }
-}

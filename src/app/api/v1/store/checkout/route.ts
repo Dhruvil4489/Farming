@@ -5,13 +5,13 @@ import { StoreService } from '@/services/StoreService';
 import { z } from 'zod';
 
 const checkoutSchema = z.object({
-  deliveryName: z.string().min(2, 'Name must be at least 2 characters'),
-  deliveryPhone: z.string().min(10, 'Phone must be at least 10 digits'),
-  deliveryAddress: z.string().min(5, 'Address is required'),
+  deliveryName: z.string().trim().min(2, 'Name must be at least 2 characters'),
+  deliveryPhone: z.string().trim().min(10, 'Phone must be at least 10 digits'),
+  deliveryAddress: z.string().trim().min(5, 'Address is required'),
   deliveryVillage: z.string().optional(),
-  deliveryDistrict: z.string().min(2, 'District is required'),
+  deliveryDistrict: z.string().trim().min(2, 'District is required'),
   deliveryState: z.string().optional(),
-  deliveryPincode: z.string().min(6, 'Valid 6-digit Pincode required'),
+  deliveryPincode: z.string().trim().min(6, 'Valid 6-digit Pincode required'),
   paymentMethod: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   try {
     const userId = await getEffectiveUserId();
     if (!userId) {
-      return apiError('User session required for checkout', 'unauthorized', 401);
+      return apiError('Please sign in to place an order.', 'unauthorized', 401);
     }
 
     const body = await req.json();
@@ -31,9 +31,9 @@ export async function POST(req: NextRequest) {
     return apiSuccess(order, { orderNumber: order.orderNumber }, 201);
   } catch (err: any) {
     console.error('Error in /api/v1/store/checkout:', err);
-    if (err.name === 'ZodError') {
-      return apiError(err.errors[0]?.message || 'Validation failed', 'validation_error', 422);
+      if (err instanceof z.ZodError) {
+        return apiError(err.issues[0]?.message || 'Validation failed', 'validation_error', 422);
+      }
+      return apiError(err.message || 'Checkout failed', 'checkout_error', 400);
     }
-    return apiError(err.message || 'Checkout failed', 'checkout_error', 400);
   }
-}

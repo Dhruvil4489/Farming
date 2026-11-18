@@ -1,16 +1,23 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Agritech3DScene } from './Agritech3DScene';
-import { Sparkles, Activity, ShieldCheck, Sun, CloudRain } from 'lucide-react';
 
 interface CinematicVideoHeroProps {
   children: React.ReactNode;
 }
 
+/**
+ * Full-screen cinematic agricultural video hero background.
+ * - Full-bleed absolute-positioned <video> with object-fit: cover
+ * - Autoplay, loop, muted, playsInline, zero controls
+ * - Local verified HD irrigated farmland video (/videos/hero-farming.mp4)
+ * - High-resolution farmland poster (/images/hero-farmland-poster.jpg)
+ * - Respects prefers-reduced-motion with graceful static fallback
+ * - Balanced emerald-dark scrim for guaranteed text readability without hiding the video
+ */
 export function CinematicVideoHero({ children }: CinematicVideoHeroProps) {
-  const [videoLoaded, setVideoLoaded] = useState(false);
-  const [videoError, setVideoError] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -18,120 +25,74 @@ export function CinematicVideoHero({ children }: CinematicVideoHeroProps) {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     setPrefersReducedMotion(mediaQuery.matches);
 
-    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
+    const onChange = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mediaQuery.addEventListener('change', onChange);
+    return () => mediaQuery.removeEventListener('change', onChange);
   }, []);
 
-  // When video can play
-  const handleCanPlay = () => {
-    setVideoLoaded(true);
-    setVideoError(false);
-  };
+  // Ensure autoplay starts reliably after mount (especially on client navigation)
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || prefersReducedMotion || videoFailed) return;
+    if (el.readyState >= 2) {
+      setVideoReady(true);
+    }
+    el.play().catch(() => {
+      // Autoplay blocked by browser power-saving mode: poster remains cleanly visible
+    });
+  }, [prefersReducedMotion, videoFailed]);
 
-  const handleVideoError = () => {
-    console.info('Hero background video fallback activated (high-res cinematic farm poster + 3D terrain).');
-    setVideoError(true);
-  };
-
-  // High-res agricultural sunset over fertile Indian farmland
-  const posterImage =
-    'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1920&q=85';
+  const posterImage = '/images/hero-farmland-poster.jpg';
 
   return (
-    <div className="relative min-h-[75vh] lg:min-h-[82vh] flex items-center justify-center overflow-hidden bg-[#0F2D1F]">
-      {/* 1. Cinematic Background Video with Triple Failover & Poster Fallback */}
-      {!prefersReducedMotion && !videoError ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          loop
-          playsInline
-          poster={posterImage}
-          onCanPlay={handleCanPlay}
-          onError={handleVideoError}
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
-            videoLoaded ? 'opacity-40 scale-100' : 'opacity-0 scale-105'
-          }`}
-          aria-hidden="true"
-        >
-          {/* Primary & mirror agricultural video sources */}
-          <source
-            src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-            type="video/mp4"
-          />
-          <source
-            src="https://assets.mixkit.co/videos/preview/mixkit-cornfield-with-golden-sunlight-41829-large.mp4"
-            type="video/mp4"
-          />
-        </video>
-      ) : null}
-
-      {/* 2. Cinematic Agricultural High-Res Backdrop (Always active as rich layer) */}
+    <section
+      aria-label="SmartFarm AI Hero"
+      className="relative w-full min-h-[calc(100vh-4.25rem)] flex items-center justify-center overflow-hidden bg-[#0A2217]"
+    >
+      {/* 1. High-resolution static farmland backdrop (instant paint & reduced-motion/error fallback) */}
       <div
-        className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 opacity-25"
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat scale-[1.01]"
         style={{ backgroundImage: `url(${posterImage})` }}
         aria-hidden="true"
       />
 
-      {/* 3. Three.js Interactive Precision Topography & Atmospheric Spores */}
-      <Agritech3DScene />
+          {/* 2. Full-bleed HD Farming Background Video */ }
+      {!prefersReducedMotion && !videoFailed && (
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            poster={posterImage}
+          onCanPlay={() => setVideoReady(true)}
+            onPlaying={() => setVideoReady(true)}
+            onError={() => setVideoFailed(true)}
+            className={`absolute inset-0 z-[1] w-full h-full object-cover pointer-events-none transition-opacity duration-700 ${videoReady ? 'opacity-100' : 'opacity-0'
+              }`}
+            aria-hidden="true"
+          >
+            <source src="/videos/hero-farming.mp4" type="video/mp4" />
+          </video>
+      )}
 
-      {/* 4. Ambient Gradient Overlays for Guaranteed Text Readability */}
-      {/* Dark vignette to keep nav & text 100% accessible */}
-      <div
-        className="absolute inset-0 bg-gradient-to-b from-[#0F2D1F]/95 via-[#0F2D1F]/80 to-[#0F2D1F] pointer-events-none z-2"
-        aria-hidden="true"
-      />
+        {/* 3. Subtle emerald-dark atmospheric scrim so farmland video shines through clearly while keeping text sharp */}
+        <div
+          className="absolute inset-0 z-[2] bg-gradient-to-b from-[#071D13]/70 via-[#0B281B]/48 to-[#071D13]/80 pointer-events-none"
+          aria-hidden="true"
+        />
 
-      {/* Golden dawn sunrise glow radial */}
-      <div
-        className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[460px] bg-amber-400/10 blur-[130px] rounded-full pointer-events-none z-2"
-        aria-hidden="true"
-      />
+        {/* 4. Subtle vignette for focal readability */}
+        <div
+          className="absolute inset-0 z-[2] bg-[radial-gradient(ellipse_at_center,rgba(8,30,20,0.12)_0%,rgba(6,22,15,0.58)_100%)] pointer-events-none"
+          aria-hidden="true"
+        />
 
-      {/* Subtle bottom transition gradient into the market section */}
-      <div
-        className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-[#FAF6EF] to-transparent pointer-events-none z-3 opacity-90"
-        aria-hidden="true"
-      />
-
-      {/* 5. Floating Interactive Agritech Indicator Badges (Layered Foreground Depth) */}
-      <div className="hidden xl:block absolute left-8 top-1/3 z-10 pointer-events-none animate-in fade-in slide-in-from-left duration-1000">
-        <div className="p-3.5 rounded-2xl bg-emerald-950/70 border border-emerald-500/30 backdrop-blur-md text-emerald-100 text-xs shadow-xl space-y-1 max-w-[210px] pointer-events-auto hover:border-emerald-400 transition-colors">
-          <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-[11px]">
-            <Activity size={13} className="animate-pulse" />
-            <span>AGRONOMIC TELEMETRY</span>
+          {/* 5. Foreground Hero Content (Always above video & overlays) */}
+          <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 flex flex-col items-center justify-center">
+            {children}
           </div>
-          <p className="text-[11px] text-emerald-200/90 font-medium leading-snug">
-            Kharif Cotton in <strong>Squaring Stage</strong> across 3.7 ha
-          </p>
-          <span className="text-[10px] text-emerald-400/80 block pt-1 border-t border-emerald-800/60">
-            • JAU Extension Verified
-          </span>
-        </div>
-      </div>
-
-      <div className="hidden xl:block absolute right-8 top-1/3 z-10 pointer-events-none animate-in fade-in slide-in-from-right duration-1000">
-        <div className="p-3.5 rounded-2xl bg-emerald-950/70 border border-amber-500/30 backdrop-blur-md text-amber-100 text-xs shadow-xl space-y-1 max-w-[210px] pointer-events-auto hover:border-amber-400 transition-colors">
-          <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[11px]">
-            <Sparkles size={13} />
-            <span>LIVE APMC BENCHMARK</span>
-          </div>
-          <p className="text-[11px] text-amber-200/90 font-medium leading-snug">
-            Rajkot Shankar-6 Cotton at <strong>₹7,520/Q</strong> (+1.48%)
-          </p>
-          <span className="text-[10px] text-amber-400/80 block pt-1 border-t border-amber-800/60">
-            • AGMARKNET Official Feed
-          </span>
-        </div>
-      </div>
-
-      {/* 6. Foreground Content with Proper Responsive Padding */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-14 sm:pt-28 sm:pb-16 flex flex-col items-center justify-center">
-        {children}
-      </div>
-    </div>
+    </section>
   );
 }

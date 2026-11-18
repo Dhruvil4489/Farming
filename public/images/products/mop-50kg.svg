@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F2F4F1"/>
+    </radialGradient>
+    <linearGradient id="bagBody" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#EAECE9"/>
+      <stop offset="14%" stop-color="#FFFFFF"/>
+      <stop offset="86%" stop-color="#FAFAFA"/>
+      <stop offset="100%" stop-color="#DFE3DD"/>
+    </linearGradient>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#991B1B"/>
+      <stop offset="100%" stop-color="#B91C1C"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="22" stdDeviation="20" flood-color="#0F2D1F" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="800" height="800" fill="url(#bg)"/>
+  <ellipse cx="400" cy="685" rx="235" ry="26" fill="#0F2D1F" opacity="0.12"/>
+
+  <!-- Woven Agricultural Sack -->
+  <g filter="url(#shadow)">
+    <!-- Top stitched lip -->
+    <path d="M210,122 C260,110 540,110 590,122 L602,158 C535,148 265,148 198,158 Z" fill="#F4F6F3" stroke="#D7DDD5" stroke-width="2"/>
+    <line x1="215" y1="138" x2="585" y2="138" stroke="#991B1B" stroke-width="2.5" stroke-dasharray="10,7" opacity="0.7"/>
+    <!-- Main Sack Silhouette -->
+    <path d="M198,158 C176,280 176,540 198,655 C265,672 535,672 602,655 C624,540 624,280 602,158 C535,148 265,148 198,158 Z" fill="url(#bagBody)" stroke="#D4DBD2" stroke-width="2.5"/>
+    <!-- Brand Top Band -->
+    <path d="M196,178 C265,168 535,168 604,178 L609,264 C535,254 265,254 191,264 Z" fill="url(#headerGrad)"/>
+    <text x="400" y="218" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="24" font-weight="800" letter-spacing="3" fill="#FFFFFF" opacity="0.92">KRIBHCO</text>
+    <text x="400" y="246" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14" font-weight="700" letter-spacing="2" fill="#FDE047">CERTIFIED AGRI-COOPERATIVE GRADE</text>
+
+    <!-- Accent Wave -->
+    <path d="M191,264 Q400,292 609,264 L609,276 Q400,304 191,276 Z" fill="#FDE047"/>
+
+    <!-- Product Emblem Circle -->
+    <circle cx="400" cy="366" r="56" fill="#991B1B" opacity="0.1"/>
+    <circle cx="400" cy="366" r="42" fill="#991B1B" opacity="0.16"/>
+    <!-- Botanical Sprout -->
+    <path d="M400,400 L400,352" stroke="#991B1B" stroke-width="5" stroke-linecap="round"/>
+    <path d="M400,368 C372,366 364,344 374,332 C390,334 400,348 400,368 Z" fill="#991B1B"/>
+    <path d="M400,358 C428,354 436,332 426,320 C410,324 400,338 400,358 Z" fill="#B91C1C"/>
+
+    <!-- Main Title -->
+    <text x="400" y="468" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="40" font-weight="900" fill="#132A1E">MOP POTASH</text>
+    <text x="400" y="502" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="20" font-weight="700" fill="#991B1B">Muriate of Potash 60% K2O</text>
+
+    <!-- Composition Pill -->
+    <rect x="275" y="525" width="250" height="44" rx="22" fill="#991B1B"/>
+    <text x="400" y="553" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="19" font-weight="800" fill="#FFFFFF">60% WATER SOLUBLE K2O</text>
+
+    <!-- Bottom Weight Band -->
+    <path d="M196,605 C265,615 535,615 604,605 L598,648 C535,660 265,660 202,648 Z" fill="#132A1E" opacity="0.06"/>
+    <text x="400" y="636" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="18" font-weight="800" fill="#2A3F33">NET WT: 50 kg Bag</text>
+  </g>
+
+  <!-- Realistic Granule Mound Accent -->
+  <g transform="translate(590, 622)">
+    <ellipse cx="0" cy="48" rx="76" ry="18" fill="#0F2D1F" opacity="0.12"/>
+    <path d="M-66,46 Q-32,-12 0,-18 Q32,-12 66,46 Z" fill="#C25959" opacity="0.92"/>
+    <circle cx="-22" cy="22" r="5" fill="#FFFFFF" opacity="0.35"/>
+    <circle cx="14" cy="14" r="4" fill="#FFFFFF" opacity="0.3"/>
+    <circle cx="28" cy="30" r="5" fill="#000000" opacity="0.12"/>
+    <circle cx="-6" cy="32" r="4.5" fill="#000000" opacity="0.1"/>
+  </g>
+</svg>
