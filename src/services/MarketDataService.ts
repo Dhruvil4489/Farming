@@ -341,41 +341,58 @@ export class MarketDataService {
       where.commodity = { ...where.commodity, name: { contains: params.commodity } };
     }
 
-    // Determine target date or latest available date
-    let targetDate: Date;
+    // If a specific date is requested, filter by that calendar day
+    let observations: any[] = [];
+    let targetDate: Date = new Date();
+
     if (params.date) {
       targetDate = new Date(params.date);
-    } else {
-      // Find the most recent date in DB
-      const latestObs = await prisma.marketPriceObservation.findFirst({
-        where,
-        orderBy: { priceDate: 'desc' },
-        select: { priceDate: true },
-      });
-      targetDate = latestObs ? latestObs.priceDate : new Date('2026-10-11T05:30:00Z');
-    }
+      const startOfDay = new Date(targetDate);
+      startOfDay.setUTCHours(0, 0, 0, 0);
+      const endOfDay = new Date(targetDate);
+      endOfDay.setUTCHours(23, 59, 59, 999);
 
-    // Start and end of that calendar day
-    const startOfDay = new Date(targetDate);
-    startOfDay.setUTCHours(0, 0, 0, 0);
-    const endOfDay = new Date(targetDate);
-    endOfDay.setUTCHours(23, 59, 59, 999);
-
-    const observations = await prisma.marketPriceObservation.findMany({
-      where: {
-        ...where,
-        priceDate: {
-          gte: startOfDay,
-          lte: endOfDay,
+      observations = await prisma.marketPriceObservation.findMany({
+        where: {
+          ...where,
+          priceDate: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
         },
-      },
-      include: {
-        commodity: true,
-        location: true,
-      },
-      orderBy: [{ location: { state: 'asc' } }, { commodity: { name: 'asc' } }],
-      take: params.limit && params.limit > 0 ? params.limit : undefined,
-    });
+        include: {
+          commodity: true,
+          location: true,
+        },
+        orderBy: [{ location: { state: 'asc' } }, { commodity: { name: 'asc' } }],
+        take: params.limit && params.limit > 0 ? params.limit : undefined,
+      });
+    } else {
+      // Retrieve observations ordered by latest priceDate first to deduplicate to latest reported price per crop/mandi
+      const allRecent = await prisma.marketPriceObservation.findMany({
+        where,
+        include: {
+          commodity: true,
+          location: true,
+        },
+        orderBy: { priceDate: 'desc' },
+      });
+
+      // Keep latest observation per unique locationId + commodityId
+      const seen = new Set<string>();
+      for (const obs of allRecent) {
+        const key = `${obs.locationId}:${obs.commodityId}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          observations.push(obs);
+          if (params.limit && observations.length >= params.limit) break;
+        }
+      }
+
+      if (observations.length > 0) {
+        targetDate = observations[0].priceDate;
+      }
+    }
 
     // Determine overall provenance for the result set
     const hasAnyDemo = observations.some((obs) => obs.isDemo);
@@ -389,7 +406,7 @@ export class MarketDataService {
             locationId: obs.locationId,
             commodityId: obs.commodityId,
             priceDate: {
-              lt: startOfDay,
+              lt: obs.priceDate,
             },
           },
           orderBy: { priceDate: 'desc' },

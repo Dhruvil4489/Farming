@@ -587,7 +587,7 @@ return (
                                                     <Card className="space-y-3 rounded-2xl p-5">
                                                       <div className="flex items-center gap-2 text-stone-900">
                                                         <Package size={17} className="text-amber-600" />
-                                                        <h3 className="font-bold text-sm">Fertilizer Store &amp; Guide</h3>
+                                                        <h3 className="font-bold text-sm">Fertilizer Store &amp; Orders</h3>
                                                       </div>
                                                         <div className="grid grid-cols-2 gap-2">
                                                           <Link
@@ -597,10 +597,10 @@ return (
                                                             Open Store
                                                           </Link>
                                                           <Link
-                                                            href="/guidance"
+                                                            href="/orders"
                                                             className="p-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-bold text-center transition-colors"
                                                           >
-                                                            Nutrient Guide
+                                                            My Orders
                                                           </Link>
                                                         </div>
                                                         {recentOrders.length > 0 && (

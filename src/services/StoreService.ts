@@ -268,9 +268,14 @@ export class StoreService {
           deliveryFee,
           discount: 0,
           totalAmount,
-          paymentMethod: input.paymentMethod || 'demo_checkout',
-          paymentStatus: 'test_paid',
-          isDemoOrder: true,
+          paymentMethod: input.paymentMethod || 'cod',
+          paymentStatus:
+            input.paymentMethod === 'online_razorpay'
+              ? 'paid'
+              : input.paymentMethod === 'cod'
+              ? 'pending_on_delivery'
+              : 'test_paid',
+          isDemoOrder: input.paymentMethod === 'demo_checkout',
           deliveryName: input.deliveryName,
           deliveryPhone: input.deliveryPhone,
           deliveryAddress: input.deliveryAddress,

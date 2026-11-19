@@ -192,13 +192,8 @@ export function SiteHeader() {
                                                     </Link>
                                                 </li>
                                                 <li>
-                                                    <Link href="/fertilizers/guide" className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 text-stone-200 hover:text-white">
-                                                      <BookOpen size={14} className="text-emerald-300" /> {t('guidance', 'Nutrient Guidance')}
-                                                    </Link>
-                                                </li>
-                                                <li>
                                                     <Link href="/orders" className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 text-stone-200 hover:text-white">
-                                                      <Package size={14} className="text-emerald-300" /> {t('orders', 'My Orders')}
+                                                      <ShoppingBag size={14} className="text-emerald-300" /> {t('orders', 'My Orders')}
                                                     </Link>
                                                 </li>
                                               </ul>
@@ -223,14 +218,6 @@ export function SiteHeader() {
                                     }`}
                                 >
                                   {t('store', 'Fertilizer Store')}
-                                </Link>
-
-                                <Link
-                                  href="/fertilizers/guide"
-                                  className={`px-3.5 py-2 rounded-lg transition-colors ${isActive('/fertilizers/guide') ? 'text-white bg-white/10 font-bold' : 'text-emerald-100 hover:text-white hover:bg-white/5'
-                                    }`}
-                                >
-                                  {t('guidance', 'Guidance')}
                                 </Link>
                               </nav>
 
@@ -302,8 +289,8 @@ export function SiteHeader() {
                                               <Link href="/fertilizers" onClick={() => setMobileMenuOpen(false)} className="p-3 bg-white/5 rounded-xl hover:bg-white/10 text-emerald-100">
                                                 {t('store', 'Fertilizer Store')}
                                               </Link>
-                                                <Link href="/fertilizers/guide" onClick={() => setMobileMenuOpen(false)} className="p-3 bg-white/5 rounded-xl hover:bg-white/10 text-emerald-100">
-                                                  {t('guidance', 'Nutrient Guidance')}
+                                                <Link href="/orders" onClick={() => setMobileMenuOpen(false)} className="p-3 bg-white/5 rounded-xl hover:bg-white/10 text-emerald-100">
+                                                  {t('orders', 'My Orders')}
                                                 </Link>
                                                   <Link href="/diagnosis" onClick={() => setMobileMenuOpen(false)} className="p-3 bg-white/5 rounded-xl hover:bg-white/10 text-emerald-100">
                                                     {t('crop_disease_ai', 'Crop Disease AI')}

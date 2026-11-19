@@ -13,15 +13,32 @@ export async function POST(req: NextRequest) {
       const user = await getAuthenticatedUser();
       if (!user) return apiError('Unauthorized', 'unauthorized', 401);
       const isAdmin = user.roles.some((r) => r.role.name === 'ADMIN');
-      // Non-admin farmer can trigger processing of ONLY their own due reminders
-      const summary = await ReminderSchedulerService.processDueReminders(
+      const targetUserId = isAdmin ? undefined : user.id;
+
+      // 1. Scan active crop cycles and pending tasks for timely alerts
+      const scanSummary = await ReminderSchedulerService.scanAndGenerateCropNotifications(targetUserId);
+
+      // 2. Process due scheduled reminders
+      const dueSummary = await ReminderSchedulerService.processDueReminders(
         isAdmin ? {} : { userId: user.id }
       );
-      return apiSuccess(summary);
+
+      return apiSuccess({
+        ...dueSummary,
+        scannedCycles: scanSummary.checkedCycles,
+        scannedTasks: scanSummary.checkedTasks,
+        createdFromScan: scanSummary.createdNotifications,
+      });
     }
 
-    const summary = await ReminderSchedulerService.processDueReminders();
-    return apiSuccess(summary);
+    const scanSummary = await ReminderSchedulerService.scanAndGenerateCropNotifications();
+    const dueSummary = await ReminderSchedulerService.processDueReminders();
+    return apiSuccess({
+      ...dueSummary,
+      scannedCycles: scanSummary.checkedCycles,
+      scannedTasks: scanSummary.checkedTasks,
+      createdFromScan: scanSummary.createdNotifications,
+    });
   } catch (err) {
     console.error('[POST /api/v1/scheduled/reminders] Error:', err);
     return apiError('Reminder dispatch job failed.', 'reminder_job_failed', 500);

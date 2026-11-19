@@ -114,11 +114,13 @@ export default function FarmerPortalOrderDetailPage() {
 
           <div className="space-y-1 sm:border-l sm:border-stone-200 sm:pl-4">
             <span className="font-bold text-stone-500 uppercase tracking-wider text-[10px] flex items-center gap-1">
-              <Truck size={12} className="text-[#2F7D4F]" /> Fulfillment Hub
+              <Truck size={12} className="text-[#2F7D4F]" /> Estimated Delivery &amp; Fulfillment
             </span>
-            <p className="font-bold text-stone-800">SmartFarm Certified Input Hub</p>
+            <p className="font-extrabold text-stone-900">
+              Est. Arrival: {new Date(new Date(order.createdAt).getTime() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </p>
             <p className="text-stone-500 leading-relaxed text-[11px]">
-              Direct dispatch via verified agricultural cooperative vehicle network.
+              Direct dispatch via verified regional agricultural cooperative transport network.
             </p>
             {order.notes && (
               <p className="text-amber-800 text-[11px] font-semibold mt-1">

@@ -16,12 +16,10 @@ import {
   CloudSun,
   TrendingUp,
   Package,
-  BookOpen,
   ShoppingBag,
   FlaskConical,
   Droplets,
   Droplet,
-  Eye,
   ScanLine,
   Bot,
   User,
@@ -48,12 +46,10 @@ interface NavbarProps {
     { href: '/weather', key: 'weather', label: 'Weather', icon: CloudSun },
     { href: '/mandi', key: 'mandi', label: 'Live Mandi', icon: TrendingUp },
     { href: '/store', key: 'store', label: 'Fertilizer Store', icon: Package },
-    { href: '/guidance', key: 'guidance', label: 'Nutrient Guide', icon: BookOpen },
     { href: '/orders', key: 'orders', label: 'My Orders', icon: ShoppingBag },
     { href: '/soil', key: 'soil', label: 'Soil Health', icon: FlaskConical },
     { href: '/soil-moisture', key: 'soil_moisture', label: 'Soil Moisture', icon: Droplets },
     { href: '/irrigation', key: 'irrigation', label: 'Irrigation', icon: Droplet },
-    { href: '/scouting', key: 'scouting', label: 'Scouting', icon: Eye },
     { href: '/notifications', key: 'notifications', label: 'Notifications', icon: Bell },
     { href: '/profile', key: 'profile', label: 'Profile', icon: User },
     { href: '/settings', key: 'settings', label: 'Settings', icon: Settings },
@@ -67,6 +63,28 @@ interface NavbarProps {
     const pathname = usePathname();
     const { locale, setLocale, t } = useI18n();
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    const fetchUnreadCount = async () => {
+      try {
+        const res = await fetch('/api/v1/notifications');
+        if (res.ok) {
+          const json = await res.json();
+          if (typeof json.data?.unreadCount === 'number') {
+            setUnreadCount(json.data.unreadCount);
+          }
+        }
+      } catch {
+        // silent
+      }
+    };
+
+    React.useEffect(() => {
+      fetchUnreadCount();
+      const handler = () => fetchUnreadCount();
+      window.addEventListener('notifications-updated', handler);
+      return () => window.removeEventListener('notifications-updated', handler);
+    }, []);
 
     const handleLogout = async () => {
       try {
@@ -132,9 +150,14 @@ interface NavbarProps {
                         href="/notifications"
                         title="Notifications & Email Alerts"
                         aria-label="Notifications"
-                        className="p-2 text-emerald-200 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+                        className="relative p-2 text-emerald-200 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
                       >
                         <Bell size={17} />
+                        {unreadCount > 0 && (
+                          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white font-extrabold text-[10px] rounded-full flex items-center justify-center shadow-md animate-pulse">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </span>
+                        )}
                       </Link>
 
                       {/* Profile & Logout */}

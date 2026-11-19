@@ -55,7 +55,10 @@ export function MarketExplorer({
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [selectedMarket, setSelectedMarket] = useState('');
   const [selectedCrop, setSelectedCrop] = useState(initialCommodity);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<string>('date_desc');
   const [searchQuery, setSearchQuery] = useState('');
+  const [comparingCommodity, setComparingCommodity] = useState<string | null>(null);
 
   // Selected item for Detailed Modal & Historical Chart
   const [activeItem, setActiveItem] = useState<any | null>(null);
@@ -196,22 +199,67 @@ export function MarketExplorer({
   }, [activeItem, historyRange]);
 
   const resetFilters = () => {
-    setSelectedState('Gujarat');
+    setSelectedState('');
     setSelectedDistrict('');
     setSelectedMarket('');
     setSelectedCrop('');
+    setSelectedCategory('All');
+    setSortBy('date_desc');
     setSearchQuery('');
+    setComparingCommodity(null);
   };
 
-  const filteredPrices = prices.filter((item) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    const cName = (item.commodityName || '').toLowerCase();
-    const variety = (item.variety || '').toLowerCase();
-    const mName = (item.marketName || '').toLowerCase();
-    const dist = (item.district || '').toLowerCase();
-    return cName.includes(q) || variety.includes(q) || mName.includes(q) || dist.includes(q);
-  });
+  const CROP_CATEGORIES = ['All', 'Cereals', 'Pulses', 'Oilseeds', 'Vegetables', 'Fruits', 'Cash Crops'];
+
+  const filteredPrices = prices
+    .filter((item) => {
+      // Category filter
+      if (selectedCategory && selectedCategory !== 'All') {
+        const itemCat = (item.category || '').toLowerCase();
+        const selCat = selectedCategory.toLowerCase();
+        if (selCat === 'cash crops') {
+          if (!itemCat.includes('cash') && !itemCat.includes('spice') && !itemCat.includes('plantation')) {
+            return false;
+          }
+        } else if (!itemCat.includes(selCat)) {
+          return false;
+        }
+      }
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      const cName = (item.commodityName || '').toLowerCase();
+      const variety = (item.variety || '').toLowerCase();
+      const mName = (item.marketName || '').toLowerCase();
+      const dist = (item.district || '').toLowerCase();
+      const st = (item.state || '').toLowerCase();
+      return cName.includes(q) || variety.includes(q) || mName.includes(q) || dist.includes(q) || st.includes(q);
+    })
+    .sort((a, b) => {
+      if (sortBy === 'modal_desc') return (b.modalPrice || 0) - (a.modalPrice || 0);
+      if (sortBy === 'modal_asc') return (a.modalPrice || 0) - (b.modalPrice || 0);
+      if (sortBy === 'min_asc') return (a.minPrice || 0) - (b.minPrice || 0);
+      if (sortBy === 'max_desc') return (b.maxPrice || 0) - (a.maxPrice || 0);
+      const dateA = a.arrival_date || a.priceDate || '';
+      const dateB = b.arrival_date || b.priceDate || '';
+      return dateB.localeCompare(dateA);
+    });
+
+  // Calculate comparison items when comparingCommodity is active
+  const comparisonItems = comparingCommodity
+    ? prices.filter((p) => (p.commodityName || '').toLowerCase() === comparingCommodity.toLowerCase())
+    : [];
+
+  const comparisonStats = (() => {
+    if (comparisonItems.length === 0) return null;
+    const modals = comparisonItems.map((c) => c.modalPrice).filter((p): p is number => typeof p === 'number' && p > 0);
+    if (modals.length === 0) return null;
+    const avgModal = Math.round(modals.reduce((a, b) => a + b, 0) / modals.length);
+    const minModal = Math.min(...modals);
+    const maxModal = Math.max(...modals);
+    const topMandi = comparisonItems.find((c) => c.modalPrice === maxModal);
+    const lowestMandi = comparisonItems.find((c) => c.modalPrice === minModal);
+    return { avgModal, minModal, maxModal, topMandi, lowestMandi, count: comparisonItems.length };
+  })();
 
   const isPortal = variant === 'portal';
 
@@ -303,25 +351,49 @@ export function MarketExplorer({
 
       {/* MAIN BODY CONTAINER */}
       <div className={isPortal ? 'space-y-6' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-6'}>
-        {/* Cadence & Freshness Transparency Notice */}
-        <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
-          <div className="flex items-start gap-3">
-            <Info size={16} className="text-amber-700 shrink-0 mt-0.5" />
-            <div className="space-y-0.5 leading-relaxed">
-              <p className="font-bold text-amber-900">
-                Official AGMARKNET Daily Wholesale Cadence Notice
-              </p>
-              <p className="text-[11px] text-amber-800/90">
-                Prices reflect daily wholesale auction arrivals reported by each APMC at the conclusion of trade, not second-by-second exchange tickers. Automatic polling keeps our database fresh, but not every crop-market combination trades or reports every day.
-              </p>
+        {/* Source Transparency & Freshness Bar (Replaces Cadence Notice) */}
+        <div className="bg-white border border-stone-200/90 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-2xs">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold text-xs">
+              <ShieldCheck size={14} className="text-[#2F7D4F]" />
+              <span>Official AGMARKNET / data.gov.in Wholesale Feed</span>
+            </div>
+            <span className="text-stone-400 text-xs hidden sm:inline">•</span>
+            <span className="text-stone-600 text-[11px] font-medium">
+              National APMC Wholesale Rates (₹ per Quintal)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            {lastSyncedAt && (
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-stone-600">
+                <Clock size={12} className="text-emerald-700" />
+                <span>Last Polled: <strong>{formatSyncTime(lastSyncedAt)}</strong></span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-stone-600">
+              <Calendar size={12} className="text-stone-400" />
+              <span>Latest Trade: <strong>{latestArrivalDate || publicationDate || 'Today'}</strong></span>
             </div>
           </div>
-          {lastSyncedAt && (
-            <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-100/70 border border-amber-300/50 text-[11px] font-semibold text-amber-900 self-start sm:self-auto">
-              <Clock size={12} className="text-amber-700" />
-              <span>Feed Synced: {formatSyncTime(lastSyncedAt)}</span>
-            </div>
-          )}
+        </div>
+
+        {/* Category Pills Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs">
+          {CROP_CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
+                selectedCategory === cat
+                  ? 'bg-[#143D2A] text-white shadow-xs'
+                  : 'bg-white hover:bg-stone-100 text-stone-700 border border-stone-200/80'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
 
         {/* Filter Controls Bar */}
@@ -334,7 +406,7 @@ export function MarketExplorer({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search crop, variety or mandi..."
+                placeholder="Search crop, variety, district or mandi across India..."
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 focus:outline-none focus:border-emerald-600 text-xs text-stone-800 placeholder:text-stone-400"
               />
             </div>
@@ -353,7 +425,7 @@ export function MarketExplorer({
           </div>
 
           {/* Dropdown Selectors */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
             {/* State */}
             <div>
               <label className="block text-[11px] font-bold text-stone-500 uppercase tracking-wider mb-1">State</label>
@@ -366,7 +438,7 @@ export function MarketExplorer({
                 }}
                 className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 font-medium focus:outline-none focus:border-emerald-600 cursor-pointer text-stone-800"
               >
-                <option value="">All States</option>
+                <option value="">🇮🇳 All India (All States)</option>
                 {states.map((st) => (
                   <option key={st} value={st}>{st}</option>
                 ))}
@@ -424,8 +496,71 @@ export function MarketExplorer({
                 ))}
               </select>
             </div>
+
+            {/* Sort Order */}
+            <div>
+              <label className="block text-[11px] font-bold text-stone-500 uppercase tracking-wider mb-1">Sort By</label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 font-medium focus:outline-none focus:border-emerald-600 cursor-pointer text-stone-800"
+              >
+                <option value="date_desc">Latest Trade Date</option>
+                <option value="modal_desc">Modal Rate: High to Low</option>
+                <option value="modal_asc">Modal Rate: Low to High</option>
+                <option value="min_asc">Min Price: Low to High</option>
+                <option value="max_desc">Max Price: High to Low</option>
+              </select>
+            </div>
           </div>
         </div>
+
+        {/* Mandi Price Comparison Dashboard */}
+        {comparingCommodity && comparisonStats && (
+          <div className="bg-gradient-to-br from-[#123625] to-[#0A2217] text-white rounded-3xl p-6 shadow-md space-y-4 border border-emerald-800/40 animate-in fade-in duration-200">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-800/70 text-emerald-200 px-2.5 py-0.5 rounded-md border border-emerald-600/30">
+                  APMC Market Comparison
+                </span>
+                <h3 className="text-xl sm:text-2xl font-black mt-1">
+                  {comparingCommodity} — Price Variation Across {comparisonStats.count} Mandis
+                </h3>
+                <p className="text-xs text-emerald-200/80">
+                  Compare modal prices across markets to choose the most profitable selling destination.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setComparingCommodity(null)}
+                className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
+                title="Close comparison"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div className="p-4 rounded-2xl bg-white/10 border border-white/10">
+                <span className="text-[10px] font-bold text-emerald-300 uppercase block">Average Modal Rate</span>
+                <span className="text-2xl font-black text-white">₹{comparisonStats.avgModal.toLocaleString('en-IN')}</span>
+                <span className="text-[10px] text-emerald-200/80 block">/Quintal across reporting mandis</span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-emerald-800/60 border border-emerald-400/40">
+                <span className="text-[10px] font-bold text-emerald-300 uppercase block">Peak Selling APMC (Highest Rate)</span>
+                <span className="text-2xl font-black text-emerald-200">₹{comparisonStats.maxModal.toLocaleString('en-IN')}</span>
+                <span className="text-xs font-bold text-white block truncate">{comparisonStats.topMandi?.marketName} ({comparisonStats.topMandi?.district})</span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white/10 border border-white/10">
+                <span className="text-[10px] font-bold text-emerald-300 uppercase block">Lowest Reported APMC</span>
+                <span className="text-2xl font-black text-stone-200">₹{comparisonStats.minModal.toLocaleString('en-IN')}</span>
+                <span className="text-xs font-bold text-stone-300 block truncate">{comparisonStats.lowestMandi?.marketName} ({comparisonStats.lowestMandi?.district})</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Data Table */}
         <div className="bg-white rounded-3xl border border-stone-200/80 shadow-xs overflow-hidden">
@@ -564,12 +699,21 @@ export function MarketExplorer({
                         </td>
 
                         <td className="py-4 px-6 text-center">
-                          <button
-                            onClick={() => setActiveItem(row)}
-                            className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-[#2F7D4F] hover:text-white font-bold text-[11px] text-stone-700 transition-colors cursor-pointer flex items-center gap-1 mx-auto"
-                          >
-                            <BarChart3 size={13} /> View Trend
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => setComparingCommodity(row.commodityName)}
+                              className="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-600 hover:text-white font-bold text-[11px] text-emerald-800 transition-colors cursor-pointer"
+                              title={`Compare ${row.commodityName} prices across mandis`}
+                            >
+                              Compare
+                            </button>
+                            <button
+                              onClick={() => setActiveItem(row)}
+                              className="px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-[#2F7D4F] hover:text-white font-bold text-[11px] text-stone-700 transition-colors cursor-pointer flex items-center gap-1"
+                            >
+                              <BarChart3 size={13} /> Trend
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -704,8 +848,8 @@ export function MarketExplorer({
               <p className="text-[11px] leading-relaxed">
                 Published by: <strong>{activeItem.source}</strong> {activeItem.sourceResourceId && <span>(Resource: <code className="bg-white/80 px-1 py-0.5 rounded text-[10px]">{activeItem.sourceResourceId.slice(0, 8)}...</code>)</span>}.
               </p>
-              <p className="text-[10px] text-stone-500 italic">
-                Official AGMARKNET feeds publish daily wholesale auction rates once trading sessions conclude. Automatic polling keeps the database fresh, but prices represent daily wholesale arrivals rather than live exchange tickers. Not every crop-mandi combination trades or reports every day.
+              <p className="text-[10px] text-stone-500">
+                Official APMC daily auction records published via Ministry of Agriculture &amp; Farmers Welfare, Government of India.
               </p>
             </div>
           </div>

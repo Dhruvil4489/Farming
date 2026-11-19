@@ -138,6 +138,21 @@ export default function AdminPage() {
     }
   };
 
+  const handleUpdateOrderStatus = async (orderId: string, status: string) => {
+    try {
+      const res = await fetch('/api/v1/admin/overview', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status }),
+      });
+      if (res.ok) {
+        await fetchAdminData();
+      }
+    } catch (e) {
+      console.error('Failed to update order status:', e);
+    }
+  };
+
   const handleVerifyEmailProvider = async () => {
     setVerifyingEmail(true);
     setEmailActionMsg(null);
@@ -554,9 +569,17 @@ export default function AdminPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-black text-stone-900">₹{o.totalAmount.toFixed(2)}</span>
-                    <span className="px-2 py-0.5 bg-purple-100 text-purple-800 font-bold rounded text-[10px] uppercase">
-                      {o.status}
-                    </span>
+                    <select
+                      value={o.status}
+                      onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value)}
+                      className="p-1 rounded-lg border border-stone-300 bg-white font-bold text-[10px] text-stone-800 cursor-pointer focus:outline-none focus:border-emerald-600"
+                    >
+                      <option value="confirmed">Confirmed</option>
+                      <option value="processing">Processing</option>
+                      <option value="shipped">Shipped</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
                     <Link href={`/orders/${o.id}`} className="text-[#2F7D4F] font-bold hover:underline">
                       Inspect →
                     </Link>
