@@ -16,11 +16,13 @@ export const dynamic = 'force-dynamic';
 const chatSchema = z.object({
   question: z
     .string()
-    .min(1, 'Question cannot be empty')
-    .max(2000, 'Question exceeds maximum limit of 2000 characters'),
+    .max(4000, 'Question exceeds maximum limit of 4000 characters')
+    .optional()
+    .default(''),
   fieldId: z.string().optional().nullable(),
   conversationId: z.string().optional().nullable(),
   language: z.enum(['en', 'hi', 'gu']).optional().default('en'),
+  image: z.string().optional().nullable(),
 });
 
 export async function POST(request: NextRequest) {
@@ -42,14 +44,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { question, fieldId, conversationId, language } = parseResult.data;
+    const { question, fieldId, conversationId, language, image } = parseResult.data;
+
+    if (!question.trim() && !image) {
+      return apiError('Question or crop image is required', 'validation_error', 422, {
+        question: ['Question cannot be empty unless an image is attached.'],
+      });
+    }
 
     const result = await AssistantRagService.ask({
       userId: user.id,
-      question,
+      question: question.trim() || 'What is wrong with my plant? Please analyze this image.',
       fieldId: fieldId || null,
       conversationId: conversationId || null,
       language: language as 'en' | 'hi' | 'gu',
+      image: image || null,
     });
 
     return apiSuccess(result, undefined, 200);

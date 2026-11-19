@@ -17,7 +17,28 @@ export class AIProviderFactory {
   private static cachedProviders: Map<string, IAIProvider> = new Map();
 
   static getProviderName(): string {
-    return (process.env.AI_PROVIDER || 'mock').toLowerCase().trim();
+    const explicit = (process.env.AI_PROVIDER || '').toLowerCase().trim();
+    if (['openai', 'gemini', 'google', 'anthropic', 'claude'].includes(explicit)) {
+      return explicit;
+    }
+
+    // Auto-detect if live provider keys are present
+    const hasGemini = Boolean(
+      (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 10) ||
+      (process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.length > 10)
+    );
+    if (hasGemini) return 'gemini';
+
+    const hasOpenAI = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10);
+    if (hasOpenAI) return 'openai';
+
+    const hasAiKey = Boolean(process.env.AI_API_KEY && process.env.AI_API_KEY.length > 10);
+    if (hasAiKey) {
+      if (process.env.AI_API_KEY!.startsWith('sk-')) return 'openai';
+      return 'gemini';
+    }
+
+    return explicit || 'mock';
   }
 
   static getProvider(): IAIProvider {

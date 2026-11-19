@@ -25,13 +25,29 @@ export interface RetrievedChunk {
 }
 
 export const CROP_SYNONYMS: Record<string, string[]> = {
-  cotton: ['cotton', 'kapas', 'કપાસ', 'कपास', 'bollworm', 'gossypium', 'whitefly'],
-  wheat: ['wheat', 'gehu', 'ઘઉં', 'गेहूं', 'triticum', 'cri', 'rust'],
-  groundnut: ['groundnut', 'peanut', 'magfali', 'મગફળી', 'मूंगफली', 'pegging', 'tikka'],
-  tomato: ['tomato', 'tameta', 'tamatar', 'ટામેટા', 'टमाटर', 'blight', 'yellow leaves'],
-  rice: ['rice', 'paddy', 'dhan', 'ડાંગર', 'धान', 'awd', 'blast', 'sheath blight'],
-  soil_health: ['soil', 'saline', 'salinity', 'alkaline', 'vertisol', 'જમીન', 'मिट्टी', 'black soil', 'gypsum', 'fertilizer', 'dap', 'urea'],
-  general: ['monocrotophos', 'banned', 'pesticide', 'spray', 'weather', 'rain', 'mandi', 'price', 'bhav', 'भाव', 'ભાવ'],
+  cotton: ['cotton', 'kapas', 'કપાસ', 'कपास', 'bollworm', 'gossypium', 'whitefly', 'square', 'gcot'],
+  wheat: ['wheat', 'gehu', 'ઘઉં', 'गेहूं', 'triticum', 'cri', 'rust', 'tillering'],
+  groundnut: ['groundnut', 'peanut', 'magfali', 'મગફળી', 'मूंगफली', 'pegging', 'tikka', 'arachis'],
+  tomato: ['tomato', 'tameta', 'tamatar', 'ટામેટા', 'टमाटर', 'blight', 'yellow leaves', 'leaf curl'],
+  rice: ['rice', 'paddy', 'dhan', 'ડાંગર', 'धान', 'awd', 'blast', 'sheath blight', 'oryza'],
+  chilli: ['chilli', 'chili', 'mirch', 'મરચી', 'मिर्च', 'thrips', 'leaf curl', 'churda', 'capsicum'],
+  maize: ['maize', 'corn', 'makka', 'makai', 'મકાઈ', 'मक्का', 'fall armyworm'],
+  soybean: ['soybean', 'soyabean', 'સોયાબીન', 'सोयाबीन', 'glycine'],
+  sugarcane: ['sugarcane', 'sherdi', 'શેરડી', 'गन्ना', 'red rot'],
+  potato: ['potato', 'batata', 'બટાકા', 'आलू', 'late blight', 'kufri'],
+  onion: ['onion', 'dungri', 'ડુંગળી', 'प्याज', 'thrips', 'purple blotch'],
+  brinjal: ['brinjal', 'ringna', 'રીંગણ', 'बैंगन', 'eggplant', 'shoot borer'],
+  mango: ['mango', 'keri', 'કેરી', 'आम', 'powdery mildew', 'hopper', 'kesar', 'alphonso'],
+  banana: ['banana', 'kela', 'કેળા', 'केला', 'sigatoka', 'panama'],
+  papaya: ['papaya', 'papaiya', 'પપૈયા', 'पपीता', 'ring spot'],
+  pomegranate: ['pomegranate', 'dadam', 'દાડમ', 'अनार', 'bacterial blight', 'telya'],
+  pulses: ['pulses', 'gram', 'chana', 'ચણા', 'चना', 'arhar', 'tur', 'તુવેર', 'अरहर', 'moong', 'મગ', 'मूंग'],
+  soil_health: ['soil', 'saline', 'salinity', 'alkaline', 'vertisol', 'જમીન', 'मिट्टी', 'black soil', 'gypsum', 'organic carbon', 'fertility'],
+  fertilizer: ['fertilizer', 'dap', 'npk', 'urea', 'mop', 'ssp', 'potash', 'zinc', 'sulphur', 'ખાતર', 'खाद', 'mix', 'mixing', 'compatibility'],
+  irrigation: ['irrigation', 'water', 'drip', 'sprinkler', 'awd', 'pani', 'પાણી', 'पानी', 'सिंचाई', 'પિયત', 'waterlogging'],
+  government_schemes: ['pm-kisan', 'pm kisan', 'pmfby', 'kcc', 'kisan credit card', 'soil health card', 'subsidy', 'scheme', 'yojana', 'યોજના', 'योजना', 'ikhedut'],
+  pest_management: ['ipm', 'pest', 'insect', 'disease', 'biological', 'trichoderma', 'pseudomonas', 'neem', 'sticky trap', 'pheromone', 'જીવાત', 'કીટ', 'रोग'],
+  general: ['monocrotophos', 'banned', 'pesticide', 'spray', 'weather', 'rain', 'mandi', 'price', 'bhav', 'भाव', 'ભાવ', 'climate'],
 };
 
 export class KnowledgeRetrievalService {

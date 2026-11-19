@@ -12,7 +12,7 @@ export class GeminiProvider implements IAIProvider {
   readonly name = 'Google Gemini';
 
   private getApiKey(): string | undefined {
-    return process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    return process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_API_KEY;
   }
 
   private getModel(): string {
@@ -31,7 +31,9 @@ export class GeminiProvider implements IAIProvider {
       requiresKey: true,
       supportedLanguages: ['en', 'hi', 'gu'],
       model: this.getModel(),
-      message: isConfigured ? 'Google Gemini provider configured and ready.' : 'GEMINI_API_KEY environment variable is missing.',
+      message: isConfigured
+        ? `Google Gemini provider configured with model ${this.getModel()} and ready.`
+        : 'GEMINI_API_KEY or GOOGLE_API_KEY environment variable is missing.',
     };
   }
 
@@ -42,17 +44,37 @@ export class GeminiProvider implements IAIProvider {
     }
 
     const controller = new AbortController();
-    const timeoutMs = options?.timeoutMs || 15000;
+    const timeoutMs = options?.timeoutMs || 25000;
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     // Format Gemini payload: separate system instructions from chat history
     const systemMessage = messages.find((m) => m.role === 'system');
     const userAndAssistant = messages.filter((m) => m.role !== 'system');
 
-    const contents = userAndAssistant.map((m) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
+    const contents = userAndAssistant.map((m) => {
+      const parts: any[] = [{ text: m.content }];
+      if (m.image?.data) {
+        parts.push({
+          inlineData: {
+            mimeType: m.image.mimeType || 'image/jpeg',
+            data: m.image.data,
+          },
+        });
+      }
+      return {
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts,
+      };
+    });
+
+    const generationConfig: Record<string, any> = {
+      temperature: options?.temperature ?? 0.3,
+      maxOutputTokens: options?.maxTokens ?? 2048,
+    };
+
+    if (options?.jsonMode) {
+      generationConfig.responseMimeType = 'application/json';
+    }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.getModel()}:generateContent?key=${key}`;
 
@@ -63,11 +85,7 @@ export class GeminiProvider implements IAIProvider {
         body: JSON.stringify({
           contents,
           systemInstruction: systemMessage ? { parts: [{ text: systemMessage.content }] } : undefined,
-          generationConfig: {
-            temperature: options?.temperature ?? 0.2,
-            maxOutputTokens: options?.maxTokens ?? 1024,
-            responseMimeType: 'application/json',
-          },
+          generationConfig,
         }),
         signal: options?.signal || controller.signal,
       });

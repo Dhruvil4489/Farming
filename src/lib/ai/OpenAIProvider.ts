@@ -12,7 +12,7 @@ export class OpenAIProvider implements IAIProvider {
   readonly name = 'OpenAI';
 
   private getApiKey(): string | undefined {
-    return process.env.OPENAI_API_KEY;
+    return process.env.OPENAI_API_KEY || (process.env.AI_API_KEY?.startsWith('sk-') ? process.env.AI_API_KEY : undefined);
   }
 
   private getModel(): string {
@@ -46,8 +46,35 @@ export class OpenAIProvider implements IAIProvider {
     }
 
     const controller = new AbortController();
-    const timeoutMs = options?.timeoutMs || 15000;
+    const timeoutMs = options?.timeoutMs || 25000;
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    const formattedMessages = messages.map((m) => {
+      if (m.image?.data) {
+        return {
+          role: m.role,
+          content: [
+            { type: 'text', text: m.content },
+            {
+              type: 'image_url',
+              image_url: { url: `data:${m.image.mimeType || 'image/jpeg'};base64,${m.image.data}` },
+            },
+          ],
+        };
+      }
+      return { role: m.role, content: m.content };
+    });
+
+    const bodyPayload: Record<string, any> = {
+      model: this.getModel(),
+      messages: formattedMessages,
+      temperature: options?.temperature ?? 0.3,
+      max_tokens: options?.maxTokens ?? 2048,
+    };
+
+    if (options?.jsonMode) {
+      bodyPayload.response_format = { type: 'json_object' };
+    }
 
     try {
       const res = await fetch(`${this.getBaseUrl()}/chat/completions`, {
@@ -56,13 +83,7 @@ export class OpenAIProvider implements IAIProvider {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${key}`,
         },
-        body: JSON.stringify({
-          model: this.getModel(),
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
-          temperature: options?.temperature ?? 0.2,
-          max_tokens: options?.maxTokens ?? 1024,
-          response_format: { type: 'json_object' },
-        }),
+        body: JSON.stringify(bodyPayload),
         signal: options?.signal || controller.signal,
       });
 

@@ -12,6 +12,10 @@
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+  image?: {
+    mimeType: string;
+    data: string; // base64 representation
+  };
 }
 
 export interface AIChatOptions {
@@ -19,6 +23,7 @@ export interface AIChatOptions {
   maxTokens?: number;
   timeoutMs?: number;
   signal?: AbortSignal;
+  jsonMode?: boolean;
 }
 
 export interface AIResponse {
