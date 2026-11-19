@@ -23,8 +23,8 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash);
 }
 
-export function signToken(payload: TokenPayload): string {
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: '30d' });
+export function signToken(payload: TokenPayload, rememberMe = true): string {
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: rememberMe ? '30d' : '24h' });
 }
 
 export function verifyToken(token: string): TokenPayload | null {
@@ -74,13 +74,13 @@ export async function getAuthenticatedUser() {
   }
 }
 
-export async function setAuthCookie(token: string) {
+export async function setAuthCookie(token: string, rememberMe = true) {
   const cookieStore = await cookies();
   cookieStore.set(TOKEN_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: rememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60,
     path: '/',
   });
 }

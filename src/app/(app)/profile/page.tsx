@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { User, MapPin, Phone, Mail, CheckCircle2, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { MapPin, Phone, Mail, CheckCircle2, ShieldCheck, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -22,8 +23,11 @@ export default function ProfilePage() {
     village: '',
     district: '',
     state: '',
+    pincode: '',
     preferredLanguage: 'en',
   });
+  const [bindEmailInput, setBindEmailInput] = useState('');
+  const [bindingEmail, setBindingEmail] = useState(false);
 
   const loadProfile = async () => {
     setLoading(true);
@@ -40,12 +44,55 @@ export default function ProfilePage() {
         village: d.village || '',
         district: d.district || '',
         state: d.state || '',
+        pincode: d.pincode || '',
         preferredLanguage: d.preferredLanguage || 'en',
       });
     } catch (err: any) {
       setError(err.message || 'Unable to load your profile.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBindEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bindEmailInput.trim()) return;
+    setBindingEmail(true);
+    setError('');
+    try {
+      const res = await fetch('/api/v1/auth/bind-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: bindEmailInput.trim() }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error?.message || 'Could not link email.');
+      setSavedMsg(json?.data?.message || 'Email linked! Please verify using the sent link or code.');
+      setBindEmailInput('');
+      await loadProfile();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBindingEmail(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setBindingEmail(true);
+    setError('');
+    try {
+      const res = await fetch('/api/v1/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: profile?.email }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error?.message || 'Could not resend verification email.');
+      setSavedMsg(json?.data?.message || 'Verification email resent.');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBindingEmail(false);
     }
   };
 
@@ -126,6 +173,55 @@ export default function ProfilePage() {
           </Card>
         )}
 
+        {/* Email Verification / Legacy Account Transition Card */}
+        {profile && !profile.email && (
+          <Card className="p-5 rounded-2xl bg-amber-50 border border-amber-200 space-y-3">
+            <div className="flex items-start gap-2.5 text-amber-950">
+              <AlertCircle size={18} className="text-amber-700 shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <h3 className="font-bold text-sm">Link Your Email Address for Faster Login &amp; Alerts</h3>
+                <p>
+                  Your account was created earlier using a mobile number. Add your email address below to sign in by email, recover your password, and receive crop stage &amp; weather email alerts — all your existing farms and records stay intact.
+                </p>
+              </div>
+            </div>
+            <form onSubmit={handleBindEmail} className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="email"
+                required
+                value={bindEmailInput}
+                onChange={(e) => setBindEmailInput(e.target.value)}
+                placeholder="Enter your email address (e.g. farmer@example.com)"
+                className="flex-1 px-3.5 py-2 bg-white border border-amber-300 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
+              />
+              <Button type="submit" size="sm" isLoading={bindingEmail}>
+                Link &amp; Verify Email
+              </Button>
+            </form>
+          </Card>
+        )}
+
+        {profile && profile.email && !profile.emailVerified && (
+          <Card className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-2 text-xs text-amber-950">
+              <Mail size={16} className="text-amber-700 shrink-0 mt-0.5" />
+              <span>
+                Your email <strong>{profile.email}</strong> is not verified yet. Verify it to ensure uninterrupted reminders and password recovery.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link href={`/verify-email?email=${encodeURIComponent(profile.email)}`}>
+                <Button size="sm" variant="outline">
+                  Enter Code
+                </Button>
+              </Link>
+              <Button size="sm" onClick={handleResendVerification} isLoading={bindingEmail}>
+                Resend Link
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {savedMsg && (
           <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-900 flex items-center gap-2">
             <CheckCircle2 size={16} className="text-[#2F7D4F]" /> {savedMsg}
@@ -157,7 +253,7 @@ export default function ProfilePage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <Input
                 label="Village / Town"
                 value={form.village}
@@ -175,6 +271,13 @@ export default function ProfilePage() {
                 value={form.state}
                 onChange={(e) => setForm({ ...form, state: e.target.value })}
                 placeholder="e.g. Gujarat"
+              />
+              <Input
+                label="PIN Code"
+                inputMode="numeric"
+                value={form.pincode}
+                onChange={(e) => setForm({ ...form, pincode: e.target.value })}
+                placeholder="e.g. 391440"
               />
             </div>
 

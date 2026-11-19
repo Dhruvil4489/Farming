@@ -23,6 +23,7 @@ import {
   FlaskConical,
   User,
   Settings,
+  Bell,
 } from 'lucide-react';
 import { useI18n } from '@/providers/I18nProvider';
 
@@ -69,6 +70,7 @@ const navGroups = [
     titleKey: 'nav_group_account',
     titleFallback: 'Account',
     items: [
+      { href: '/notifications', key: 'notifications', label: 'Notifications', icon: Bell },
       { href: '/profile', key: 'profile', label: 'Farmer Profile', icon: User },
       { href: '/settings', key: 'settings', label: 'Settings', icon: Settings },
     ],

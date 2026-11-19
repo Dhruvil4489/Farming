@@ -17,6 +17,10 @@ import { AIProviderFactory } from '@/lib/ai/AIProviderFactory';
 import { AIMessage } from '@/lib/ai/IAIProvider';
 import { AIContextBuilder } from './AIContextBuilder';
 import { KnowledgeRetrievalService, RetrievedChunk } from './KnowledgeRetrievalService';
+import {
+  SmartFarmAgronomyEngine,
+  detectQuestionLanguage,
+} from './SmartFarmAgronomyEngine';
 
 export interface AssistantObservation {
   text: string;
@@ -74,58 +78,90 @@ export class AssistantRagService {
       throw new Error('Question text is required.');
     }
 
-    // 1. Gather verified farm context (strictly tenant-isolated)
-    const farmContext = await AIContextBuilder.buildContext(userId, fieldId);
+    const effectiveLang = detectQuestionLanguage(cleanQuestion, language);
+
+    // 1. Gather verified farm context (strictly tenant-isolated, query-aware for mandi/crop)
+    const farmContext = await AIContextBuilder.buildContext(userId, fieldId, cleanQuestion);
     const formattedFarmContext = AIContextBuilder.formatContextForPrompt(farmContext);
 
     // 2. Retrieve authoritative knowledge chunks
-    const targetCrop = farmContext.cropCycle?.cropName || undefined;
+    const targetCrop = farmContext.cropCycle?.cropSlug || farmContext.cropCycle?.cropName || undefined;
     const retrievedChunks = await KnowledgeRetrievalService.retrieve({
       query: cleanQuestion,
       crop: targetCrop,
-      language,
-      limit: 3,
+      language: effectiveLang,
+      limit: 4,
     });
 
-    // 3. Format untrusted knowledge sources with explicit boundary delimiters
-    const formattedKnowledgeSources = this.formatKnowledgeForPrompt(retrievedChunks);
-
-    // 4. Assemble system prompt with anti-injection & safety guardrails
-    const systemPrompt = this.buildSystemPrompt({
-      farmContextText: formattedFarmContext,
-      knowledgeSourcesText: formattedKnowledgeSources,
-      language,
-    });
-
-    // 5. Select & execute active AI Provider
-    const provider = AIProviderFactory.getProvider();
-    const messages: AIMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: cleanQuestion },
-    ];
-
-    let aiResult;
-    try {
-      aiResult = await provider.chat(messages, {
-        temperature: 0.2,
-        maxTokens: 1024,
-        timeoutMs: 15000,
+    // 3. Load recent conversation history for multi-turn context if resuming a thread
+    let priorMessages: AIMessage[] = [];
+    if (conversationId) {
+      const prevConv = await prisma.assistantConversation.findFirst({
+        where: { id: conversationId, userId },
+        include: {
+          messages: { orderBy: { createdAt: 'desc' }, take: 6 },
+        },
       });
-    } catch (err: any) {
-      console.error('[AssistantRagService] Provider error:', err.message);
-      // Fallback: return transparent configuration / error state rather than crashing
-      return this.buildFallbackResponse({
-        userId,
-        error: err.message,
-        provider,
-        chunks: retrievedChunks,
-      });
+      if (prevConv) {
+        priorMessages = prevConv.messages
+          .reverse()
+          .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+      }
     }
 
-    // 6. Parse and validate structured output
-    const parsedContract = this.parseAndValidateResponse(aiResult.content, retrievedChunks, language);
+    // 4. Select & execute active AI Provider (or Built-in Grounded Agronomy Engine when no external LLM key)
+    const provider = AIProviderFactory.getProvider();
+    const providerStatus = await provider.status().catch(() => ({ isConfigured: false, isMock: true }));
+    const useBuiltInGroundedEngine = provider.id === 'mock' || !providerStatus.isConfigured;
 
-    // 7. Persist conversation and message to database (strictly tenant-isolated)
+    let parsedContract: Omit<GroundedAssistantResponse, 'provider' | 'conversationId' | 'messageId' | 'timestamp'>;
+    let modelUsed = 'smartfarm-agronomy-rag-v2';
+    let providerNameUsed = 'SmartFarm Grounded Agronomy Engine';
+    let isMockUsed = true;
+
+    if (useBuiltInGroundedEngine) {
+      parsedContract = await SmartFarmAgronomyEngine.generate({
+        question: cleanQuestion,
+        language: effectiveLang,
+        farmContext,
+        chunks: retrievedChunks,
+      });
+    } else {
+      const formattedKnowledgeSources = this.formatKnowledgeForPrompt(retrievedChunks);
+      const systemPrompt = this.buildSystemPrompt({
+        farmContextText: formattedFarmContext,
+        knowledgeSourcesText: formattedKnowledgeSources,
+        language: effectiveLang,
+      });
+
+      const messages: AIMessage[] = [
+        { role: 'system', content: systemPrompt },
+        ...priorMessages,
+        { role: 'user', content: cleanQuestion },
+      ];
+
+      try {
+        const aiResult = await provider.chat(messages, {
+          temperature: 0.2,
+          maxTokens: 1200,
+          timeoutMs: 18000,
+        });
+        parsedContract = this.parseAndValidateResponse(aiResult.content, retrievedChunks, effectiveLang);
+        modelUsed = aiResult.model;
+        providerNameUsed = provider.name;
+        isMockUsed = aiResult.isMock;
+      } catch (err: any) {
+        console.warn('[AssistantRagService] External LLM failed, falling back to SmartFarm Grounded Engine:', err.message);
+        parsedContract = await SmartFarmAgronomyEngine.generate({
+          question: cleanQuestion,
+          language: effectiveLang,
+          farmContext,
+          chunks: retrievedChunks,
+        });
+      }
+    }
+
+    // 5. Persist conversation and message to database (strictly tenant-isolated)
     let activeConvId: string | null = null;
     if (conversationId) {
       const existingConv = await prisma.assistantConversation.findFirst({
@@ -133,6 +169,10 @@ export class AssistantRagService {
       });
       if (existingConv) {
         activeConvId = existingConv.id;
+        await prisma.assistantConversation.update({
+          where: { id: existingConv.id },
+          data: { updatedAt: new Date() },
+        });
       }
     }
 
@@ -140,13 +180,12 @@ export class AssistantRagService {
       const conv = await prisma.assistantConversation.create({
         data: {
           userId,
-          title: cleanQuestion.slice(0, 60),
+          title: cleanQuestion.slice(0, 64),
         },
       });
       activeConvId = conv.id;
     }
 
-    // Save user message
     await prisma.assistantMessage.create({
       data: {
         conversationId: activeConvId,
@@ -155,15 +194,14 @@ export class AssistantRagService {
       },
     });
 
-    // Save assistant message
     const assistantMsg = await prisma.assistantMessage.create({
       data: {
         conversationId: activeConvId,
         role: 'assistant',
         content: parsedContract.summary,
         structuredJson: JSON.stringify(parsedContract),
-        providerId: provider.id,
-        model: aiResult.model,
+        providerId: useBuiltInGroundedEngine ? 'smartfarm_grounded' : provider.id,
+        model: modelUsed,
         confidence: parsedContract.confidence,
       },
     });
@@ -171,10 +209,10 @@ export class AssistantRagService {
     return {
       ...parsedContract,
       provider: {
-        id: provider.id,
-        name: provider.name,
-        model: aiResult.model,
-        isMock: aiResult.isMock,
+        id: useBuiltInGroundedEngine ? 'smartfarm_grounded' : provider.id,
+        name: providerNameUsed,
+        model: modelUsed,
+        isMock: isMockUsed,
       },
       conversationId: activeConvId,
       messageId: assistantMsg.id,

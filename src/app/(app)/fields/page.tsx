@@ -22,12 +22,15 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/providers/I18nProvider';
 import { hectaresToAcres } from '@/lib/units';
+import { formatExactArea, validateAreaInput } from '@/lib/area-validation';
 
 interface FieldRecord {
   id: string;
   farmId: string;
   name: string;
   areaHa: number | null;
+  areaInputValue?: number | null;
+  areaInputUnit?: string | null;
   irrigationType: string | null;
   soilType: string | null;
   status: string;
@@ -117,12 +120,17 @@ const showNotice = (msg: string) => {
 const openEditModal = (field: FieldRecord) => {
   setEditingField(field);
   setEditError('');
-  const acres = field.areaHa != null ? hectaresToAcres(field.areaHa) : null;
+  const initialVal =
+    field.areaInputValue != null
+      ? String(field.areaInputValue)
+      : field.areaHa != null
+        ? String(hectaresToAcres(field.areaHa))
+        : '';
   setEditForm({
     name: field.name,
     farmId: field.farmId,
-    areaInputValue: acres != null ? String(acres) : '',
-    areaInputUnit: 'acre',
+    areaInputValue: initialVal,
+    areaInputUnit: field.areaInputUnit || 'acre',
     irrigationType: field.irrigationType || 'drip',
     soilType: field.soilType || 'unknown',
     notes: field.notes || '',
@@ -132,17 +140,23 @@ const openEditModal = (field: FieldRecord) => {
 const handleSaveEdit = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!editingField) return;
-  setSavingEdit(true);
   setEditError('');
+
+  const areaCheck = validateAreaInput(editForm.areaInputValue);
+  if (!areaCheck.valid) {
+    setEditError(areaCheck.error || 'Please enter a valid field area.');
+    return;
+  }
+
+  setSavingEdit(true);
   try {
-    const parsedArea = parseFloat(editForm.areaInputValue);
     const res = await fetch(`/api/v1/fields/${editingField.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: editForm.name,
         farmId: editForm.farmId,
-        areaInputValue: !isNaN(parsedArea) && parsedArea > 0 ? parsedArea : null,
+        areaInputValue: areaCheck.value,
         areaInputUnit: editForm.areaInputUnit,
         irrigationType: editForm.irrigationType,
         soilType: editForm.soilType,
@@ -184,10 +198,8 @@ const handleConfirmDelete = async () => {
   }
 };
 
-const formatFieldArea = (areaHa: number | null) => {
-  if (areaHa == null) return 'Not set';
-  const acres = hectaresToAcres(areaHa);
-  return `${acres} Acre`;
+const formatFieldArea = (field: FieldRecord) => {
+  return formatExactArea(field.areaInputValue, field.areaInputUnit, field.areaHa);
 };
 
 return (
@@ -282,7 +294,7 @@ return (
                           <div>
                             <span className="text-stone-500 block text-[10px] font-medium">Area</span>
                             <span className="font-bold text-stone-900">
-                              {formatFieldArea(field.areaHa)}
+                              {formatFieldArea(field)}
                             </span>
                           </div>
                           <div>
@@ -394,8 +406,8 @@ return (
                             <div className="p-3 bg-[#F7F8F5] rounded-xl border border-stone-200/70">
                               <span className="text-stone-500 block">Field Area</span>
                               <strong className="text-stone-900 text-sm">
-                                {detailField.areaHa != null
-                                  ? `${hectaresToAcres(detailField.areaHa)} Acre (${detailField.areaHa.toFixed(2)} Ha)`
+                                {detailField.areaHa != null || detailField.areaInputValue != null
+                                  ? `${formatFieldArea(detailField)}${detailField.areaHa != null ? ` (${detailField.areaHa.toFixed(2)} Ha)` : ''}`
                                   : 'Not specified'}
                               </strong>
                             </div>
@@ -506,10 +518,9 @@ return (
                                   <div>
                                     <label className="block font-bold text-stone-700 mb-1">Field Area</label>
                                     <input
-                                      type="number"
-                                      step="0.1"
-                                      min="0.05"
-                                      placeholder="e.g. 2.5"
+                                      type="text"
+                                      inputMode="decimal"
+                                      placeholder="e.g. 10, 5, or 2.5"
                                       value={editForm.areaInputValue}
                                       onChange={(e) => setEditForm({ ...editForm, areaInputValue: e.target.value })}
                                       className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"

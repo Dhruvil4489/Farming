@@ -127,8 +127,9 @@ export default function OnboardingPage() {
             <div className="grid grid-cols-2 gap-3">
               <Input
                 label="Total Area"
-                type="number"
-                placeholder="e.g. 5"
+                type="text"
+                inputMode="decimal"
+                placeholder="e.g. 5, 10, or 2.5"
                 value={farmData.totalArea}
                 onChange={(e) => setFarmData({ ...farmData, totalArea: e.target.value })}
               />

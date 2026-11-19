@@ -3,14 +3,15 @@ import { getAuthenticatedUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
 import { toHectares, resolveCropName } from '@/lib/units';
+import { areaInputValueSchema, areaInputUnitSchema, normalizeAreaUnit } from '@/lib/area-validation';
 import { z } from 'zod';
 
 const updateFieldSchema = z.object({
   farmId: z.string().min(1).optional(),
   name: z.string().trim().min(2, 'Field name must be at least 2 characters').optional(),
   areaHa: z.number().positive().nullable().optional(),
-  areaInputValue: z.number().positive().nullable().optional(),
-  areaInputUnit: z.enum(['acre', 'hectare', 'bigha', 'guntha']).optional(),
+  areaInputValue: areaInputValueSchema,
+  areaInputUnit: areaInputUnitSchema,
   irrigationType: z.enum(['drip', 'sprinkler', 'flood', 'rainfed', 'other', 'unknown']).optional(),
   soilType: z.enum(['sandy', 'loamy', 'clay', 'black', 'red', 'alluvial', 'other', 'unknown']).optional(),
   status: z.enum(['empty', 'planned', 'active', 'fallow']).optional(),
@@ -113,12 +114,12 @@ async function handleUpdate(
       if (!targetFarm) return apiError('Selected farm not found.', 'not_found', 404);
     }
 
+    const nextUnit = normalizeAreaUnit(parsed.areaInputUnit || existing.areaInputUnit);
+    const nextValue =
+      parsed.areaInputValue !== undefined ? parsed.areaInputValue : existing.areaInputValue;
     let nextAreaHa = existing.areaHa;
-    if (parsed.areaInputValue !== undefined) {
-      nextAreaHa =
-        parsed.areaInputValue === null
-          ? null
-          : toHectares(parsed.areaInputValue, parsed.areaInputUnit || 'acre');
+    if (parsed.areaInputValue !== undefined || parsed.areaInputUnit !== undefined) {
+      nextAreaHa = nextValue === null || nextValue === undefined ? null : toHectares(nextValue, nextUnit);
     } else if (parsed.areaHa !== undefined) {
       nextAreaHa = parsed.areaHa;
     }
@@ -129,6 +130,8 @@ async function handleUpdate(
         ...(parsed.farmId ? { farmId: parsed.farmId } : {}),
         ...(parsed.name ? { name: parsed.name } : {}),
         areaHa: nextAreaHa,
+        areaInputValue: nextValue ?? null,
+        areaInputUnit: nextUnit,
         ...(parsed.irrigationType ? { irrigationType: parsed.irrigationType } : {}),
         ...(parsed.soilType ? { soilType: parsed.soilType } : {}),
         ...(parsed.status ? { status: parsed.status } : {}),

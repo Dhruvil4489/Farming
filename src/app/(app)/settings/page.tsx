@@ -153,11 +153,16 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3">
           <User size={18} className="text-[#2F7D4F]" />
           <div>
-            <h3 className="font-bold text-stone-900 text-sm">Profile & Session</h3>
-            <p className="text-xs text-stone-500">Update personal details or sign out of this device.</p>
+            <h3 className="font-bold text-stone-900 text-sm">Profile, Email Alerts &amp; Session</h3>
+            <p className="text-xs text-stone-500">Manage personal details, email reminder preferences, or sign out.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link href="/notifications">
+            <Button size="sm" variant="outline">
+              Email Alerts
+            </Button>
+          </Link>
           <Link href="/profile">
             <Button size="sm" variant="outline">
               Edit Profile

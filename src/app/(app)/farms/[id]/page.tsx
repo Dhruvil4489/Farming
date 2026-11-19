@@ -18,7 +18,7 @@ import {
 import { DataState } from '@/components/ui/DataState';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { hectaresToAcres } from '@/lib/units';
+import { formatExactArea, validateAreaInput } from '@/lib/area-validation';
 
 export default function FarmDetailPage() {
   const params = useParams();
@@ -77,9 +77,14 @@ export default function FarmDetailPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    const areaCheck = validateAreaInput(editForm.areaInputValue);
+    if (!areaCheck.valid) {
+      setError(areaCheck.error || 'Please enter a valid land area.');
+      return;
+    }
     setSaving(true);
     try {
-      const parsedArea = parseFloat(editForm.areaInputValue);
       const res = await fetch(`/api/v1/farms/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -88,13 +93,14 @@ export default function FarmDetailPage() {
           village: editForm.village.trim() || null,
           district: editForm.district.trim() || null,
           state: editForm.state.trim() || null,
-          areaInputValue: !isNaN(parsedArea) && parsedArea > 0 ? parsedArea : null,
+          areaInputValue: areaCheck.value,
           areaInputUnit: editForm.areaInputUnit,
           farmType: editForm.farmType,
           notes: editForm.notes.trim() || null,
         }),
       });
-      if (!res.ok) throw new Error('Could not update farm.');
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error?.message || 'Could not update farm.');
       setEditing(false);
       setNotice('Farm details updated.');
       setTimeout(() => setNotice(''), 3000);
@@ -176,11 +182,7 @@ export default function FarmDetailPage() {
                 <div>
                   <span className="text-stone-500 block">Total Area</span>
                   <strong className="text-stone-900 text-sm">
-                    {farm.areaInputValue
-                      ? `${farm.areaInputValue} ${farm.areaInputUnit || 'acre'}`
-                      : farm.totalAreaHa
-                      ? `${hectaresToAcres(farm.totalAreaHa)} Acre`
-                      : 'Not set'}
+                    {formatExactArea(farm.areaInputValue, farm.areaInputUnit, farm.totalAreaHa)}
                   </strong>
                 </div>
                 <div>
@@ -237,8 +239,9 @@ export default function FarmDetailPage() {
                   <div>
                     <label className="block font-bold text-stone-700 mb-1">Total Area</label>
                     <input
-                      type="number"
-                      step="0.1"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="e.g. 10 or 9.95"
                       value={editForm.areaInputValue}
                       onChange={(e) => setEditForm({ ...editForm, areaInputValue: e.target.value })}
                       className="w-full px-3 py-2 border border-stone-300 rounded-xl text-sm"
@@ -300,7 +303,7 @@ export default function FarmDetailPage() {
                       </span>
                     </div>
                     <p className="text-xs text-stone-500">
-                      Area: {fld.areaHa != null ? `${hectaresToAcres(fld.areaHa)} Acre` : 'Not set'} • Irrigation:{' '}
+                      Area: {formatExactArea(fld.areaInputValue, fld.areaInputUnit, fld.areaHa)} • Irrigation:{' '}
                       <span className="capitalize">{fld.irrigationType || 'Drip'}</span>
                     </p>
                     {fld.cropCycles?.[0] && (

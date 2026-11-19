@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
 import { toHectares } from '@/lib/units';
+import { areaInputValueSchema, areaInputUnitSchema, normalizeAreaUnit } from '@/lib/area-validation';
 import { z } from 'zod';
 
 const farmSchema = z.object({
@@ -13,8 +14,8 @@ const farmSchema = z.object({
   lat: z.number().optional(),
   lng: z.number().optional(),
   totalAreaHa: z.number().positive().optional(),
-  areaInputValue: z.number().positive().optional(),
-  areaInputUnit: z.enum(['acre', 'hectare', 'bigha', 'guntha']).optional(),
+  areaInputValue: areaInputValueSchema,
+  areaInputUnit: areaInputUnitSchema,
   farmType: z.enum(['irrigated', 'rainfed', 'mixed', 'orchard', 'greenhouse', 'other']).optional(),
   waterSources: z.array(z.string()).optional(),
   notes: z.string().optional(),
@@ -50,8 +51,9 @@ export async function POST(req: NextRequest) {
       const body = await req.json();
       const parsed = farmSchema.parse(body);
 
-      const unit = parsed.areaInputUnit || 'acre';
-      const computedHa = parsed.totalAreaHa ?? toHectares(parsed.areaInputValue, unit);
+      const unit = normalizeAreaUnit(parsed.areaInputUnit);
+      const areaVal = parsed.areaInputValue ?? null;
+      const computedHa = parsed.totalAreaHa ?? (areaVal != null ? toHectares(areaVal, unit) : null);
 
       const farm = await prisma.farm.create({
         data: {
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
           lat: parsed.lat ?? null,
           lng: parsed.lng ?? null,
           totalAreaHa: computedHa,
-          areaInputValue: parsed.areaInputValue ?? null,
+          areaInputValue: areaVal,
           areaInputUnit: unit,
           farmType: parsed.farmType || 'irrigated',
           waterSources: parsed.waterSources ? JSON.stringify(parsed.waterSources) : '[]',

@@ -25,11 +25,13 @@ export interface RetrievedChunk {
 }
 
 export const CROP_SYNONYMS: Record<string, string[]> = {
-  cotton: ['cotton', 'kapas', 'કપાસ', 'कपास', 'bollworm', 'gossypium'],
-  wheat: ['wheat', 'gehu', 'ઘઉં', 'गेहूं', 'triticum', 'cri'],
-  groundnut: ['groundnut', 'peanut', 'magfali', 'મગફળી', 'मूंगफલી', 'pegging'],
-  tomato: ['tomato', 'tameta', 'tamatar', 'ટામેટા', 'टमाटर', 'blight'],
-  soil_health: ['soil', 'saline', 'salinity', 'alkaline', 'vertisol', 'જમીન', 'मिट्टी', 'black soil', 'gypsum'],
+  cotton: ['cotton', 'kapas', 'કપાસ', 'कपास', 'bollworm', 'gossypium', 'whitefly'],
+  wheat: ['wheat', 'gehu', 'ઘઉં', 'गेहूं', 'triticum', 'cri', 'rust'],
+  groundnut: ['groundnut', 'peanut', 'magfali', 'મગફળી', 'मूंगफली', 'pegging', 'tikka'],
+  tomato: ['tomato', 'tameta', 'tamatar', 'ટામેટા', 'टमाटर', 'blight', 'yellow leaves'],
+  rice: ['rice', 'paddy', 'dhan', 'ડાંગર', 'धान', 'awd', 'blast', 'sheath blight'],
+  soil_health: ['soil', 'saline', 'salinity', 'alkaline', 'vertisol', 'જમીન', 'मिट्टी', 'black soil', 'gypsum', 'fertilizer', 'dap', 'urea'],
+  general: ['monocrotophos', 'banned', 'pesticide', 'spray', 'weather', 'rain', 'mandi', 'price', 'bhav', 'भाव', 'ભાવ'],
 };
 
 export class KnowledgeRetrievalService {

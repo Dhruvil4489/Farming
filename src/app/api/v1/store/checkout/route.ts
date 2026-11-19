@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
 import { getEffectiveUserId } from '@/lib/get-effective-user';
 import { StoreService } from '@/services/StoreService';
+import { prisma } from '@/lib/prisma';
+import { EmailService } from '@/services/EmailService';
 import { z } from 'zod';
 
 const checkoutSchema = z.object({
@@ -27,6 +29,41 @@ export async function POST(req: NextRequest) {
     const parsed = checkoutSchema.parse(body);
 
     const order = await StoreService.processCheckout(userId, parsed);
+
+    // Send order confirmation email & in-app notification
+    const buyer = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true, preferredLanguage: true },
+    });
+    await prisma.notification
+      .create({
+        data: {
+          userId,
+          type: 'order',
+          titleKey: `Order Confirmed: ${order.orderNumber}`,
+          bodyKey: `Your SmartFarm Store order of ₹${order.totalAmount} has been confirmed for delivery to ${parsed.deliveryDistrict}.`,
+          paramsJson: JSON.stringify({ orderId: order.id, actionUrl: '/orders' }),
+        },
+      })
+      .catch(() => {});
+
+    if (buyer?.email) {
+      await EmailService.sendTemplate({
+        userId,
+        toEmail: buyer.email,
+        templateKey: 'order_confirmation',
+        locale: (buyer.preferredLanguage as any) || 'en',
+        isTransactional: true,
+        dedupeKey: `order_confirm:${order.id}`,
+        data: {
+          name: buyer.name,
+          orderNumber: order.orderNumber,
+          totalAmount: order.totalAmount,
+          deliveryAddress: `${parsed.deliveryAddress}, ${parsed.deliveryDistrict} - ${parsed.deliveryPincode}`,
+          actionUrl: EmailService.getAppUrl('/orders'),
+        },
+      }).catch(() => {});
+    }
 
     return apiSuccess(order, { orderNumber: order.orderNumber }, 201);
   } catch (err: any) {

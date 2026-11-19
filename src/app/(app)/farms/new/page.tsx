@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { validateAreaInput } from '@/lib/area-validation';
 
 export default function NewFarmPage() {
   const router = useRouter();
@@ -42,11 +43,17 @@ export default function NewFarmPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
 
+    const areaCheck = validateAreaInput(form.areaInputValue);
+    if (!areaCheck.valid) {
+      setError(areaCheck.error || 'Please enter a valid land area.');
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      const parsedArea = parseFloat(form.areaInputValue);
       const res = await fetch('/api/v1/farms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,7 +62,7 @@ export default function NewFarmPage() {
           village: form.village.trim() || undefined,
           district: form.district.trim() || undefined,
           state: form.state.trim() || undefined,
-          areaInputValue: !isNaN(parsedArea) && parsedArea > 0 ? parsedArea : undefined,
+          areaInputValue: areaCheck.value ?? undefined,
           areaInputUnit: form.areaInputUnit,
           farmType: form.farmType,
           notes: form.notes.trim() || undefined,
@@ -124,10 +131,9 @@ export default function NewFarmPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <Input
                       label="Total Land Area"
-                      type="number"
-                      step="0.1"
-                      min="0.05"
-                      placeholder="e.g. 5"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="e.g. 5, 10, or 2.5"
                       value={form.areaInputValue}
                       onChange={(e) => setForm({ ...form, areaInputValue: e.target.value })}
                     />

@@ -135,6 +135,45 @@ export default function SoilMoisturePage() {
   const [manualSuccess, setManualSuccess] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
 
+  // ISRO / NRSC Satellite District Soil Moisture Explorer (distinct from in-situ IoT sensor)
+  const [satState, setSatState] = useState('Gujarat');
+  const [satDistrict, setSatDistrict] = useState('');
+  const [satData, setSatData] = useState<any>(null);
+  const [satLoading, setSatLoading] = useState(false);
+
+  const loadSatelliteMoisture = useCallback(async (st: string, dist?: string) => {
+    setSatLoading(true);
+    try {
+      const qs = new URLSearchParams();
+      if (st.trim()) qs.set('state', st.trim());
+      if (dist && dist.trim()) qs.set('district', dist.trim());
+      const res = await fetch(`/api/v1/soil-moisture?${qs.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        setSatData(json);
+      } else {
+        setSatData(null);
+      }
+    } catch {
+      setSatData(null);
+    } finally {
+      setSatLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/v1/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        const uState = json?.data?.state || 'Gujarat';
+        const uDist = json?.data?.district || '';
+        setSatState(uState);
+        setSatDistrict(uDist);
+        loadSatelliteMoisture(uState, uDist);
+      })
+      .catch(() => loadSatelliteMoisture('Gujarat'));
+  }, [loadSatelliteMoisture]);
+
   // Load fields once on mount
   useEffect(() => {
     fetch('/api/v1/fields')
@@ -769,6 +808,95 @@ return (
         </Card>
       </div>
     </div>
+
+    {/* ISRO / NRSC Satellite Area-Level Soil Moisture Explorer (Explicitly Separated from Field Sensors) */}
+    <Card className="p-6 rounded-3xl border border-stone-200 bg-white space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-4">
+        <div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-900 border border-sky-200 text-[10px] font-bold uppercase tracking-wider mb-1">
+            NRSC / ISRO Satellite Hydrological Estimate (0–50 cm)
+          </span>
+          <h2 className="text-lg font-extrabold text-[#143D2A]">
+            Regional District Soil Moisture Lookup (Satellite Area Estimate)
+          </h2>
+          <p className="text-xs text-stone-500 mt-0.5">
+            Macro-scale district average derived from ISRO/NRSC VIC hydrological model — distinct from point-level IoT field probes above.
+          </p>
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            loadSatelliteMoisture(satState, satDistrict);
+          }}
+          className="flex flex-wrap items-center gap-2"
+        >
+          <input
+            type="text"
+            value={satState}
+            onChange={(e) => setSatState(e.target.value)}
+            placeholder="State (e.g. Gujarat)"
+            className="px-3 py-1.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-medium text-stone-900 w-36"
+          />
+          <input
+            type="text"
+            value={satDistrict}
+            onChange={(e) => setSatDistrict(e.target.value)}
+            placeholder="District (e.g. Vadodara, Rajkot)"
+            className="px-3 py-1.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-medium text-stone-900 w-44"
+          />
+          <Button type="submit" size="sm" isLoading={satLoading}>
+            Lookup District
+          </Button>
+        </form>
+      </div>
+
+      {satLoading ? (
+        <div className="py-8 text-center text-xs text-stone-500">Loading NRSC / ISRO district dataset...</div>
+      ) : !satData?.observations || satData.observations.length === 0 ? (
+        <div className="p-5 bg-stone-50 rounded-2xl border border-dashed border-stone-300 text-center space-y-1">
+          <p className="text-xs font-bold text-stone-800">
+            No verified NRSC/ISRO satellite soil moisture records available for {satDistrict || satState}.
+          </p>
+          <p className="text-[11px] text-stone-500">
+            SmartFarm AI never fabricates soil moisture percentages. Try a covered district (e.g. Vadodara, Rajkot, Ahmedabad, Anand, Surat) or log a manual/IoT field test above.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {satData.observations.slice(0, 6).map((obs: any) => (
+              <div
+                key={obs.id}
+                className="p-4 rounded-2xl bg-[#F7F8F5] border border-stone-200 space-y-1.5 text-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <strong className="text-stone-900 text-sm">
+                    {obs.district}, {obs.state}
+                  </strong>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-900 font-bold">
+                    {obs.isDemo ? 'Baseline Model' : 'NRSC VIC'}
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-[#143D2A]">
+                  {typeof obs.normalizedPercentage === 'number'
+                    ? `${obs.normalizedPercentage.toFixed(1)}%`
+                    : '—'}
+                </div>
+                <p className="text-[11px] text-stone-500">
+                  Depth: {obs.depthRangeCm || '0-50 cm'} • Date:{' '}
+                  {obs.observationDate ? new Date(obs.observationDate).toLocaleDateString('en-IN') : '—'}
+                </p>
+                <p className="text-[10px] text-stone-400 truncate">{obs.modelProvider}</p>
+              </div>
+            ))}
+          </div>
+          {satData.metadata?.disclaimer && (
+            <p className="text-[11px] text-stone-500 italic">{satData.metadata.disclaimer}</p>
+          )}
+        </div>
+      )}
+    </Card>
 
     {/* Manual Measurement Modal */}
     {showManualModal && (

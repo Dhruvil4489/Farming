@@ -12,6 +12,7 @@ const updateMeSchema = z.object({
   state: z.string().trim().nullable().optional(),
   district: z.string().trim().nullable().optional(),
   village: z.string().trim().nullable().optional(),
+  pincode: z.string().trim().nullable().optional(),
 });
 
 export async function GET() {
@@ -30,11 +31,17 @@ export async function GET() {
       id: user.id,
       name: user.name,
       email: user.email,
+      emailVerified: Boolean(user.emailVerifiedAt),
+      emailVerifiedAt: user.emailVerifiedAt,
       phone: user.phone,
       preferredLanguage: user.preferredLanguage,
       state: user.state,
       district: user.district,
       village: user.village,
+      pincode: user.pincode,
+      lat: user.lat,
+      lng: user.lng,
+      timezone: user.timezone,
       isDemo: user.isDemo,
       experienceMode: user.experienceMode,
       onboardingStatus: parsedOnboarding,
@@ -65,6 +72,7 @@ export async function PATCH(req: NextRequest) {
           ...(parsed.state !== undefined ? { state: parsed.state || null } : {}),
           ...(parsed.district !== undefined ? { district: parsed.district || null } : {}),
           ...(parsed.village !== undefined ? { village: parsed.village || null } : {}),
+          ...(parsed.pincode !== undefined ? { pincode: parsed.pincode || null } : {}),
         },
       });
 
@@ -72,12 +80,14 @@ export async function PATCH(req: NextRequest) {
         id: updated.id,
         name: updated.name,
         email: updated.email,
+        emailVerified: Boolean(updated.emailVerifiedAt),
         phone: updated.phone,
         preferredLanguage: updated.preferredLanguage,
         experienceMode: updated.experienceMode,
         state: updated.state,
         district: updated.district,
         village: updated.village,
+        pincode: updated.pincode,
       });
     } catch (err: any) {
       if (err instanceof z.ZodError) {

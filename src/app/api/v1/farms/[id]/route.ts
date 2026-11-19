@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
 import { toHectares, resolveCropName } from '@/lib/units';
+import { areaInputValueSchema, areaInputUnitSchema, normalizeAreaUnit } from '@/lib/area-validation';
 import { z } from 'zod';
 
   const updateFarmSchema = z.object({
@@ -12,8 +13,8 @@ import { z } from 'zod';
     state: z.string().nullable().optional(),
     lat: z.number().nullable().optional(),
     lng: z.number().nullable().optional(),
-    areaInputValue: z.number().positive().nullable().optional(),
-    areaInputUnit: z.enum(['acre', 'hectare', 'bigha', 'guntha']).optional(),
+    areaInputValue: areaInputValueSchema,
+    areaInputUnit: areaInputUnitSchema,
     farmType: z.enum(['irrigated', 'rainfed', 'mixed', 'orchard', 'greenhouse', 'other']).optional(),
     notes: z.string().nullable().optional(),
   });
@@ -80,12 +81,14 @@ return apiSuccess(normalized);
         const body = await req.json();
         const parsed = updateFarmSchema.parse(body);
 
-        const nextUnit = parsed.areaInputUnit || existing.areaInputUnit || 'acre';
+        const nextUnit = normalizeAreaUnit(parsed.areaInputUnit || existing.areaInputUnit);
         const nextValue =
           parsed.areaInputValue !== undefined ? parsed.areaInputValue : existing.areaInputValue;
         const nextHa =
           parsed.areaInputValue !== undefined || parsed.areaInputUnit !== undefined
-            ? toHectares(nextValue, nextUnit)
+            ? nextValue != null
+              ? toHectares(nextValue, nextUnit)
+              : null
             : existing.totalAreaHa;
 
         const updated = await prisma.farm.update({

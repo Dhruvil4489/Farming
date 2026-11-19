@@ -84,24 +84,44 @@ export function MarketExplorer({
     }
   };
 
-  // Fetch filter options on mount
+  // Fetch filter options + auto-default state/district from farmer profile in portal mode
   useEffect(() => {
     const fetchFilters = async () => {
       try {
-        const res = await fetch('/api/v1/market/filters');
+        const [res, meRes] = await Promise.all([
+          fetch('/api/v1/market/filters'),
+          variant === 'portal' ? fetch('/api/v1/me') : Promise.resolve(null),
+        ]);
+        let availableStates: string[] = [];
+        let availableDistricts: { district: string; state: string }[] = [];
         if (res.ok) {
           const json = await res.json();
-          setStates(json.data.states || []);
-          setDistricts(json.data.districts || []);
+          availableStates = json.data.states || [];
+          availableDistricts = json.data.districts || [];
+          setStates(availableStates);
+          setDistricts(availableDistricts);
           setMarkets(json.data.markets || []);
           setCommodities(json.data.commodities || []);
+        }
+        if (meRes && meRes.ok) {
+          const meJson = await meRes.json();
+          const userState = meJson?.data?.state;
+          const userDist = meJson?.data?.district;
+          if (userState && availableStates.some((s) => s.toLowerCase() === userState.toLowerCase())) {
+            const matchedState = availableStates.find((s) => s.toLowerCase() === userState.toLowerCase())!;
+            setSelectedState(matchedState);
+          }
+          if (userDist && availableDistricts.some((d) => d.district.toLowerCase() === userDist.toLowerCase())) {
+            const matchedDist = availableDistricts.find((d) => d.district.toLowerCase() === userDist.toLowerCase())!;
+            setSelectedDistrict(matchedDist.district);
+          }
         }
       } catch (e) {
         console.error('Error fetching market filters:', e);
       }
     };
     fetchFilters();
-  }, []);
+  }, [variant]);
 
   // Fetch prices with comparison and bounded timeout
   const fetchPrices = async () => {
@@ -195,6 +215,15 @@ export function MarketExplorer({
 
   const isPortal = variant === 'portal';
 
+  // Honest freshness check: detect if latest reported arrival date is older than 24h (never label stale cache as "live")
+  const isStaleRecord = (() => {
+    const dateStr = latestArrivalDate || publicationDate;
+    if (!dateStr) return true;
+    const parsed = new Date(dateStr);
+    if (isNaN(parsed.getTime())) return true;
+    return Date.now() - parsed.getTime() > 36 * 60 * 60 * 1000;
+  })();
+
   return (
     <div className={isPortal ? 'space-y-6' : 'flex flex-col'}>
       {/* HEADER SECTION */}
@@ -202,10 +231,19 @@ export function MarketExplorer({
         /* Portal Header matching Tasks & Activities & Weather design */
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-extrabold text-[#143D2A] tracking-tight">Latest Reported Mandi Prices</h1>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100/90 border border-emerald-300 text-[11px] font-bold text-emerald-800">
-                <ShieldCheck size={13} className="text-emerald-700" /> AGMARKNET Verified
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-2xl font-extrabold text-[#143D2A] tracking-tight">Mandi Market Prices</h1>
+              <span
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-bold ${
+                  isStaleRecord
+                    ? 'bg-amber-50 border-amber-300 text-amber-900'
+                    : 'bg-emerald-100/90 border-emerald-300 text-emerald-800'
+                }`}
+              >
+                <ShieldCheck size={13} className={isStaleRecord ? 'text-amber-700' : 'text-emerald-700'} />
+                {isStaleRecord
+                  ? `Cached AGMARKNET Record (${publicationDate || 'Historical'})`
+                  : 'AGMARKNET Latest Reported'}
               </span>
             </div>
             <p className="text-xs text-stone-600 mt-1">

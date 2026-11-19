@@ -1,27 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import {
   verifyPassword,
   signToken,
   setAuthCookie,
-  normalizeIdentifier,
   TOKEN_NAME,
 } from '@/lib/auth';
 import { checkRateLimit, resetRateLimit } from '@/lib/rate-limit';
-import { apiSuccess, apiError } from '@/lib/api-envelope';
-import { z } from 'zod';
+import { apiSuccess } from '@/lib/api-envelope';
+import { authErrorResponse, classifyAuthDatabaseError } from '@/lib/auth-errors';
+import { EmailService } from '@/services/EmailService';
 
-const loginSchema = z.object({
-  identifier: z.string().trim().min(1, 'Please enter your mobile number or email address'),
-  password: z.string().min(1, 'Please enter your password'),
-});
-
-const NEUTRAL_ERROR_MESSAGE = 'Unable to sign in with those details. Check your credentials and try again.';
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export async function POST(req: NextRequest) {
   const requestId = `req_${Math.random().toString(36).substring(2, 9)}`;
-  const acceptHeader = req.headers.get('accept') || '';
-  const isHtmlNavigation = acceptHeader.includes('text/html') && !acceptHeader.includes('application/json');
 
   try {
     const clientIp =
@@ -29,170 +22,147 @@ export async function POST(req: NextRequest) {
       req.headers.get('x-real-ip') ||
       '127.0.0.1';
 
-    // 1. Resilient request payload parsing (JSON, form-urlencoded, or multipart)
     let rawBody: Record<string, any> = {};
-    const contentType = req.headers.get('content-type') || '';
-
-    if (contentType.includes('application/json')) {
-      try {
-        rawBody = await req.json();
-      } catch {
-        return apiError('Malformed JSON payload received', 'invalid_json', 400, undefined, requestId);
-      }
-    } else if (
-      contentType.includes('application/x-www-form-urlencoded') ||
-      contentType.includes('multipart/form-data')
-    ) {
-      try {
-        const formData = await req.formData();
-        rawBody = {
-          identifier: formData.get('identifier')?.toString() || '',
-          password: formData.get('password')?.toString() || '',
-        };
-      } catch {
-        return apiError('Malformed form data received', 'invalid_form_data', 400, undefined, requestId);
-      }
-    } else {
-      // Automatic fallback parser
-      try {
-        rawBody = await req.json();
-      } catch {
-        try {
-          const formData = await req.formData();
-          rawBody = {
-            identifier: formData.get('identifier')?.toString() || '',
-            password: formData.get('password')?.toString() || '',
-          };
-        } catch {
-          rawBody = {};
-        }
-      }
+    try {
+      rawBody = await req.json();
+    } catch {
+      return authErrorResponse({
+        code: 'INVALID_REQUEST',
+        message: 'Invalid sign-in request. Please refresh the page and try again.',
+        status: 400,
+        requestId,
+      });
     }
 
-    const parsed = loginSchema.parse(rawBody);
+    const email = (rawBody.email ?? rawBody.identifier ?? '').toString().trim().toLowerCase();
+    const password = typeof rawBody.password === 'string' ? rawBody.password : '';
+    const rememberMe = rawBody.rememberMe !== false;
 
-    // 2. Check brute-force rate limit (5 attempts per IP+identifier per minute, 20 per IP per minute)
-    const rateLimitKey = `login:${clientIp}:${parsed.identifier.toLowerCase()}`;
+    const fieldErrors: Record<string, string> = {};
+    if (!email || !EMAIL_REGEX.test(email)) {
+      fieldErrors.email = 'Please enter a valid email address.';
+    }
+    if (!password) {
+      fieldErrors.password = 'Please enter your password.';
+    }
+    if (Object.keys(fieldErrors).length > 0) {
+      const firstField = Object.keys(fieldErrors)[0];
+      return authErrorResponse({
+        code: firstField === 'email' ? 'INVALID_EMAIL' : 'VALIDATION_ERROR',
+        message: fieldErrors[firstField],
+        status: 422,
+        field: firstField,
+        fieldErrors,
+        requestId,
+      });
+    }
+
+    // Brute-force rate limit: 5 attempts per IP+email per minute, 20 per IP per minute
+    const rateLimitKey = `login:${clientIp}:${email}`;
     const ipRateLimitKey = `login_ip:${clientIp}`;
-
     const idLimit = checkRateLimit(rateLimitKey, 5, 60);
     const ipLimit = checkRateLimit(ipRateLimitKey, 20, 60);
 
     if (!idLimit.allowed || !ipLimit.allowed) {
-      const waitTime = Math.max(idLimit.resetSeconds, ipLimit.resetSeconds);
-      if (isHtmlNavigation) {
-        const loginUrl = new URL('/login', req.url);
-        loginUrl.searchParams.set('error', 'rate_limited');
-        return NextResponse.redirect(loginUrl);
-      }
-
-      const res = apiError(
-        'Too many sign in attempts. Please wait a minute before trying again.',
-        'rate_limited',
-        429,
-        undefined,
-        requestId
-      );
-      res.headers.set('Retry-After', String(waitTime));
-      return res;
+      return authErrorResponse({
+        code: 'RATE_LIMITED',
+        message: 'Too many sign-in attempts. Please wait a few minutes and try again.',
+        status: 429,
+        requestId,
+        retryAfter: Math.max(idLimit.resetSeconds, ipLimit.resetSeconds),
+      });
     }
 
-    // 3. Normalize identifier and build search criteria
-    const normalized = normalizeIdentifier(parsed.identifier);
-    let whereCondition: any;
-
-    if (normalized.isEmail && normalized.email) {
-      whereCondition = {
-        email: normalized.email,
-        deletedAt: null,
-      };
-    } else {
-      // Search matching either normalized phone candidates or exact raw value
-      whereCondition = {
-        OR: [
-          { phone: { in: normalized.phoneCandidates } },
-          { email: parsed.identifier.toLowerCase() },
-        ],
-        deletedAt: null,
-      };
-    }
-
-    // 4. Query user from database
-    const user = await prisma.user.findFirst({
-      where: whereCondition,
-      include: {
-        roles: {
-          include: { role: true },
-        },
-      },
+    // Strictly Email-Only case-insensitive lookup
+    let user = await prisma.user.findFirst({
+      where: { email, deletedAt: null },
+      include: { roles: { include: { role: true } } },
     });
 
+    if (!user) {
+      const emailUsers = await prisma.user.findMany({
+        where: { email: { not: null }, deletedAt: null },
+        include: { roles: { include: { role: true } } },
+      });
+      user = emailUsers.find((u) => (u.email || '').trim().toLowerCase() === email) || null;
+    }
+
     if (!user || !user.passwordHash) {
-      if (isHtmlNavigation) {
-        const loginUrl = new URL('/login', req.url);
-        loginUrl.searchParams.set('error', 'invalid_credentials');
-        return NextResponse.redirect(loginUrl);
-      }
-      return apiError(NEUTRAL_ERROR_MESSAGE, 'invalid_credentials', 401, undefined, requestId);
+      return authErrorResponse({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email address or password. Please check your credentials and try again.',
+        status: 401,
+        requestId,
+      });
     }
 
-    // 5. Verify password hash
-    const isValid = await verifyPassword(parsed.password, user.passwordHash);
+    const isValid = await verifyPassword(password, user.passwordHash);
     if (!isValid) {
-      if (isHtmlNavigation) {
-        const loginUrl = new URL('/login', req.url);
-        loginUrl.searchParams.set('error', 'invalid_credentials');
-        return NextResponse.redirect(loginUrl);
-      }
-      return apiError(NEUTRAL_ERROR_MESSAGE, 'invalid_credentials', 401, undefined, requestId);
+      return authErrorResponse({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email address or password. Please check your credentials and try again.',
+        status: 401,
+        requestId,
+      });
     }
 
-    // 6. Reset rate limit on successful credentials verification
+    if (!user.emailVerifiedAt) {
+      return authErrorResponse({
+        code: 'EMAIL_NOT_VERIFIED',
+        message:
+          'Please verify your email address before signing in. Check your inbox or click Resend Verification Email.',
+        status: 403,
+        field: 'email',
+        fieldErrors: { email: 'Email address is pending verification.' },
+        requestId,
+      });
+    }
+
     resetRateLimit(rateLimitKey);
     resetRateLimit(ipRateLimitKey);
 
-    // 7. Update last login timestamp
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
 
-    // 8. Sign session token and establish secure session cookie
-    const roleNames = user.roles.map((r) => r.role.name);
-    const token = signToken({
+    EmailService.sendTemplate({
       userId: user.id,
-      email: user.email || undefined,
-      phone: user.phone || undefined,
-      roles: roleNames,
-    });
+      toEmail: email,
+      templateKey: 'security_login',
+      locale: (user.preferredLanguage as any) || 'en',
+      preferenceType: 'security',
+      data: {
+        name: user.name,
+        loginTime: new Date().toLocaleString('en-IN', {
+          timeZone: (user as any).timezone || 'Asia/Kolkata',
+        }),
+        ip: clientIp,
+        settingsUrl: EmailService.getAppUrl('/settings'),
+      },
+    }).catch(() => {});
 
-    // Determine default role destination
+    const roleNames = user.roles.map((r) => r.role.name);
+    const token = signToken(
+      {
+        userId: user.id,
+        email,
+        roles: roleNames,
+      },
+      rememberMe
+    );
+
     const isAdminOnly = roleNames.includes('ADMIN') && !roleNames.includes('FARMER');
     const defaultRedirect = isAdminOnly ? '/admin' : '/dashboard';
+    const maxAge = rememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60;
 
-    // Synchronize cookie in Next.js cookie store
-    await setAuthCookie(token);
+    await setAuthCookie(token, rememberMe);
 
-    // If native browser HTML navigation, redirect directly to dashboard with cookie
-    if (isHtmlNavigation) {
-      const redirectUrl = new URL(defaultRedirect, req.url);
-      const htmlResponse = NextResponse.redirect(redirectUrl);
-      htmlResponse.cookies.set(TOKEN_NAME, token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 30 * 24 * 60 * 60,
-        path: '/',
-      });
-      return htmlResponse;
-    }
-
-    // Build API response and attach Set-Cookie directly for guaranteed header persistence
     const userData = {
       id: user.id,
       name: user.name,
-      email: user.email,
-      phone: user.phone,
+      email,
+      emailVerified: true,
       preferredLanguage: user.preferredLanguage,
       roles: roleNames,
     };
@@ -207,20 +177,24 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60,
+      maxAge,
       path: '/',
     });
 
     return response;
   } catch (err: any) {
-    if (err instanceof z.ZodError) {
-      const fieldErrors = err.flatten().fieldErrors as Record<string, string[] | undefined>;
-      const firstErrorMessage =
-        fieldErrors.identifier?.[0] || fieldErrors.password?.[0] || 'Please provide required credentials';
-      return apiError(firstErrorMessage, 'validation_failed', 422, fieldErrors as any, requestId);
-    }
-
-    console.error(`[API Login Error ${requestId}]:`, err?.name, err?.message);
-    return apiError('An unexpected server error occurred. Please try again.', 'server_error', 500, undefined, requestId);
+    console.error(`[API Login Error ${requestId}]:`, {
+      code: err?.code,
+      name: err?.name,
+      message: err?.message,
+    });
+    const classified = classifyAuthDatabaseError(err, requestId);
+    return authErrorResponse({
+      ...classified,
+      message:
+        classified.code === 'DATABASE_UNAVAILABLE'
+          ? 'We are temporarily unable to sign you in. Please try again shortly.'
+          : 'Something went wrong while signing in. Please try again later.',
+    });
   }
 }

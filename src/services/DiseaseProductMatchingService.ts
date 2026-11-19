@@ -49,6 +49,42 @@ export interface MatchingResult {
   targetCrop: string;
   primaryActiveIngredient: string | null;
   medicines: RecommendedMedicineCard[];
+  ipmProtocol?: {
+    cultural: string[];
+    biological: string[];
+    safetyAndPhi: string[];
+    regulatoryAuthority: string;
+  };
+}
+
+/**
+ * Explicit CIB&RC / PPQS India Banned & Severely Restricted Molecules Guard.
+ * Products containing any of these active ingredients MUST NEVER be recommended.
+ */
+export const BANNED_OR_RESTRICTED_INGREDIENTS = [
+  'monocrotophos',
+  'endosulfan',
+  'phorate',
+  'methyl parathion',
+  'phosphamidon',
+  'dichlorvos',
+  'ddvp',
+  'benomyl',
+  'carbaryl',
+  'dicofol',
+  'dinocap',
+  'methomyl',
+  'tridemorph',
+  'lindane',
+  'aldicarb',
+  'chlordane',
+  'captafol',
+  'paraquat',
+];
+
+export function containsBannedOrRestrictedIngredient(text: string): boolean {
+  const lower = (text || '').toLowerCase();
+  return BANNED_OR_RESTRICTED_INGREDIENTS.some((mol) => lower.includes(mol));
 }
 
 interface DiseaseRule {
@@ -343,6 +379,11 @@ export class DiseaseProductMatchingService {
       // Primary check on composition / active ingredient and product name
       const activeText = `${name} ${composition}`;
 
+      // STRICT CIB&RC SAFETY GUARD: Never recommend banned or severely restricted molecules
+      if (containsBannedOrRestrictedIngredient(activeText)) {
+        continue;
+      }
+
       // Check Primary Matches
       const isPrimary = effectiveRule.primaryKeywords.some((kw) => activeText.includes(kw.toLowerCase()));
       if (isPrimary && !seenProductIds.has(prod.id)) {
@@ -374,12 +415,12 @@ export class DiseaseProductMatchingService {
       }
     }
 
-    // Sort: In-Stock first, then Primary > Alternative > Organic
+    // Sort: Organic/IPM first or In-Stock first -> Organic, Primary, Alternative
     matchedCards.sort((a, b) => {
       if (a.inStock && !b.inStock) return -1;
       if (!a.inStock && b.inStock) return 1;
 
-      const order: Record<string, number> = { primary: 1, alternative: 2, organic: 3 };
+      const order: Record<string, number> = { organic: 1, primary: 2, alternative: 3 };
       return (order[a.treatmentType] || 4) - (order[b.treatmentType] || 4);
     });
 
@@ -388,12 +429,29 @@ export class DiseaseProductMatchingService {
     return {
       hasMatchingMedicine: hasMatching,
       message: hasMatching
-        ? `Found ${matchedCards.length} verified CIBRC-registered treatment products in the Fertilizer Store.`
-        : 'No verified matching medicine is currently available in the store.',
+        ? `Found ${matchedCards.length} CIB&RC-verified treatment options (IPM biological & registered crop protection) in the store.`
+        : 'No verified CIB&RC-compatible medicine is currently available in the store. Please consult your nearest KVK or licensed agri-input dealer.',
       targetDisease: disease,
       targetCrop: crop,
       primaryActiveIngredient: effectiveRule.primaryKeywords[0] || null,
       medicines: matchedCards,
+      ipmProtocol: {
+        cultural: [
+          'Remove and destroy severely infected leaves/plants away from the field to lower inoculum.',
+          'Avoid overhead irrigation in late evening and ensure clean field drainage.',
+          'Maintain recommended plant spacing for airflow and avoid excessive nitrogen top-dressing.',
+        ],
+        biological: [
+          'Prefer bio-control inputs (Trichoderma viride / Pseudomonas fluorescens / Neem formulations) at early onset.',
+          'Preserve beneficial natural predators (ladybird beetles, chrysoperla, spiders) by avoiding unnecessary broad-spectrum sprays.',
+        ],
+        safetyAndPhi: [
+          'Verify CIB&RC crop-label approval before spraying; NEVER use banned/restricted pesticides (such as Monocrotophos on vegetables/food crops).',
+          'Wear full PPE (gloves, mask, eye protection, long sleeves) and spray during calm morning/evening hours (wind <12 km/h, no rain forecast).',
+          'Strictly observe the printed Pre-Harvest Interval (PHI) on the product label before harvesting.',
+        ],
+        regulatoryAuthority: 'CIB&RC / Directorate of Plant Protection, Quarantine & Storage (PPQS), Govt. of India',
+      },
     };
   }
 

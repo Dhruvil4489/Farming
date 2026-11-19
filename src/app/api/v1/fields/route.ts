@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
 import { toHectares, resolveCropName } from '@/lib/units';
+import { areaInputValueSchema, areaInputUnitSchema, normalizeAreaUnit } from '@/lib/area-validation';
 import { StageMaterializer } from '@/services/StageMaterializer';
 import { z } from 'zod';
 
@@ -10,8 +11,8 @@ const fieldSchema = z.object({
   farmId: z.string().min(1, 'Please select a farm'),
   name: z.string().trim().min(2, 'Field name must be at least 2 characters'),
   areaHa: z.number().positive().optional(),
-  areaInputValue: z.number().positive().optional(),
-  areaInputUnit: z.enum(['acre', 'hectare', 'bigha', 'guntha']).optional(),
+  areaInputValue: areaInputValueSchema,
+  areaInputUnit: areaInputUnitSchema,
   areaSource: z.enum(['manual', 'computed']).default('manual'),
   boundaryGeoJson: z.string().optional(),
   centroidLat: z.number().optional(),
@@ -20,7 +21,7 @@ const fieldSchema = z.object({
   soilType: z.enum(['sandy', 'loamy', 'clay', 'black', 'red', 'alluvial', 'other', 'unknown']).optional(),
   status: z.enum(['empty', 'planned', 'active', 'fallow']).default('empty'),
   notes: z.string().optional(),
-  // Optional crop info when creating a field
+  // Optional crop info if provided programmatically (removed from Add Field UI per Phase 4)
   cropId: z.string().optional(),
   customCropName: z.string().optional(),
 });
@@ -124,8 +125,10 @@ export async function POST(req: NextRequest) {
       });
       if (!farm) return apiError('Selected farm was not found.', 'not_found', 404);
 
+      const unit = normalizeAreaUnit(parsed.areaInputUnit);
+      const areaVal = parsed.areaInputValue ?? null;
       const computedAreaHa =
-        parsed.areaHa ?? toHectares(parsed.areaInputValue, parsed.areaInputUnit) ?? null;
+        parsed.areaHa ?? (areaVal != null ? toHectares(areaVal, unit) : null);
 
       const hasInitialCrop = Boolean(parsed.cropId && parsed.cropId.trim());
 
@@ -134,6 +137,8 @@ export async function POST(req: NextRequest) {
           farmId: parsed.farmId,
           name: parsed.name,
           areaHa: computedAreaHa,
+          areaInputValue: areaVal,
+          areaInputUnit: unit,
           areaSource: parsed.areaSource,
           boundaryGeoJson: parsed.boundaryGeoJson || null,
           centroidLat: parsed.centroidLat ?? farm.lat ?? null,

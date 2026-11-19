@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Tractor, Plus, MapPin, Grid, ArrowRight } from 'lucide-react';
 import { DataState } from '@/components/ui/DataState';
+import { formatExactArea } from '@/lib/area-validation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ProvenanceChip } from '@/components/ui/ProvenanceChip';
@@ -81,7 +82,7 @@ export default function FarmsPage() {
               <div className="grid grid-cols-2 gap-2 bg-stone-50 p-3 rounded-lg border border-stone-200 text-xs">
                 <div>
                   <span className="text-stone-500 block">Total Area:</span>
-                  <span className="font-bold text-stone-900">{farm.areaInputValue || farm.totalAreaHa} {farm.areaInputUnit || 'ha'}</span>
+                  <span className="font-bold text-stone-900">{formatExactArea(farm.areaInputValue, farm.areaInputUnit, farm.totalAreaHa)}</span>
                 </div>
                 <div>
                   <span className="text-stone-500 block">Farm Type:</span>

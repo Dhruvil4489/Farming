@@ -24,6 +24,10 @@ model User {
   state              String?
   district           String?
   village            String?
+  pincode            String?
+  lat                Float?
+  lng                Float?
+  timezone           String     @default("Asia/Kolkata")
   isDemo             Boolean    @default(false)
   experienceMode     String     @default("simple") // simple | expert
   onboardingStatus   String     @default("{}") // JSON string of step completion
@@ -35,6 +39,7 @@ model User {
   deletedAt          DateTime?
 
   roles              UserRole[]
+  authTokens         AuthToken[]
   farms              Farm[]
   tasks              Task[]
   observations       FarmObservation[]
@@ -43,12 +48,31 @@ model User {
   diagnosisFeedbacks DiagnosisFeedback[]
   notifications      Notification[]
   notificationPrefs  NotificationPreference[]
+  scheduledReminders ScheduledReminder[]
+  emailDeliveryLogs  EmailDeliveryLog[]
   files              File[]
   cartItems          CartItem[]
   orders             Order[]
   assistantConversations AssistantConversation[]
 
   @@index([state, district])
+}
+
+model AuthToken {
+  id           String    @id @default(uuid())
+  userId       String
+  type         String    // email_verification | password_reset | email_migration
+  tokenHash    String    @unique
+  otpCodeHash  String?
+  pendingEmail String?
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([expiresAt])
 }
 
 model Role {
@@ -122,6 +146,8 @@ model Field {
   farmId           String
   name             String
   areaHa           Float?
+  areaInputValue   Float?
+  areaInputUnit    String?   @default("acre")
   areaSource       String    @default("manual") // manual | computed
   boundaryGeoJson  String?   // JSON string of polygon geometry
   centroidLat      Float?
@@ -157,9 +183,22 @@ model Field {
 model Crop {
   id                  String            @id @default(uuid())
   slug                String            @unique
-  category            String            @default("cereal") // cereal | pulse | oilseed | vegetable | fruit | cash_crop
-  seasons             String            @default("[]") // JSON string array e.g. ["kharif", "rabi"]
+  category            String            @default("cereal") // cereal | pulse | oilseed | cash_crop | vegetable | fruit | spice | plantation | fodder | regional
+  scientificName      String?
+  seasons             String            @default("[]") // JSON string array e.g. ["kharif", "rabi", "zaid", "perennial"]
   typicalDurationDays Int?
+  climate             String?
+  soilSuitability     String?
+  sowingPeriod        String?
+  irrigationGuidance  String?
+  nutrientGuidance    String?
+  commonWeeds         String?
+  commonDiseases      String?
+  commonPests         String?
+  harvestGuidance     String?
+  storageGuidance     String?
+  sourceAuthority     String?
+  lastVerifiedAt      DateTime?
   displayColor        String            @default("#2F7D4F")
   icon                String?           @default("sprout")
   status              String            @default("published") // draft | published | archived
@@ -204,6 +243,12 @@ model CropStage {
   code             String
   startOffsetDays  Int
   durationDays     Int
+  whatToDo         String?
+  whyImportant     String?
+  howToDo          String?
+  precautions      String?
+  materials        String?
+  isEssential      Boolean                @default(true)
   status           String                 @default("published")
 
   crop             Crop                   @relation(fields: [cropId], references: [id], onDelete: Cascade)
@@ -595,13 +640,61 @@ model Notification {
 model NotificationPreference {
   id      String  @id @default(uuid())
   userId  String
-  type    String  // weather | task | irrigation | disease | market | system
+  type    String  // weather | task | irrigation | disease | market | crop_stage | order | security | system
   channel String  @default("in_app") // in_app | email | sms | push
   enabled Boolean @default(true)
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, type, channel])
+}
+
+model ScheduledReminder {
+  id           String    @id @default(uuid())
+  userId       String
+  cropCycleId  String?
+  taskId       String?
+  fieldId      String?
+  category     String    // crop_stage | task | irrigation | fertilizer | pest | weather | disease | system
+  dedupeKey    String    @unique
+  scheduledFor DateTime
+  title        String
+  body         String
+  payloadJson  String    @default("{}")
+  status       String    @default("pending") // pending | sent | failed | skipped
+  attempts     Int       @default(0)
+  lastError    String?
+  sentAt       DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, scheduledFor])
+  @@index([status, scheduledFor])
+}
+
+model EmailDeliveryLog {
+  id                String    @id @default(uuid())
+  userId            String?
+  toEmail           String
+  templateKey       String    // verification | password_reset | security_login | crop_stage | task_reminder | weather_alert | disease_alert | order_confirmation | order_status
+  subject           String
+  locale            String    @default("en")
+  dedupeKey         String?
+  status            String    @default("queued") // queued | sent | simulated | failed | retrying
+  provider          String    @default("local_outbox")
+  providerMessageId String?
+  attempts          Int       @default(1)
+  errorMessage      String?
+  sentAt            DateTime?
+  createdAt         DateTime  @default(now())
+
+  user              User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([dedupeKey])
+  @@index([status, createdAt])
 }
 
 model AuditLog {
@@ -992,9 +1085,11 @@ model KnowledgeDocument {
   publicationDate DateTime?
   crop            String?          // cotton, wheat, groundnut, tomato, etc.
   topic           String           // pest_management, irrigation, fertilizer, soil_health
+  region          String?          // e.g. Gujarat, Western India, Pan-India
   language        String           @default("en") // en, hi, gu
   license         String           // Government Open Data License - India (GODL)
   checksum        String           // SHA-256 of source content
+  lastVerifiedAt  DateTime?
   isActive        Boolean          @default(true)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt

@@ -15,6 +15,7 @@ import crypto from 'node:crypto';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  prismaCheckedOnce?: boolean;
 };
 
 function createPrismaClient(): PrismaClient {
@@ -30,6 +31,7 @@ function createResilientModelDelegate(client: any, modelName: string, tableName:
   const isSqlite = !process.env.DATABASE_URL || process.env.DATABASE_URL.startsWith('file:');
 
   return {
+    isResilientFallback: true,
     async create({ data, include }: { data: any; include?: any }) {
       console.warn(`[Prisma Resilient Proxy] Executing direct SQL create for model "${modelName}" (table "${tableName}")`);
       const recordId = data.id || crypto.randomUUID();
@@ -191,6 +193,51 @@ function createResilientModelDelegate(client: any, modelName: string, tableName:
       return 0;
     },
 
+    async update({ where, data }: any = {}) {
+      const isSqlite = !process.env.DATABASE_URL || process.env.DATABASE_URL.startsWith('file:');
+      const setKeys = Object.keys(data || {}).filter((k) => data[k] !== undefined);
+      const whereKeys = Object.keys(where || {}).filter((k) => where[k] !== undefined);
+      const values: any[] = [];
+      const setClauses = setKeys.map((k) => {
+        const v = data[k];
+        values.push(v instanceof Date ? v.toISOString() : v);
+        return `"${k}" = ${isSqlite ? '?' : `$${values.length}`}`;
+      });
+      const whereClauses = whereKeys.map((k) => {
+        const v = where[k];
+        values.push(v instanceof Date ? v.toISOString() : v);
+        return `"${k}" = ${isSqlite ? '?' : `$${values.length}`}`;
+      });
+      const sql = `UPDATE "${tableName}" SET ${setClauses.join(', ')}${whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : ''}`;
+      await client.$executeRawUnsafe(sql, ...values);
+      return { ...where, ...data };
+    },
+
+    async updateMany({ where, data }: any = {}) {
+      const isSqlite = !process.env.DATABASE_URL || process.env.DATABASE_URL.startsWith('file:');
+      const setKeys = Object.keys(data || {}).filter((k) => data[k] !== undefined);
+      const whereKeys = Object.keys(where || {}).filter((k) => where[k] !== undefined);
+      const values: any[] = [];
+      const setClauses = setKeys.map((k) => {
+        const v = data[k];
+        values.push(v instanceof Date ? v.toISOString() : v);
+        return `"${k}" = ${isSqlite ? '?' : `$${values.length}`}`;
+      });
+      const whereClauses: string[] = [];
+      for (const k of whereKeys) {
+        const v = where[k];
+        if (v === null) {
+          whereClauses.push(`"${k}" IS NULL`);
+        } else {
+          values.push(v instanceof Date ? v.toISOString() : v);
+          whereClauses.push(`"${k}" = ${isSqlite ? '?' : `$${values.length}`}`);
+        }
+      }
+      const sql = `UPDATE "${tableName}" SET ${setClauses.join(', ')}${whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : ''}`;
+      const count = await client.$executeRawUnsafe(sql, ...values);
+      return { count };
+    },
+
     async deleteMany({ where }: any = {}) {
       const isSqlite = !process.env.DATABASE_URL || process.env.DATABASE_URL.startsWith('file:');
       let sql = `DELETE FROM "${tableName}"`;
@@ -226,15 +273,26 @@ export function getPrismaClient(): PrismaClient {
     return globalForPrisma.prisma;
   }
 
-  // Health check: verify core delegates exist on cached client
-  const client = globalForPrisma.prisma as any;
-  if (!client.cropDiagnosisRecord || !client.user || !client.field) {
-    try {
-      client.$disconnect?.();
-    } catch {
-      // Ignore disconnect error during recovery
+  // Health check: verify core delegates once (do NOT thrash disconnect/reconnect on every query
+  // if Node require.cache still holds a pre-restart @prisma/client instance, as thrashing causes SQLITE_BUSY).
+  if (!globalForPrisma.prismaCheckedOnce) {
+    globalForPrisma.prismaCheckedOnce = true;
+    const client = globalForPrisma.prisma as any;
+    if (
+      !client.cropDiagnosisRecord ||
+      !client.user ||
+      !client.field ||
+      !client.authToken ||
+      !client.emailDeliveryLog ||
+      !client.scheduledReminder
+    ) {
+      try {
+        client.$disconnect?.();
+      } catch {
+        // Ignore disconnect error during recovery
+      }
+      globalForPrisma.prisma = createPrismaClient();
     }
-    globalForPrisma.prisma = createPrismaClient();
   }
 
   return globalForPrisma.prisma;
@@ -247,6 +305,9 @@ const MODEL_TABLE_MAP: Record<string, string> = {
   cropDiagnosisRecord: 'CropDiagnosisRecord',
   diagnosisFeedback: 'DiagnosisFeedback',
   aiModelRegistry: 'AiModelRegistry',
+  authToken: 'AuthToken',
+  emailDeliveryLog: 'EmailDeliveryLog',
+  scheduledReminder: 'ScheduledReminder',
   cartItem: 'CartItem',
   product: 'Product',
   productCategory: 'ProductCategory',

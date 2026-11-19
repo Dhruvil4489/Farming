@@ -27,6 +27,7 @@ import {
   User,
   Settings,
   ShieldAlert,
+  Bell,
 } from 'lucide-react';
 import { useI18n, type Locale } from '@/providers/I18nProvider';
 
@@ -53,6 +54,7 @@ interface NavbarProps {
     { href: '/soil-moisture', key: 'soil_moisture', label: 'Soil Moisture', icon: Droplets },
     { href: '/irrigation', key: 'irrigation', label: 'Irrigation', icon: Droplet },
     { href: '/scouting', key: 'scouting', label: 'Scouting', icon: Eye },
+    { href: '/notifications', key: 'notifications', label: 'Notifications', icon: Bell },
     { href: '/profile', key: 'profile', label: 'Profile', icon: User },
     { href: '/settings', key: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -124,6 +126,16 @@ interface NavbarProps {
                           <option value="gu" className="text-stone-900">ગુજરાતી</option>
                         </select>
                       </div>
+
+                      {/* Notification Bell */}
+                      <Link
+                        href="/notifications"
+                        title="Notifications & Email Alerts"
+                        aria-label="Notifications"
+                        className="p-2 text-emerald-200 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+                      >
+                        <Bell size={17} />
+                      </Link>
 
                       {/* Profile & Logout */}
                       <div className="flex items-center gap-2 pl-2 border-l border-emerald-800">

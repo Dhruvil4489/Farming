@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
 import { resolveCropName } from '@/lib/units';
+import { CropLifecycleEngine } from '@/services/CropLifecycleEngine';
 import { z } from 'zod';
 
 const updateCycleSchema = z.object({
@@ -56,14 +57,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     if (!cycle) return apiError('Crop cycle not found', 'not_found', 404);
 
+    const resolvedCrop = cycle.crop
+      ? {
+          ...cycle.crop,
+          name: resolveCropName(cycle.crop, cycle.customCropName, user.preferredLanguage),
+        }
+      : null;
+
+    const lifecycle = CropLifecycleEngine.buildLifecyclePlan({
+      ...cycle,
+      crop: resolvedCrop,
+    });
+
     return apiSuccess({
       ...cycle,
-      crop: cycle.crop
-        ? {
-            ...cycle.crop,
-            name: resolveCropName(cycle.crop, cycle.customCropName, user.preferredLanguage),
-          }
-        : null,
+      crop: resolvedCrop,
+      lifecycle,
     });
   } catch (err) {
     console.error('[GET /api/v1/crop-cycles/[id]] Error:', err);

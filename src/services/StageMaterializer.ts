@@ -1,48 +1,77 @@
 import { prisma } from '@/lib/prisma';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export class StageMaterializer {
-  static async materialize(cropCycleId: string, cropId: string, sowingDate?: Date) {
-    const cropStages = await prisma.cropStage.findMany({
-      where: { cropId },
+  /**
+   * Materializes CycleStage records from a Crop's verified CropStage templates,
+   * accurately computing done / current / pending statuses from the real sowing date.
+   */
+  static async materialize(cropCycleId: string, cropId: string, sowingDate: Date | null) {
+    const templateStages = await prisma.cropStage.findMany({
+      where: { cropId, status: 'published' },
       orderBy: { orderIndex: 'asc' },
-      include: {
-        translations: true,
-      },
+      include: { translations: true },
     });
 
-    if (cropStages.length === 0) return [];
+    if (templateStages.length === 0) return [];
 
     const baseDate = sowingDate ? new Date(sowingDate) : new Date();
+    const nowMs = Date.now();
+    const das = Math.floor((nowMs - baseDate.getTime()) / DAY_MS);
 
-    const cycleStages = [];
-    for (let i = 0; i < cropStages.length; i++) {
-      const template = cropStages[i];
-      const nameTranslation = template.translations.find((t) => t.locale === 'en') || template.translations[0];
-      const nameSnapshot = nameTranslation ? nameTranslation.name : template.code;
+    // Determine which stage index is currently active based on DAS
+    let activeIdx = 0;
+    if (das < 0) {
+      activeIdx = -1; // Planned future sowing
+    } else {
+      activeIdx = templateStages.findIndex(
+        (st) => das >= st.startOffsetDays && das < st.startOffsetDays + st.durationDays
+      );
+      if (activeIdx === -1) {
+        const last = templateStages[templateStages.length - 1];
+        activeIdx = das >= last.startOffsetDays + last.durationDays ? templateStages.length : 0;
+      }
+    }
 
-      const startDate = new Date(baseDate);
-      startDate.setDate(startDate.getDate() + template.startOffsetDays);
+    const createdStages = [];
 
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + template.durationDays);
+    for (let i = 0; i < templateStages.length; i++) {
+      const tpl = templateStages[i];
+      const enTrans = tpl.translations.find((t) => t.locale === 'en') || tpl.translations[0];
+      const nameSnapshot = enTrans?.name || tpl.code;
 
-      const status = i === 0 ? 'current' : 'pending';
+      const startDate = new Date(baseDate.getTime() + tpl.startOffsetDays * DAY_MS);
+      const endDate = new Date(startDate.getTime() + tpl.durationDays * DAY_MS);
+
+      let status: 'done' | 'current' | 'pending' = 'pending';
+      if (activeIdx >= templateStages.length) {
+        status = 'done';
+      } else if (i < activeIdx) {
+        status = 'done';
+      } else if (i === activeIdx) {
+        status = 'current';
+      } else {
+        status = 'pending';
+      }
 
       const cycleStage = await prisma.cycleStage.create({
         data: {
           cropCycleId,
-          templateStageId: template.id,
+          templateStageId: tpl.id,
           nameSnapshot,
           startDate,
           endDate,
-          orderIndex: template.orderIndex,
+          orderIndex: tpl.orderIndex,
           status,
         },
+        include: {
+          templateStage: true,
+        },
       });
-
-      cycleStages.push(cycleStage);
+      createdStages.push(cycleStage);
     }
 
-    return cycleStages;
+    return createdStages;
   }
 }
