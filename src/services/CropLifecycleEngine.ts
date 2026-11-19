@@ -54,11 +54,59 @@ function inferTaskType(code: string, name: string, whatToDo: string): string {
   return 'custom';
 }
 
+const STAGE_NAME_TRANSLATIONS: Record<string, { hi: string; gu: string }> = {
+  'land preparation': { hi: 'भूमि की तैयारी', gu: 'જમીનની તૈયારી' },
+  'sowing & emergence': { hi: 'बुवाई एवं अंकुरण', gu: 'વાવણી અને અંકુરણ' },
+  'sowing': { hi: 'बुवाई', gu: 'વાવણી' },
+  'transplanting': { hi: 'रोपाई', gu: 'ફેરરોપણી' },
+  'nursery / transplanting & root establishment': { hi: 'नर्सरी / रोपाई एवं जड़ जमाव', gu: 'ધરૂવાડિયું / ફેરરોપણી અને મૂળ વિકાસ' },
+  'vegetative': { hi: 'वानस्पतिक वृद्धि', gu: 'વાનસ્પતિક વૃદ્ધિ' },
+  'vegetative growth': { hi: 'वानस्पतिक वृद्धि (शाखा विकास)', gu: 'વાનસ્પતિક વૃદ્ધિ (શાખાઓનો વિકાસ)' },
+  'vegetative flush & moisture regulation': { hi: 'नई बढ़वार एवं नमी प्रबंधन', gu: 'નવા ફૂટાવ અને ભેજ વ્યવસ્થાપન' },
+  'flowering': { hi: 'फूल आने की अवस्था', gu: 'ફૂલ બેસવાની અવસ્થા' },
+  'flowering & reproductive': { hi: 'फूल एवं प्रजनन अवस्था', gu: 'ફૂલ અને પ્રજનન તબક્કો' },
+  'umbel flowering & blight watch': { hi: 'फूल खिलना एवं झुलसा निगरानी', gu: 'ફૂલ ખીલવા અને સુકારાની દેખરેખ' },
+  'panicle emergence & flowering': { hi: 'बाली निकलना एवं पुष्पन', gu: 'કણસલાં નીકળવા અને ફૂલ બેસવા' },
+  'fruit / bulb / head development': { hi: 'फल / कंद विकास अवस्था', gu: 'ફળ / કંદ વિકાસ તબક્કો' },
+  'fruiting / pod stage': { hi: 'फल / फली विकास अवस्था', gu: 'ફળ / શિંગ વિકાસ તબક્કો' },
+  'fruiting': { hi: 'फल विकास', gu: 'ફળ વિકાસ' },
+  'grain filling / bulking': { hi: 'दाना भराव / वजन वृद्धि', gu: 'દાણા ભરાવા / કદ વધવાનો તબક્કો' },
+  'ready to harvest': { hi: 'कटाई हेतु तैयार', gu: 'લણણી માટે તૈયાર' },
+  'harvest_ready': { hi: 'कटाई हेतु तैयार', gu: 'લણણી માટે તૈયાર' },
+  'harvesting & curing': { hi: 'कटाई एवं भंडारण पूर्व तैयारी', gu: 'લણણી અને સૂકવણી' },
+  'harvesting': { hi: 'फसल कटाई', gu: 'પાક લણણી' },
+  'post harvest': { hi: 'कटाई उपरांत प्रबंधन', gu: 'લણણી પછીનું સંચાલન' },
+  'canopy management, pruning & basin care': { hi: 'छंटाई एवं थाला प्रबंधन', gu: 'ડાળીઓની છાંટણી અને થાળાંની સંભાળ' },
+  'planned': { hi: 'नियोजित', gu: 'આયોજિત' },
+  'sown': { hi: 'बोया गया', gu: 'વાવેતર કરેલ' },
+  'growing': { hi: 'बढ़वार पर', gu: 'વિકાસશીલ' },
+  'harvested': { hi: 'कटाई पूर्ण', gu: 'લણણી થયેલ' },
+  'completed': { hi: 'पूर्ण', gu: 'પૂર્ણ' },
+};
+
+function localizeStageName(rawName: string, locale: string = 'en'): string {
+  if (!rawName || locale === 'en') return rawName;
+  const key = rawName.trim().toLowerCase();
+  if (STAGE_NAME_TRANSLATIONS[key]) {
+    return locale === 'hi'
+      ? STAGE_NAME_TRANSLATIONS[key].hi
+      : locale === 'gu'
+      ? STAGE_NAME_TRANSLATIONS[key].gu
+      : rawName;
+  }
+  for (const [k, v] of Object.entries(STAGE_NAME_TRANSLATIONS)) {
+    if (key.includes(k) || k.includes(key)) {
+      return locale === 'hi' ? v.hi : locale === 'gu' ? v.gu : rawName;
+    }
+  }
+  return rawName;
+}
+
 export class CropLifecycleEngine {
   /**
    * Computes a live, up-to-date lifecycle plan for any CropCycle (with stages & templateStage included).
    */
-  static buildLifecyclePlan(cycle: any): LifecyclePlan {
+  static buildLifecyclePlan(cycle: any, locale: string = 'en'): LifecyclePlan {
     const sowingDate = cycle.sowingDate ? new Date(cycle.sowingDate) : new Date(cycle.createdAt || Date.now());
     const nowMs = Date.now();
     const rawDas = Math.floor((nowMs - sowingDate.getTime()) / DAY_MS);
@@ -96,29 +144,60 @@ export class CropLifecycleEngine {
         }
       }
 
+      // Check DB template translations first if available
+      const dbTrans = tpl?.translations?.find((tr: any) => tr.locale === locale);
+      const stageName = dbTrans?.name || localizeStageName(st.nameSnapshot || tpl?.code || '', locale);
+      const cropDisplayName = cycle.crop?.name || 'crop';
+
+      let whatToDo = tpl?.whatToDo;
+      let whyImportant = tpl?.whyImportant;
+      let howToDo = tpl?.howToDo;
+      let precautions = tpl?.precautions;
+      let materials = tpl?.materials;
+
+      if (locale === 'hi') {
+        whatToDo = dbTrans?.description || `${cropDisplayName} की ${stageName} के दौरान नियमित निगरानी करें और खेत में उचित नमी बनाए रखें।`;
+        whyImportant = 'इस अवस्था में समय पर कृषि कार्य और प्रबंधन करने से फसल की पैदावार व गुणवत्ता सुरक्षित रहती है।';
+        howToDo = 'खेत के विभिन्न कोनों से 15-20 पौधों का निरीक्षण करें और फिर संतुलित खाद या पौध संरक्षण उपाय करें।';
+        precautions = 'स्थानीय मौसम पूर्वानुमान एवं मिट्टी स्वास्थ्य कार्ड की सिफारिशों के अनुसार ही सिंचाई व खाद दें।';
+        materials = 'खेत निरीक्षण चेकलिस्ट, मिट्टी में नमी मापक यंत्र';
+      } else if (locale === 'gu') {
+        whatToDo = dbTrans?.description || `${cropDisplayName} ની ${stageName} દરમિયાન યોગ્ય દેખરેખ રાખો અને જમીનમાં પૂરતો ભેજ જાળવો.`;
+        whyImportant = 'આ તબક્કે સમયસર યોગ્ય માવજત કરવાથી પાકનું ઉત્પાદન અને ગુણવત્તા સુરક્ષિત રહે છે.';
+        howToDo = 'ખેતરના અલગ-અલગ ભાગોમાંથી 15-20 છોડનું નિરીક્ષણ કરો અને તે મુજબ જરૂરી ખાતર કે દવાનો ઉપયોગ કરો.';
+        precautions = 'સ્થાનિક હવામાન આગાહી અને જમીન ચકાસણી મુજબ જ પિયત અને ખાતરનું નિયોજન કરો.';
+        materials = 'ખેત નિરીક્ષણ યાદી, જમીનમાં ભેજ ચકાસણી';
+      } else {
+        whatToDo =
+          tpl?.whatToDo ||
+          `Monitor ${cropDisplayName} closely during ${stageName} and maintain balanced field moisture.`;
+        whyImportant =
+          tpl?.whyImportant ||
+          'Timely agronomic care during this phenological window protects yield potential.';
+        howToDo =
+          tpl?.howToDo ||
+          'Inspect 15–20 random plants across field diagonals before applying any input.';
+        precautions =
+          tpl?.precautions ||
+          'Adjust timing based on local rainfall forecast and Soil Health Card recommendations.';
+        materials = tpl?.materials || 'Field scouting checklist, soil moisture check';
+      }
+
       return {
         id: st.id,
         orderIndex: st.orderIndex,
         code: tpl?.code || `stage_${st.orderIndex}`,
-        name: st.nameSnapshot,
+        name: stageName,
         startOffsetDays: startOffset,
         durationDays: duration,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         status: computedStatus,
-        whatToDo:
-          tpl?.whatToDo ||
-          `Monitor ${cycle.crop?.name || 'crop'} closely during ${st.nameSnapshot} and maintain balanced field moisture.`,
-        whyImportant:
-          tpl?.whyImportant ||
-          'Timely agronomic care during this phenological window protects yield potential.',
-        howToDo:
-          tpl?.howToDo ||
-          'Inspect 15–20 random plants across field diagonals before applying any input.',
-        precautions:
-          tpl?.precautions ||
-          'Adjust timing based on local rainfall forecast and Soil Health Card recommendations.',
-        materials: tpl?.materials || 'Field scouting checklist, soil moisture check',
+        whatToDo,
+        whyImportant,
+        howToDo,
+        precautions,
+        materials,
         isEssential: tpl?.isEssential ?? true,
       };
     });
@@ -141,9 +220,20 @@ export class CropLifecycleEngine {
       : Math.min(100, Math.round((daysAfterSowing / Math.max(totalDurationDays, 1)) * 100));
 
     const isApproximateTimeline = !cycle.varietyId;
-    const timelineNotice = isApproximateTimeline
-      ? `Stage dates are approximate ICAR/SAU estimates (${totalDurationDays} days) because no specific variety was selected. Local weather, soil type, and variety duration can shift stage windows by ±5–10 days.`
-      : `Timeline calibrated for ${cycle.variety?.name || 'selected variety'} (~${totalDurationDays} days). Always confirm crop stage visually in the field.`;
+    let timelineNotice = '';
+    if (locale === 'hi') {
+      timelineNotice = isApproximateTimeline
+        ? `अवस्था की तारीखें अनुमानित ICAR/SAU अनुमान (${totalDurationDays} दिन) हैं। स्थानीय मौसम, मिट्टी और किस्म के अनुसार ±5–10 दिनों का अंतर हो सकता है।`
+        : `समयरेखा ${cycle.variety?.name || 'चुनी गई किस्म'} (~${totalDurationDays} दिन) के लिए निर्धारित है। हमेशा खेत में फसल अवस्था की पुष्टि करें।`;
+    } else if (locale === 'gu') {
+      timelineNotice = isApproximateTimeline
+        ? `અવસ્થાની તારીખો અંદાજિત ICAR/SAU અંદાજ (${totalDurationDays} દિવસ) છે. સ્થાનિક હવામાન, જમીન અને જાત પ્રમાણે ±5–10 દિવસનો તફાવત હોઈ શકે છે.`
+        : `સમયરેખા ${cycle.variety?.name || 'પસંદ કરેલ જાત'} (~${totalDurationDays} દિવસ) માટે ગોઠવેલ છે. હંમેશા ખેતરમાં પાકની સ્થિતિ રૂબરૂ ચકાસો.`;
+    } else {
+      timelineNotice = isApproximateTimeline
+        ? `Stage dates are approximate ICAR/SAU estimates (${totalDurationDays} days) because no specific variety was selected. Local weather, soil type, and variety duration can shift stage windows by ±5–10 days.`
+        : `Timeline calibrated for ${cycle.variety?.name || 'selected variety'} (~${totalDurationDays} days). Always confirm crop stage visually in the field.`;
+    }
 
     return {
       daysAfterSowing,
@@ -212,11 +302,24 @@ export class CropLifecycleEngine {
       );
 
       const dueAt = startDate.getTime() < nowMs ? new Date(nowMs + DAY_MS) : startDate;
-      const taskTitle = `${cropName} — ${st.nameSnapshot} (${fieldName})`;
+      const localizedStage = localizeStageName(st.nameSnapshot || '', userLocale);
+      const taskTitle = `${cropName} — ${localizedStage} (${fieldName})`;
+      let actionPrefix = 'Action: ';
+      let howPrefix = 'How: ';
+      let precautionPrefix = 'Precaution: ';
+      if (userLocale === 'hi') {
+        actionPrefix = 'कार्य: ';
+        howPrefix = 'तरीका: ';
+        precautionPrefix = 'सावधानी: ';
+      } else if (userLocale === 'gu') {
+        actionPrefix = 'કાર્ય: ';
+        howPrefix = 'રીત: ';
+        precautionPrefix = 'સાવચેતી: ';
+      }
       const taskDesc = [
-        tpl?.whatToDo ? `Action: ${tpl.whatToDo}` : null,
-        tpl?.howToDo ? `How: ${tpl.howToDo}` : null,
-        tpl?.precautions ? `Precaution: ${tpl.precautions}` : null,
+        tpl?.whatToDo ? `${actionPrefix}${tpl.whatToDo}` : null,
+        tpl?.howToDo ? `${howPrefix}${tpl.howToDo}` : null,
+        tpl?.precautions ? `${precautionPrefix}${tpl.precautions}` : null,
       ]
         .filter(Boolean)
         .join('\n');

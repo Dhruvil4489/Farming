@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const fieldId = searchParams.get('field_id');
     const status = searchParams.get('status');
+    const lang = searchParams.get('lang') || req.cookies.get('NEXT_LOCALE')?.value || req.cookies.get('locale')?.value || user.preferredLanguage || 'en';
 
     const cycles = await prisma.cropCycle.findMany({
       where: {
@@ -42,19 +43,22 @@ export async function GET(req: NextRequest) {
         field: { select: { id: true, name: true, farm: { select: { id: true, name: true } } } },
         stages: {
           orderBy: { orderIndex: 'asc' },
-          include: { templateStage: true },
+          include: { templateStage: { include: { translations: true } } },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
 
     const normalized = cycles.map((cycle) => {
-      const resolvedCropName = resolveCropName(cycle.crop, cycle.customCropName, user.preferredLanguage);
+      const resolvedCropName = resolveCropName(cycle.crop, cycle.customCropName, lang);
       const cropWithName = cycle.crop ? { ...cycle.crop, name: resolvedCropName } : null;
-      const lifecycle = CropLifecycleEngine.buildLifecyclePlan({
-        ...cycle,
-        crop: cropWithName,
-      });
+      const lifecycle = CropLifecycleEngine.buildLifecyclePlan(
+        {
+          ...cycle,
+          crop: cropWithName,
+        },
+        lang
+      );
 
       return {
         ...cycle,

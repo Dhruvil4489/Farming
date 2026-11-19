@@ -321,8 +321,16 @@ export class CropDiseaseRouter {
   ): CropCatalogEntry {
     // If manual crop is provided and visually compatible, respect it
     if (manualCrop) {
-      const isLinear = manualCrop.cropId === 'rice' || manualCrop.cropId === 'wheat' || manualCrop.cropId === 'corn' || manualCrop.cropId === 'sugarcane';
-      const isBroad = manualCrop.cropId === 'cotton' || manualCrop.cropId === 'grape' || manualCrop.cropId === 'soybean';
+      const isLinear =
+        manualCrop.cropId === 'rice' ||
+        manualCrop.cropId === 'wheat' ||
+        manualCrop.cropId === 'corn' ||
+        manualCrop.cropId === 'maize' ||
+        manualCrop.cropId === 'sugarcane';
+      const isBroad =
+        manualCrop.cropId === 'cotton' ||
+        manualCrop.cropId === 'grape' ||
+        manualCrop.cropId === 'soybean';
 
       if (isBroad && vision.morphologyCategory === 'broad_palmate') {
         return manualCrop;
@@ -337,8 +345,12 @@ export class CropDiseaseRouter {
       // Broad palmate/lobed leaves -> Cotton is priority commercial crop in India
       return CropModelRegistry.getCropById('cotton') || CropModelRegistry.getCropById('tomato')!;
     } else if (vision.morphologyCategory === 'narrow_linear') {
-      // Narrow parallel-veined linear blade -> Rice / Wheat / Maize
-      return CropModelRegistry.getCropById('rice') || CropModelRegistry.getCropById('wheat')!;
+      // Narrow parallel-veined linear blade -> Sugarcane / Rice / Wheat / Maize
+      return (
+        CropModelRegistry.getCropById('sugarcane') ||
+        CropModelRegistry.getCropById('rice') ||
+        CropModelRegistry.getCropById('wheat')!
+      );
     } else if (vision.morphologyCategory === 'compound_serrated') {
       // Compound serrated leaflets -> Solanaceous (Tomato / Potato) or Chilli
       return CropModelRegistry.getCropById('tomato') || CropModelRegistry.getCropById('potato')!;
@@ -358,7 +370,7 @@ export class CropDiseaseRouter {
     vision: LeafVisionFeatures
   ): boolean {
     const broadCrops = ['cotton', 'grape', 'soybean'];
-    const linearCrops = ['rice', 'wheat', 'corn', 'sugarcane'];
+    const linearCrops = ['rice', 'wheat', 'corn', 'maize', 'sugarcane'];
 
     const selectedIsBroad = broadCrops.includes(selectedCropId);
     const selectedIsLinear = linearCrops.includes(selectedCropId);
@@ -480,6 +492,26 @@ export class CropDiseaseRouter {
         secondaryDisease = diseaseClasses.find((c) => c.id === 'wheat_septoria_blotch') || diseaseClasses[1];
       }
       tertiaryDisease = diseaseClasses.find((c) => c.id === 'wheat_stem_rust') || diseaseClasses[2] || primaryDisease;
+    } else if (crop.cropId === 'sugarcane') {
+      // Sugarcane Red Rot (Colletotrichum falcatum) midrib reddening & yellowing; Smut whip-like or black spore; Rust pustules
+      if (vision.lesionRatio >= 0.08 || vision.chlorosisRatio >= 0.15) {
+        primaryDisease = diseaseClasses.find((c) => c.id === 'sugarcane_red_rot') || diseaseClasses[0];
+        secondaryDisease = diseaseClasses.find((c) => c.id === 'sugarcane_smut') || diseaseClasses[1];
+      } else {
+        primaryDisease = diseaseClasses.find((c) => c.id === 'sugarcane_rust') || diseaseClasses[0];
+        secondaryDisease = diseaseClasses.find((c) => c.id === 'sugarcane_red_rot') || diseaseClasses[1];
+      }
+      tertiaryDisease = diseaseClasses.find((c) => c.id === 'sugarcane_wilt') || diseaseClasses[2] || primaryDisease;
+    } else if (crop.cropId === 'groundnut') {
+      // Groundnut Tikka (Early/Late Leaf Spot) produces dark brown/black circular lesions with chlorotic halos
+      if (vision.lesionRatio >= 0.05) {
+        primaryDisease = diseaseClasses.find((c) => c.id === 'groundnut_tikka') || diseaseClasses[0];
+        secondaryDisease = diseaseClasses.find((c) => c.id === 'groundnut_rust') || diseaseClasses[1];
+      } else {
+        primaryDisease = diseaseClasses.find((c) => c.id === 'groundnut_rust') || diseaseClasses[0];
+        secondaryDisease = diseaseClasses.find((c) => c.id === 'groundnut_tikka') || diseaseClasses[1];
+      }
+      tertiaryDisease = diseaseClasses.find((c) => c.id === 'groundnut_tikka') || diseaseClasses[0];
     }
 
     // Calibrated confidence anchored in real optical blur variance and lesion density

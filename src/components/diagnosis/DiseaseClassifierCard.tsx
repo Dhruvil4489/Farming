@@ -50,8 +50,9 @@ import { Button } from '@/components/ui/Button';
 import { ProvenanceChip } from '@/components/ui/ProvenanceChip';
 import { useI18n } from '@/providers/I18nProvider';
 import { AgronomicDiseaseInfo } from '@/lib/crop-disease-knowledge';
-import { UNIVERSAL_CROP_CATALOG, AI_MODEL_REGISTRY, CropCatalogEntry } from '@/services/ai/CropModelRegistry';
+import { UNIVERSAL_CROP_CATALOG, AI_MODEL_REGISTRY, CropCatalogEntry, CropModelRegistry } from '@/services/ai/CropModelRegistry';
 import { RecommendedMedicineCard, MatchingResult } from '@/services/DiseaseProductMatchingService';
+import { AGRICULTURAL_CROP_GROUPS } from '@/lib/agricultural-crops';
 
 interface FieldOption {
   id: string;
@@ -145,7 +146,8 @@ export function DiseaseClassifierCard() {
 
   const [fields, setFields] = useState<FieldOption[]>([]);
   const [selectedFieldId, setSelectedFieldId] = useState('');
-  const [selectedCropId, setSelectedCropId] = useState('auto');
+  const [selectedCropId, setSelectedCropId] = useState('');
+  const [customCropName, setCustomCropName] = useState('');
   const [notes, setNotes] = useState('');
 
   // Image upload state
@@ -216,13 +218,16 @@ export function DiseaseClassifierCard() {
   }, [loadHistory]);
 
   // Selected crop info
-  const activeCropMeta = selectedCropId !== 'auto' ? UNIVERSAL_CROP_CATALOG.find((c) => c.cropId === selectedCropId) : null;
+  const effectiveCrop = selectedCropId === 'other' ? customCropName.trim() : selectedCropId.trim();
+  const activeCropMeta = effectiveCrop ? CropModelRegistry.findCrop(effectiveCrop) : null;
 
   // Handle file selection
   const handleFile = (file: File) => {
     setError(null);
     setResult(null);
     setFeedbackSubmitted(false);
+    setSelectedCropId('');
+    setCustomCropName('');
 
     // Validate size (10 MB)
     if (file.size > 10 * 1024 * 1024) {
@@ -265,6 +270,8 @@ export function DiseaseClassifierCard() {
     setSelectedFile(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
+    setSelectedCropId('');
+    setCustomCropName('');
     setResult(null);
     setError(null);
     setFeedbackSubmitted(false);
@@ -290,7 +297,9 @@ export function DiseaseClassifierCard() {
       const formData = new FormData();
       formData.append('image', selectedFile);
       if (selectedFieldId) formData.append('fieldId', selectedFieldId);
-      if (selectedCropId && selectedCropId !== 'auto') formData.append('crop', selectedCropId);
+      if (effectiveCrop && effectiveCrop !== 'auto') {
+        formData.append('crop', effectiveCrop);
+      }
       if (notes.trim()) formData.append('notes', notes.trim());
 
       const res = await fetch('/api/v1/diagnosis/predict', {
@@ -474,78 +483,6 @@ export function DiseaseClassifierCard() {
             </p>
           </div>
 
-          {/* Plot & Crop Selectors */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div className="space-y-1.5">
-              <label htmlFor="field-select" className="text-xs font-semibold text-stone-700 block">
-                {t('diagnosis_select_field', 'Target Farm Plot')}
-              </label>
-              <select
-                id="field-select"
-                value={selectedFieldId}
-                onChange={(e) => setSelectedFieldId(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-300 rounded-2xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
-              >
-                {fields.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name} {f.farm ? `(${f.farm.name})` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="crop-select" className="text-xs font-semibold text-stone-700 block">
-                {t('diagnosis_select_crop', 'Crop Route')}
-              </label>
-              <select
-                id="crop-select"
-                value={selectedCropId}
-                onChange={(e) => setSelectedCropId(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-300 rounded-2xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
-              >
-                <option value="auto">✨ Auto-Detect (Botanical Classifier)</option>
-                <optgroup label="Specialist Neural Networks (ICAR/CIBRC)">
-                  <option value="cotton">Cotton (ICAR-CICR EfficientNet)</option>
-                  <option value="wheat">Wheat (CIMMYT/IIWBR ResNet-50)</option>
-                  <option value="rice">Rice (IRRI/NRRI Vision Transformer)</option>
-                  <option value="chilli">Chilli (IIHR Specialist)</option>
-                </optgroup>
-                <optgroup label="Horticultural Benchmarks">
-                  <option value="tomato">Tomato (Solanaceae Network)</option>
-                  <option value="potato">Potato (Tuber Pathology)</option>
-                  <option value="corn">Maize (Corn)</option>
-                  <option value="grape">Grape</option>
-                  <option value="apple">Apple</option>
-                </optgroup>
-                <optgroup label="Crops in Field Validation">
-                  <option value="sugarcane">Sugarcane (Validation Phase)</option>
-                  <option value="groundnut">Groundnut (Validation Phase)</option>
-                  <option value="soybean">Soybean (Validation Phase)</option>
-                  <option value="chickpea">Chickpea / Gram (Validation Phase)</option>
-                  <option value="mustard">Mustard (Validation Phase)</option>
-                  <option value="onion">Onion (Validation Phase)</option>
-                  <option value="banana">Banana (Validation Phase)</option>
-                </optgroup>
-              </select>
-            </div>
-          </div>
-
-          {/* Model Route Transparency Badge */}
-          {activeCropMeta && (
-            <div className="p-3 bg-stone-50 border border-stone-200/90 rounded-2xl flex items-center justify-between text-[11px] text-stone-600">
-              <div className="flex items-center gap-2">
-                <Shield size={14} className="text-[#2F7D4F]" />
-                <span>
-                  Diagnostic Protocol: <strong className="text-stone-800">{activeCropMeta.cropName} Pathology & Protection</strong>
-                </span>
-              </div>
-              <span className="font-medium text-emerald-800 text-[10px] bg-emerald-100/70 px-2 py-0.5 rounded-md">
-                ICAR / CIBRC Verified
-              </span>
-            </div>
-          )}
-
           {/* Drag & Drop Upload Zone */}
           {!previewUrl ? (
             <div
@@ -601,6 +538,70 @@ export function DiseaseClassifierCard() {
               </div>
             </div>
           )}
+
+          {/* Identify Your Crop (Optional) */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between">
+              <label htmlFor="optional-crop-select" className="text-xs font-bold text-stone-800 flex items-center gap-1.5">
+                <Sprout size={15} className="text-[#2F7D4F]" />
+                {t('identify_crop_optional', 'Identify Your Crop (Optional)')}
+              </label>
+              <span className="text-[10px] text-stone-500 font-medium">
+                {selectedCropId ? (
+                  <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    {t('specialist_context_mode', 'Specialist Mode')}
+                  </span>
+                ) : (
+                  <span className="text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md">
+                    {t('auto_detect_mode', 'Auto-Detects from Leaf')}
+                  </span>
+                )}
+              </span>
+            </div>
+
+            <select
+              id="optional-crop-select"
+              value={selectedCropId}
+              onChange={(e) => setSelectedCropId(e.target.value)}
+              className="w-full bg-stone-50 border border-stone-300 rounded-2xl p-2.5 text-xs text-stone-900 font-semibold focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
+            >
+              <option value="">✨ {t('auto_detect_leaf', 'Auto-Detect from Leaf Image (Recommended)')}</option>
+              {AGRICULTURAL_CROP_GROUPS.map((cat) => (
+                <optgroup key={cat.group} label={cat.group}>
+                  {cat.options.map((crop) => (
+                    <option key={crop.name} value={crop.name}>
+                      {crop.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+              <option value="other">{t('other_crop', 'Other Crop (Specify below)')}</option>
+            </select>
+
+            {selectedCropId === 'other' && (
+              <input
+                type="text"
+                value={customCropName}
+                onChange={(e) => setCustomCropName(e.target.value)}
+                placeholder={t('enter_custom_crop', 'Enter custom crop name (e.g. Cardamom, Betel Leaf, Dragon Fruit)...')}
+                className="w-full bg-white border border-stone-300 rounded-2xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F] animate-in fade-in"
+              />
+            )}
+
+            {activeCropMeta && (
+              <div className="p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-center justify-between text-[11px] text-emerald-950">
+                <div className="flex items-center gap-1.5">
+                  <Shield size={13} className="text-[#2F7D4F]" />
+                  <span>
+                    Diagnostic Protocol: <strong>{activeCropMeta.cropName} Pathology & Protection</strong>
+                  </span>
+                </div>
+                <span className="font-semibold text-emerald-800 text-[10px] bg-emerald-100 px-2 py-0.5 rounded-md">
+                  ICAR / CIBRC Verified
+                </span>
+              </div>
+            )}
+          </div>
 
           {/* Farmer Notes */}
           <div className="space-y-1.5 pt-1">
@@ -673,7 +674,7 @@ export function DiseaseClassifierCard() {
               <p className="text-xs text-stone-500 max-w-sm leading-relaxed">
                 {t(
                   'diagnosis_awaiting_desc',
-                  'Select a crop route or use Auto-Detect, upload a clear close-up leaf photograph, and click Analyze Crop Leaf to initiate multi-model computer vision screening and retrieve verified store medicines.'
+                  'Upload a clear close-up leaf photograph, optionally identify your crop or let AI auto-detect, and click Analyze Crop Leaf to initiate diagnostic screening and retrieve ICAR treatment.'
                 )}
               </p>
             </div>

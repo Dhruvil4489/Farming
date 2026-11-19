@@ -29,7 +29,7 @@ import { CropStageBar } from '@/components/domain/CropStageBar';
 import { useI18n } from '@/providers/I18nProvider';
 
 export default function DashboardPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [summary, setSummary] = useState<any>(null);
   const [weather, setWeather] = useState<any>(null);
   const [advisories, setAdvisories] = useState<any[]>([]);
@@ -48,7 +48,7 @@ export default function DashboardPage() {
         const sumController = new AbortController();
         const sumTimeout = setTimeout(() => sumController.abort(), 8000);
 
-        const sumRes = await fetch('/api/v1/dashboard/summary', {
+        const sumRes = await fetch(`/api/v1/dashboard/summary?lang=${locale}`, {
           signal: sumController.signal,
           headers: { Accept: 'application/json' },
         });
@@ -70,7 +70,7 @@ export default function DashboardPage() {
         const userState = profileSummary?.state || 'Gujarat';
         const primaryFarmId = profileSummary?.farms?.[0]?.id;
         const primaryFieldId = profileSummary?.farms?.[0]?.fields?.[0]?.id;
-        const farmQs = primaryFarmId ? `?farm_id=${encodeURIComponent(primaryFarmId)}` : '';
+        const farmQs = primaryFarmId ? `?farm_id=${encodeURIComponent(primaryFarmId)}&lang=${locale}` : `?lang=${locale}`;
 
         const fetchWithTimeout = async (url: string, ms = 6000) => {
           const c = new AbortController();
@@ -88,10 +88,10 @@ export default function DashboardPage() {
         const [weaRes, advRes, mandiRes, orderRes, soilRes, sensorRes] = await Promise.allSettled([
           fetchWithTimeout(`/api/v1/weather${farmQs}`),
           fetchWithTimeout(`/api/v1/advisories${farmQs}`),
-          fetchWithTimeout('/api/v1/market/prices?limit=3'),
+          fetchWithTimeout(`/api/v1/market/prices?limit=3&lang=${locale}`),
           fetchWithTimeout('/api/v1/store/orders'),
-          fetchWithTimeout(`/api/v1/soil-moisture?state=${encodeURIComponent(userState)}`),
-          primaryFieldId ? fetchWithTimeout(`/api/v1/soil-moisture/sensor?fieldId=${encodeURIComponent(primaryFieldId)}`) : Promise.resolve(null),
+          fetchWithTimeout(`/api/v1/soil-moisture?state=${encodeURIComponent(userState)}&lang=${locale}`),
+          primaryFieldId ? fetchWithTimeout(`/api/v1/soil-moisture/sensor?fieldId=${encodeURIComponent(primaryFieldId)}&lang=${locale}`) : Promise.resolve(null),
         ]);
 
         if (weaRes.status === 'fulfilled' && weaRes.value?.data) setWeather(weaRes.value.data);
@@ -393,19 +393,19 @@ return (
                               {/* Farms & Active Crops */}
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="font-bold text-stone-900 text-base">Your Farms &amp; Active Crops</h3>
+                                    <h3 className="font-bold text-stone-900 text-base">{t('your_farms_crops', 'Your Farms & Active Crops')}</h3>
                                     <Link href="/fields" className="text-xs font-bold text-[#2F7D4F] hover:underline flex items-center gap-1">
-                                      Manage Fields <ArrowRight size={13} />
+                                      {t('manage_fields', 'Manage Fields')} <ArrowRight size={13} />
                                     </Link>
                                 </div>
 
               {!summary?.farms || summary.farms.length === 0 ? (
                                   <Card className="p-8 text-center space-y-3 rounded-2xl">
                                     <Tractor size={28} className="mx-auto text-stone-400" />
-                                    <p className="font-bold text-stone-800 text-sm">No farms added yet</p>
-                                    <p className="text-xs text-stone-500">Add your first farm to track fields, crops, and weather.</p>
+                                    <p className="font-bold text-stone-800 text-sm">{t('no_farms_added', 'No farms added yet')}</p>
+                                    <p className="text-xs text-stone-500">{t('add_farm_desc', 'Add your first farm to track fields, crops, and weather.')}</p>
                                     <Link href="/farms/new" className="inline-block">
-                                      <Button size="sm">Add Your First Farm</Button>
+                                      <Button size="sm">{t('add_first_farm', 'Add Your First Farm')}</Button>
                                     </Link>
                                   </Card>
                                 ) : (
@@ -423,7 +423,7 @@ return (
                                                     </p>
                                                   </div>
                                                   <Link href={`/farms/${farm.id}`} className="text-xs font-bold text-[#2F7D4F] hover:underline">
-                                                    Details →
+                                                    {t('details', 'Details')} →
                                                   </Link>
                                                 </div>
 
@@ -472,15 +472,15 @@ return (
                                                   <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
                                                       <CheckSquare size={17} className="text-[#2F7D4F]" />
-                                                      <h3 className="font-bold text-stone-900 text-sm">Upcoming Tasks</h3>
+                                                      <h3 className="font-bold text-stone-900 text-sm">{t('upcoming_tasks', 'Upcoming Tasks')}</h3>
                                                     </div>
                                                       <Link href="/tasks" className="text-xs font-bold text-[#2F7D4F] hover:underline">
-                                                        Manage
+                                                        {t('manage', 'Manage')}
                                                       </Link>
                                                   </div>
 
               {!summary?.tasks || summary.tasks.length === 0 ? (
-                                                    <p className="text-xs text-stone-500 text-center py-4">No pending tasks. You&apos;re all caught up!</p>
+                                                    <p className="text-xs text-stone-500 text-center py-4">{t('no_pending_tasks', "No pending tasks. You're all caught up!")}</p>
                                                   ) : (
                                                     <div className="space-y-2">
                                                         {

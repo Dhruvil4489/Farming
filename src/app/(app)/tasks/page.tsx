@@ -9,53 +9,53 @@ import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/providers/I18nProvider';
 
 export default function TasksPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [tasks, setTasks] = useState<any[]>([]);
   const [farms, setFarms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
-    // Add Task modal
-    const [showAdd, setShowAdd] = useState(false);
-    const [creating, setCreating] = useState(false);
-    const [createError, setCreateError] = useState('');
-    const [newTask, setNewTask] = useState({
-      title: '',
-      farmId: '',
-      fieldId: '',
-      type: 'custom',
-      priority: 'medium',
-      dueAt: new Date().toISOString().split('T')[0],
-      description: '',
-    });
+  // Add Task modal
+  const [showAdd, setShowAdd] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [newTask, setNewTask] = useState({
+    title: '',
+    farmId: '',
+    fieldId: '',
+    type: 'custom',
+    priority: 'medium',
+    dueAt: new Date().toISOString().split('T')[0],
+    description: '',
+  });
 
-    const fetchTasks = useCallback(async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [taskRes, farmRes] = await Promise.all([
-          fetch('/api/v1/tasks'),
-          fetch('/api/v1/farms'),
-        ]);
-        if (!taskRes.ok) throw new Error(`HTTP ${taskRes.status}`);
-        const taskData = await taskRes.json();
-        setTasks(taskData.data || []);
+  const fetchTasks = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [taskRes, farmRes] = await Promise.all([
+        fetch(`/api/v1/tasks?lang=${locale}`),
+        fetch('/api/v1/farms'),
+      ]);
+      if (!taskRes.ok) throw new Error(`HTTP ${taskRes.status}`);
+      const taskData = await taskRes.json();
+      setTasks(taskData.data || []);
 
-        if (farmRes.ok) {
-          const farmData = await farmRes.json();
-          const fList = farmData.data || [];
-          setFarms(fList);
-          if (fList.length > 0) {
-            setNewTask((prev) => ({ ...prev, farmId: prev.farmId || fList[0].id }));
-          }
+      if (farmRes.ok) {
+        const farmData = await farmRes.json();
+        const fList = farmData.data || [];
+        setFarms(fList);
+        if (fList.length > 0) {
+          setNewTask((prev) => ({ ...prev, farmId: prev.farmId || fList[0].id }));
         }
-      } catch (err: any) {
-        setError(err.message || 'Unable to retrieve farm tasks');
-      } finally {
-        setLoading(false);
       }
-  }, []);
+    } catch (err: any) {
+      setError(err.message || 'Unable to retrieve farm tasks');
+    } finally {
+      setLoading(false);
+    }
+  }, [locale]);
 
   useEffect(() => {
     fetchTasks();
@@ -136,7 +136,7 @@ const handleComplete = async (taskId: string) => {
                 {t('tasks', 'Tasks & Activities')}
               </h1>
               <p className="text-xs sm:text-sm text-stone-600 mt-1">
-                Plan daily irrigation, fertilizer, and field work reminders
+                {t('tasks_subtitle', 'Plan daily irrigation, fertilizer, and field work reminders')}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -146,16 +146,16 @@ const handleComplete = async (taskId: string) => {
                 onChange={(e) => setFilter(e.target.value as any)}
                 className="px-3 py-2 bg-white border border-stone-300 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
               >
-                <option value="all">All Tasks</option>
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
+                <option value="all">{t('filter_all', 'All Tasks')}</option>
+                <option value="pending">{t('filter_pending', 'Pending')}</option>
+                <option value="completed">{t('filter_completed', 'Completed')}</option>
               </select>
               <Button
                 size="sm"
                 onClick={() => setShowAdd(true)}
                 className="bg-[#2F7D4F] hover:bg-[#143D2A] text-white rounded-xl"
               >
-                <Plus size={15} className="mr-1" /> Add Task
+                <Plus size={15} className="mr-1" /> {t('add_task', 'Add Task')}
               </Button>
             </div>
           </div>
@@ -163,11 +163,11 @@ const handleComplete = async (taskId: string) => {
           {filteredTasks.length === 0 ? (
             <DataState
               status="empty"
-              emptyTitle="No tasks found"
-              emptyDescription="You are all caught up! Add a farming task or reminder whenever you need."
+              emptyTitle={t('empty_tasks_title', 'No tasks found')}
+              emptyDescription={t('empty_tasks_desc', 'You are all caught up! Add a farming task or reminder whenever you need.')}
               emptyAction={
                 <Button size="sm" onClick={() => setShowAdd(true)}>
-                  <Plus size={14} className="mr-1" /> Add First Task
+                  <Plus size={14} className="mr-1" /> {t('add_first_task', 'Add First Task')}
                 </Button>
               }
             />
@@ -203,11 +203,11 @@ const handleComplete = async (taskId: string) => {
                       </h4>
                       {task.description && <p className="text-xs text-stone-600 mt-0.5">{task.description}</p>}
                       <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-stone-500 font-medium">
-                        <span>Farm: <strong>{task.farm?.name}</strong></span>
-                        {task.field && <span>Field: <strong>{task.field.name}</strong></span>}
+                        <span>{t('farm', 'Farm')}: <strong>{task.farm?.name}</strong></span>
+                        {task.field && <span>{t('field', 'Field')}: <strong>{task.field.name}</strong></span>}
                         <span className="inline-flex items-center gap-1">
                           <Calendar size={11} />
-                          Due: {task.dueAt ? new Date(task.dueAt).toLocaleDateString('en-IN') : 'Today'}
+                          {t('due_date', 'Due')}: {task.dueAt ? new Date(task.dueAt).toLocaleDateString(locale === 'hi' ? 'hi-IN' : locale === 'gu' ? 'gu-IN' : 'en-IN') : t('today', 'Today')}
                         </span>
                       </div>
                     </div>
@@ -223,7 +223,7 @@ const handleComplete = async (taskId: string) => {
                           : 'bg-stone-100 text-stone-700'
                       }`}
                     >
-                      {task.priority}
+                      {t(`priority_${task.priority}`, task.priority)}
                     </span>
                     <button
                       type="button"
@@ -246,7 +246,7 @@ const handleComplete = async (taskId: string) => {
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <h3 className="text-base font-extrabold text-[#143D2A]">Add Farming Task</h3>
+              <h3 className="text-base font-extrabold text-[#143D2A]">{t('add_task', 'Add Farming Task')}</h3>
               <button
                 type="button"
                 onClick={() => setShowAdd(false)}
@@ -272,7 +272,7 @@ const handleComplete = async (taskId: string) => {
             ) : (
               <form onSubmit={handleCreateTask} className="space-y-3.5 text-xs">
                 <div>
-                  <label className="block font-bold text-stone-700 mb-1">Task Title *</label>
+                  <label className="block font-bold text-stone-700 mb-1">{t('task_title', 'Task Title')} *</label>
                   <input
                     type="text"
                     required
@@ -285,7 +285,7 @@ const handleComplete = async (taskId: string) => {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-bold text-stone-700 mb-1">Farm *</label>
+                    <label className="block font-bold text-stone-700 mb-1">{t('farm', 'Farm')} *</label>
                     <select
                       value={newTask.farmId}
                       onChange={(e) => setNewTask({ ...newTask, farmId: e.target.value, fieldId: '' })}
@@ -300,13 +300,13 @@ const handleComplete = async (taskId: string) => {
                     </select>
                   </div>
                   <div>
-                    <label className="block font-bold text-stone-700 mb-1">Field (Optional)</label>
+                    <label className="block font-bold text-stone-700 mb-1">{t('field', 'Field')} ({t('optional', 'Optional')})</label>
                     <select
                       value={newTask.fieldId}
                       onChange={(e) => setNewTask({ ...newTask, fieldId: e.target.value })}
                       className="w-full px-3 py-2.5 border border-stone-300 rounded-xl text-sm bg-white"
                     >
-                      <option value="">Whole Farm</option>
+                      <option value="">{t('whole_farm', 'Whole Farm')}</option>
                       {(selectedFarmObj?.fields || []).map((fld: any) => (
                         <option key={fld.id} value={fld.id}>
                           {fld.name}
@@ -318,7 +318,7 @@ const handleComplete = async (taskId: string) => {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-bold text-stone-700 mb-1">Due Date</label>
+                    <label className="block font-bold text-stone-700 mb-1">{t('due_date', 'Due Date')}</label>
                     <input
                       type="date"
                       value={newTask.dueAt}
@@ -327,25 +327,25 @@ const handleComplete = async (taskId: string) => {
                     />
                   </div>
                   <div>
-                    <label className="block font-bold text-stone-700 mb-1">Priority</label>
+                    <label className="block font-bold text-stone-700 mb-1">{t('priority', 'Priority')}</label>
                     <select
                       value={newTask.priority}
                       onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
                       className="w-full px-3 py-2.5 border border-stone-300 rounded-xl text-sm bg-white"
                     >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High (Urgent)</option>
+                      <option value="low">{t('priority_low', 'Low')}</option>
+                      <option value="medium">{t('priority_medium', 'Medium')}</option>
+                      <option value="high">{t('priority_high', 'High (Urgent)')}</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Button type="button" variant="outline" size="sm" onClick={() => setShowAdd(false)}>
-                    Cancel
+                    {t('cancel', 'Cancel')}
                   </Button>
                   <Button type="submit" size="sm" isLoading={creating}>
-                    Save Task
+                    {t('save_task', 'Save Task')}
                   </Button>
                 </div>
               </form>

@@ -702,6 +702,291 @@ export const SPECIALIST_PATHOLOGY_DATA: Record<string, AgronomicDiseaseInfo> = {
     chemicalPrecautions: 'None.',
     monitoringSchedule: 'Scout once every 5-7 days.',
     whenToConsultExpert: 'Routine check.'
+  },
+
+  // ---------------------------------------------------------------------------
+  // SUGARCANE SPECIALIST CLASSES (ICAR-IISR LUCKNOW / SBI COIMBATORE)
+  // ---------------------------------------------------------------------------
+  'sugarcane_red_rot': {
+    label: 'sugarcane_red_rot',
+    crop: 'Sugarcane',
+    disease: 'Sugarcane Red Rot (Colletotrichum falcatum)',
+    isHealthy: false,
+    pathogenType: 'fungus',
+    pathogenName: 'Colletotrichum falcatum Went (Glomerella tucumanensis)',
+    defaultSeverity: 'severe',
+    symptoms: [
+      'Reddening of leaf midrib starting from spindle or third/fourth leaf with white cross-bars or necrotic centers',
+      'Yellowing and drooping of upper third leaf whorl, followed by rapid drying of the entire crown from top downwards',
+      'Longitudinal splitting of cane stalk reveals characteristic red internal pith interspersed with distinctive white horizontal bands',
+      'Alcoholic or sour-fermented odor emanating from infected split stalks; stalk becomes light, hollow and pithy'
+    ],
+    possibleCauses: [
+      'Use of infected seed setts harvested from red rot affected seed nursery plots',
+      'Waterlogged or poorly drained heavy clay soils during monsoon periods',
+      'High relative humidity (>90%) with warm temperatures (27–32°C) favoring conidial germination',
+      'Monocropping of susceptible cane varieties (e.g. Co 0238 in sub-tropical zones without crop rotation)'
+    ],
+    spreadConditions: 'Soil-borne, sett-borne, and water-borne. Conidia spread rapidly through irrigation channels, field run-off water, and rain splashes during the monsoon season.',
+    immediatePrevention: [
+      'Uproot and burn diseased clumps immediately along with roots to prevent inoculum build-up in field soil',
+      'Avoid flood irrigation from infected field plots into healthy cane fields; practice furrow or drip irrigation',
+      'Adopt strict crop rotation for at least 1–2 seasons with non-host crops like paddy, green manure, or pulses',
+      'Strictly use certified, disease-free seed setts from ICAR/IISR registered nurseries'
+    ],
+    recommendedTreatment: 'Sett treatment with fungicides prior to planting; protective soil drenching and foliar spray at early midrib reddening stage.',
+    organicOptions: [
+      'Pre-planting sett treatment with Trichoderma harzianum or T. viride (10 g/L) slurry for 30 minutes',
+      'Soil application of Trichoderma viride @ 2.5 kg/acre enriched in 200 kg farmyard manure (FYM) or vermicompost at planting',
+      'Pseudomonas fluorescens 1% WP sett soaking @ 10 g/L followed by light irrigation'
+    ],
+    chemicalOptions: [
+      'Carbendazim 50% WP @ 1 g/L or Thiophanate Methyl 70% WP @ 1.5 g/L sett dip for 15 minutes before sowing',
+      'Carbendazim 12% + Mancozeb 63% WP (SAAF) @ 2 g/L drenching around cane stool root zone upon first symptom appearance',
+      'Tebuconazole 25.9% EC @ 1 ml/L or Azoxystrobin 18.2% + Difenoconazole 11.4% SC @ 1 ml/L targeted spray along foliage and leaf whorls'
+    ],
+    chemicalPrecautions: 'Never use setts from affected stools even if they appear visually clean. Adhere strictly to personal protective equipment (gloves, eye shield, respirator) during fungicide mixing. Pre-harvest interval (PHI): 30 days.',
+    monitoringSchedule: 'Conduct weekly surveys during July to November (tillering to grand growth phase), paying special attention to third leaf midribs.',
+    whenToConsultExpert: 'Immediately alert the local Sugar Mill Cane Development Officer or KVK Agronomist if more than 2% of clumps show crown drying.'
+  },
+
+  'sugarcane_smut': {
+    label: 'sugarcane_smut',
+    crop: 'Sugarcane',
+    disease: 'Sugarcane Smut (Whip Smut)',
+    isHealthy: false,
+    pathogenType: 'fungus',
+    pathogenName: 'Sporisorium scitamineum (Ustilago scitaminea Syd.)',
+    defaultSeverity: 'severe',
+    symptoms: [
+      'Production of a prominent, unbranched black whip-like structure (2 inches to several feet long) emerging from the terminal shoot',
+      'Whip is initially covered by a thin silvery membrane that ruptures to release billions of powdery black teliospores',
+      'Severely infected tillers are spindly, stiff, with narrow erect leaves and shortened internodes (witch\'s broom appearance)',
+      'Drastic reduction in cane girth, stalk count, and commercial sugar recovery'
+    ],
+    possibleCauses: [
+      'Planting infected seed setts containing dormant mycelium in bud scales',
+      'Wind-blown black teliospores carried over miles from neglected ratoon crops in neighboring plots',
+      'Ratooning of an already smut-affected crop',
+      'Warm and arid weather conditions promoting teliospore dissemination'
+    ],
+    spreadConditions: 'Wind-borne teliospores germinate in drops of water or morning dew on buds; teliospores remain viable in soil for 2–3 months.',
+    immediatePrevention: [
+      'Carefully cover emerging whips with a moist polythene bag, cut below the whip base, and incinerate completely to prevent spore release',
+      'Do not take ratoon crops from smut-infected plant cane fields',
+      'Practice moist hot air treatment (MHAT at 54°C for 2.5 hours) or hot water treatment (50°C for 2 hours) of seed cane',
+      'Plant resistant commercial varieties recommended by SBI/IISR (e.g. Co 86032, Co 09004, CoM 0265)'
+    ],
+    recommendedTreatment: 'Sett treatment with systematic triazole fungicides before planting and roguing of infected stools.',
+    organicOptions: [
+      'Sett immersion in Trichoderma viride (10 g/L) + cow dung slurry for 30 minutes before planting',
+      'Soil application of Neem cake @ 200 kg/acre along with Trichoderma enriched compost'
+    ],
+    chemicalOptions: [
+      'Propiconazole 25% EC @ 1 ml/L sett soaking for 15 minutes before furrow placement',
+      'Triadimefon 25% WP @ 1 g/L or Carbendazim 50% WP @ 1 g/L sett treatment',
+      'Foliar spray of Propiconazole 25% EC @ 1 ml/L on surrounding healthy stools if wind dispersal is active'
+    ],
+    chemicalPrecautions: 'Wear mask while roguing to avoid inhalation of fungal smut teliospores. Dispose of bagged whips far from irrigation sources.',
+    monitoringSchedule: 'Fortnightly scouting during early tillering (DAS 45–90) and shoot elongation phases.',
+    whenToConsultExpert: 'Notify Cane Officer if smut incidence exceeds 3% in ratoon or plant crop.'
+  },
+
+  'sugarcane_wilt': {
+    label: 'sugarcane_wilt',
+    crop: 'Sugarcane',
+    disease: 'Sugarcane Wilt Disease',
+    isHealthy: false,
+    pathogenType: 'fungus',
+    pathogenName: 'Fusarium sacchari (Butler) W. Gams',
+    defaultSeverity: 'severe',
+    symptoms: [
+      'Gradual yellowing and withering of leaves starting from the outer lower whorls inwards',
+      'Stalk shrinkage, desiccation, and internal boat-shaped brownish-purple discoloration in the lower internodes',
+      'Hollow, cottony white mycelial growth inside the central pith of dried stalks',
+      'Roots rot and display dark brown necrosis, causing clumps to lodge easily'
+    ],
+    possibleCauses: [
+      'Root injury caused by root borer, termites, or nematode infestation predisposing vascular tissue to Fusarium entry',
+      'Drought stress followed by sudden water stagnation in low-lying fields',
+      'Infected seed setts and sick soil build-up from continuous ratooning'
+    ],
+    spreadConditions: 'Soil-borne and sett-borne. Enhanced by root wounding and moisture stress cycles.',
+    immediatePrevention: [
+      'Control soil insects (root borer, termites) using Metarhizium or approved bio-agents',
+      'Avoid drought stress followed by heavy flooding; maintain uniform moisture via drip or ridge-furrow irrigation',
+      'Rotate with sunnhemp or Sesbania (Daincha) green manure crops to suppress soil inoculum'
+    ],
+    recommendedTreatment: 'Combined insecticide-fungicide sett treatment and soil drenching at early tillering.',
+    organicOptions: [
+      'Trichoderma harzianum @ 2.5 kg/acre + Neem cake 150 kg/acre mixed into soil at basal planting',
+      'Drenching with Pseudomonas fluorescens (10 g/L)'
+    ],
+    chemicalOptions: [
+      'Sett dip in Carbendazim 50% WP @ 1 g/L + Chlorpyriphos 20% EC @ 2 ml/L before planting',
+      'Soil drenching around root zone with Carbendazim 12% + Mancozeb 63% WP @ 2.5 g/L'
+    ],
+    chemicalPrecautions: 'Do not use setts showing internal vascular discoloration.',
+    monitoringSchedule: 'Inspect after monsoon withdrawal during maturation phase.',
+    whenToConsultExpert: 'Consult KVK agronomist if stalk lodging or pith hollowing exceeds 5%.'
+  },
+
+  'sugarcane_rust': {
+    label: 'sugarcane_rust',
+    crop: 'Sugarcane',
+    disease: 'Sugarcane Leaf Rust',
+    isHealthy: false,
+    pathogenType: 'fungus',
+    pathogenName: 'Puccinia melanocephala H. & P. Sydow',
+    defaultSeverity: 'moderate',
+    symptoms: [
+      'Small, elongated yellowish to reddish-brown spots on both leaf surfaces, particularly upper canopy foliage',
+      'Spots enlarge and rupture into raised brownish-orange pustules (uredinia) releasing powdery orange spores',
+      'Severely affected leaves dry prematurely with a burnt or scorched appearance from leaf tips backward',
+      'Loss of green photosynthetic leaf area resulting in reduced cane elongation and tillering'
+    ],
+    possibleCauses: [
+      'High relative humidity (>85%) with cool night temperatures (15–22°C) and dew formation',
+      'Susceptible varieties cultivated in coastal or river valley micro-climates',
+      'High plant density and nitrogen over-fertilization'
+    ],
+    spreadConditions: 'Air-borne urediniospores carried by wind currents over long distances.',
+    immediatePrevention: [
+      'Avoid excessive application of urea / nitrogenous fertilizer; supply balanced potash (MOP)',
+      'Ensure proper row spacing (minimum 4 to 5 feet) for adequate canopy ventilation',
+      'Spray protective bio-fungicide at onset of cool humid spells'
+    ],
+    recommendedTreatment: 'Foliar application of systematic triazole or strobilurin fungicides.',
+    organicOptions: [
+      'Foliar spray of Neem oil 1500 ppm @ 3 ml/L or cow urine extract 5% at early pustule appearance',
+      'Spray Trichoderma viride 1% WP @ 5 g/L in late afternoon'
+    ],
+    chemicalOptions: [
+      'Mancozeb 75% WP @ 2 g/L (800 g/acre) as protective spray on young foliage',
+      'Propiconazole 25% EC @ 1 ml/L or Tebuconazole 25.9% EC @ 1 ml/L at active pustule burst',
+      'Pyraclostrobin 20% WG @ 0.5 g/L for premium preventive and curative action'
+    ],
+    chemicalPrecautions: 'Ensure thorough coverage of both upper and lower leaf surfaces. PHI: 25 days.',
+    monitoringSchedule: 'Inspect upper foliage weekly during cooler winter or post-monsoon months.',
+    whenToConsultExpert: 'Consult local cane development staff if rust affects more than 25% of top leaf canopy.'
+  },
+
+  'sugarcane_healthy': {
+    label: 'sugarcane_healthy',
+    crop: 'Sugarcane',
+    disease: 'Sugarcane Healthy Foliage',
+    isHealthy: true,
+    pathogenType: 'none',
+    defaultSeverity: 'none',
+    symptoms: [
+      'Long, linear, parallel-veined vibrant green leaves with sharp clean margins and prominent white/pale-green midrib',
+      'Foliage shows no signs of red rot midrib reddening, rust pustules, smut whips, chlorosis or necrosis',
+      'Vigorous tillering and healthy stalk nodes with intact green leaf sheaths'
+    ],
+    possibleCauses: [
+      'Balanced fertilization (NPK + micronutrients like Zinc and Iron), optimal irrigation, and pest monitoring'
+    ],
+    spreadConditions: 'Non-applicable.',
+    immediatePrevention: [
+      'Maintain scheduled ridge-furrow or drip irrigation',
+      'Earthing up at 90–120 days after planting to prevent lodging',
+      'Periodic field scouting for early borer or fungal signs'
+    ],
+    recommendedTreatment: 'Routine agronomic management according to ICAR-IISR package of practices.',
+    organicOptions: [
+      'Apply Jeevamrutha or enriched vermicompost through irrigation water monthly',
+      'Trash mulching between cane rows to conserve soil moisture and suppress weeds'
+    ],
+    chemicalOptions: ['None required.'],
+    chemicalPrecautions: 'None.',
+    monitoringSchedule: 'Routine visual inspection once every 10–14 days.',
+    whenToConsultExpert: 'Routine seasonal consultation.'
+  },
+
+  // ---------------------------------------------------------------------------
+  // GROUNDNUT SPECIALIST CLASSES (ICAR-DGR JUNAGADH)
+  // ---------------------------------------------------------------------------
+  'groundnut_tikka': {
+    label: 'groundnut_tikka',
+    crop: 'Groundnut (Peanut)',
+    disease: 'Groundnut Tikka Disease (Early & Late Leaf Spot)',
+    isHealthy: false,
+    pathogenType: 'fungus',
+    pathogenName: 'Passalora arachidicola / Nothopassalora personata',
+    defaultSeverity: 'severe',
+    symptoms: [
+      'Early leaf spot: Circular to sub-circular brown lesions with prominent yellow halos on the upper leaf surface',
+      'Late leaf spot: Smaller, nearly circular dark black spots densely clustered on lower leaf surface without prominent yellow halo',
+      'Severe infection causes extensive premature defoliation, leaving bare stalks with only terminal leaves intact',
+      'Pods fail to mature properly, resulting in shriveled kernels and up to 50% yield reduction'
+    ],
+    possibleCauses: [
+      'Warm temperatures (24–28°C) combined with prolonged high relative humidity (>85%) or frequent rain spells',
+      'Infected groundnut crop debris in soil from previous season',
+      'Dense sowing and poor weed control'
+    ],
+    spreadConditions: 'Wind-borne conidia and rain splashes spread the fungus rapidly through the canopy.',
+    immediatePrevention: [
+      'Crop rotation with non-legumes like sorghum, pearl millet, or maize',
+      'Deep summer ploughing to bury infested crop residues',
+      'Destruction of volunteer peanut plants around field bunds'
+    ],
+    recommendedTreatment: 'Seed treatment and targeted foliar fungicide sprays at initial spot detection.',
+    organicOptions: [
+      'Trichoderma viride 1% WP seed treatment @ 10 g/kg seed',
+      'Neem seed kernel extract (NSKE 5%) or Neem oil 1500 ppm @ 3 ml/L spray at 10-day intervals'
+    ],
+    chemicalOptions: [
+      'Carbendazim 12% + Mancozeb 63% WP (SAAF) @ 2 g/L (400 g/acre in 200 L water)',
+      'Tebuconazole 25.9% EC @ 1 ml/L or Hexaconazole 5% SC @ 2 ml/L at early spot appearance',
+      'Chlorothalonil 75% WP @ 2 g/L as broad-spectrum protective cover spray'
+    ],
+    chemicalPrecautions: 'Rotate fungicide chemistry. Pre-Harvest Interval (PHI): 15 days.',
+    monitoringSchedule: 'Inspect lower leaves twice weekly starting 30 days after sowing.',
+    whenToConsultExpert: 'Consult KVK if defoliation starts before pegging or pod development stage.'
+  },
+
+  'groundnut_rust': {
+    label: 'groundnut_rust',
+    crop: 'Groundnut (Peanut)',
+    disease: 'Groundnut Rust',
+    isHealthy: false,
+    pathogenType: 'fungus',
+    pathogenName: 'Puccinia arachidis Speg.',
+    defaultSeverity: 'moderate',
+    symptoms: [
+      'Small, orange-brown pustules (uredinia) primarily on lower leaf surface',
+      'Pustules rupture exposing masses of reddish-brown powdery spores',
+      'Affected leaves become chlorotic, curl upwards, and dry on the plant without immediate shedding'
+    ],
+    possibleCauses: ['High humidity (>85%) and cloudy, humid weather.'],
+    spreadConditions: 'Air-borne urediniospores carried by wind currents.',
+    immediatePrevention: ['Balanced NPK fertilization; avoid excessive nitrogen.'],
+    recommendedTreatment: 'Foliar spray of systematic triazole fungicides.',
+    organicOptions: ['Foliar spray of 5% fermented buttermilk + neem oil.'],
+    chemicalOptions: ['Mancozeb 75% WP @ 2 g/L or Hexaconazole 5% EC @ 1.5 ml/L.'],
+    chemicalPrecautions: 'Ensure bottom canopy leaves are thoroughly covered.',
+    monitoringSchedule: 'Weekly scouting during reproductive phase.',
+    whenToConsultExpert: 'Consult expert if rust co-occurs with Tikka.'
+  },
+
+  'groundnut_healthy': {
+    label: 'groundnut_healthy',
+    crop: 'Groundnut (Peanut)',
+    disease: 'Groundnut Healthy Leaf',
+    isHealthy: true,
+    pathogenType: 'none',
+    defaultSeverity: 'none',
+    symptoms: ['Clean, vibrant green pinnate leaves free of Tikka spots, rust pustules or yellowing'],
+    possibleCauses: ['Good soil drainage, certified seed, and balanced fertilization'],
+    spreadConditions: 'Non-applicable.',
+    immediatePrevention: ['Routine weeding and peg-stage soil moisture management.'],
+    recommendedTreatment: 'Routine management.',
+    organicOptions: ['Rhizobium bio-fertilizer and gypsum application at flowering.'],
+    chemicalOptions: ['None required.'],
+    chemicalPrecautions: 'None.',
+    monitoringSchedule: 'Routine weekly scouting.',
+    whenToConsultExpert: 'Routine check.'
   }
 };
 

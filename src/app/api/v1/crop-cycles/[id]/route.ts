@@ -19,12 +19,15 @@ const updateCycleSchema = z.object({
   notes: z.string().nullable().optional(),
 });
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getAuthenticatedUser();
     if (!user) return apiError('Unauthorized', 'unauthorized', 401);
 
     const { id } = await params;
+    const { searchParams } = new URL(req.url);
+    const lang = searchParams.get('lang') || req.cookies.get('NEXT_LOCALE')?.value || req.cookies.get('locale')?.value || user.preferredLanguage || 'en';
+
     const cycle = await prisma.cropCycle.findFirst({
       where: {
         id,
@@ -62,14 +65,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const resolvedCrop = cycle.crop
       ? {
           ...cycle.crop,
-          name: resolveCropName(cycle.crop, cycle.customCropName, user.preferredLanguage),
+          name: resolveCropName(cycle.crop, cycle.customCropName, lang),
         }
       : null;
 
-    const lifecycle = CropLifecycleEngine.buildLifecyclePlan({
-      ...cycle,
-      crop: resolvedCrop,
-    });
+    const lifecycle = CropLifecycleEngine.buildLifecyclePlan(
+      {
+        ...cycle,
+        crop: resolvedCrop,
+      },
+      lang
+    );
 
     return apiSuccess({
       ...cycle,

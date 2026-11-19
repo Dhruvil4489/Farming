@@ -1,26 +1,28 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Sprout, Plus, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
 import { DataState } from '@/components/ui/DataState';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { CropStageBar } from '@/components/domain/CropStageBar';
+import { useI18n } from '@/providers/I18nProvider';
 
 export default function CropsPage() {
+  const { t, locale } = useI18n();
   const [cycles, setCycles] = useState<any[]>([]);
   const [cropsCatalog, setCropsCatalog] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCropsData = async () => {
+  const fetchCropsData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [cycRes, cropRes] = await Promise.all([
-        fetch('/api/v1/crop-cycles'),
-        fetch('/api/v1/crops'),
+        fetch(`/api/v1/crop-cycles?lang=${locale}`),
+        fetch(`/api/v1/crops?lang=${locale}`),
       ]);
       if (!cycRes.ok || !cropRes.ok) {
         throw new Error(`Failed to load crop records (HTTP ${cycRes.status}/${cropRes.status})`);
@@ -33,11 +35,11 @@ export default function CropsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [locale]);
 
   useEffect(() => {
     fetchCropsData();
-  }, []);
+  }, [fetchCropsData]);
 
   return (
     <DataState
@@ -48,27 +50,31 @@ export default function CropsPage() {
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-extrabold text-[#143D2A] tracking-tight">Crops & Cycles</h1>
-            <p className="text-xs text-stone-600 mt-1">Track crop stage timelines and stage advisories</p>
+            <h1 className="text-2xl font-extrabold text-[#143D2A] tracking-tight">
+              {t('crop_cycles', 'Crops & Cycles')}
+            </h1>
+            <p className="text-xs text-stone-600 mt-1">
+              {t('crop_cycles_desc', 'Track crop stage timelines and stage advisories')}
+            </p>
           </div>
           <Link href="/crops/new-cycle">
             <Button>
-              <Plus size={16} className="mr-1" /> Start Crop Cycle
+              <Plus size={16} className="mr-1" /> {t('start_crop_cycle', 'Start Crop Cycle')}
             </Button>
           </Link>
         </div>
 
         {/* Active Cycles Section */}
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-stone-900">Active Crop Cycles</h2>
+          <h2 className="text-lg font-bold text-stone-900">{t('active_crop_cycles', 'Active Crop Cycles')}</h2>
           {cycles.length === 0 ? (
             <DataState
               status="empty"
-              emptyTitle="No active crop cycles"
-              emptyDescription="Start a crop cycle in one of your fields to generate stage timelines and task recommendations."
+              emptyTitle={t('no_active_crop_cycles', 'No active crop cycles')}
+              emptyDescription={t('no_active_cycles_desc', 'Start a crop cycle in one of your fields to generate stage timelines and task recommendations.')}
               emptyAction={
                 <Link href="/crops/new-cycle">
-                  <Button size="sm">Start First Crop Cycle</Button>
+                  <Button size="sm">{t('start_first_cycle', 'Start First Crop Cycle')}</Button>
                 </Link>
               }
             />
@@ -88,11 +94,11 @@ export default function CropsPage() {
                         <h3 className="font-bold text-stone-900 text-base">
                           {cycle.crop?.name || cycle.customCropName}
                         </h3>
-                        <p className="text-xs text-stone-500">Field: {cycle.field?.name}</p>
+                        <p className="text-xs text-stone-500">{t('field', 'Field')}: {cycle.field?.name}</p>
                       </div>
                     </div>
                     <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold uppercase">
-                      {cycle.status}
+                      {t(`stage_${cycle.status}`, cycle.status)}
                     </span>
                   </div>
 
@@ -106,14 +112,16 @@ export default function CropsPage() {
 
                   <div className="flex items-center justify-between pt-2 text-xs border-t border-stone-200">
                     <span className="text-stone-500">
-                      Sown:{' '}
+                      {t('sowing_date', 'Sown')}:{' '}
                       <strong className="text-stone-800">
-                        {cycle.sowingDate ? new Date(cycle.sowingDate).toLocaleDateString() : 'N/A'}
+                        {cycle.sowingDate
+                          ? new Date(cycle.sowingDate).toLocaleDateString(locale === 'hi' ? 'hi-IN' : locale === 'gu' ? 'gu-IN' : 'en-IN')
+                          : 'N/A'}
                       </strong>
                     </span>
                     <Link href={`/crop-cycles/${cycle.id}`}>
                       <Button size="sm" variant="outline">
-                        View Timeline <ArrowRight size={14} className="ml-1" />
+                        {t('view_timeline', 'View Timeline')} <ArrowRight size={14} className="ml-1" />
                       </Button>
                     </Link>
                   </div>
@@ -125,7 +133,7 @@ export default function CropsPage() {
 
         {/* Master Crop Catalog Showcase */}
         <div className="space-y-4 pt-4 border-t border-stone-200">
-          <h2 className="text-lg font-bold text-stone-900">Supported Master Crops</h2>
+          <h2 className="text-lg font-bold text-stone-900">{t('supported_crops', 'Supported Master Crops')}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {cropsCatalog.map((crop) => (
               <Card key={crop.id} className="p-4 space-y-2 text-center">
@@ -136,7 +144,7 @@ export default function CropsPage() {
                   <Sprout size={20} />
                 </div>
                 <h4 className="font-bold text-stone-900 text-sm">{crop.name}</h4>
-                <p className="text-[11px] text-stone-500">{crop.typicalDurationDays} Days Duration</p>
+                <p className="text-[11px] text-stone-500">{crop.typicalDurationDays} {t('days_duration', 'Days Duration')}</p>
               </Card>
             ))}
           </div>

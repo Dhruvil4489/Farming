@@ -48,14 +48,15 @@ export function resolveCropName(
 ): string {
   if (customCropName && customCropName.trim()) return customCropName.trim();
   if (!crop) return 'Crop';
-  if (crop.name) return crop.name;
   if (Array.isArray(crop.translations) && crop.translations.length > 0) {
     const exact = crop.translations.find((t) => t.locale === locale);
     if (exact?.name) return exact.name;
+    if (locale === 'en' && crop.name) return crop.name;
     const en = crop.translations.find((t) => t.locale === 'en');
     if (en?.name) return en.name;
     if (crop.translations[0]?.name) return crop.translations[0].name;
   }
+  if (crop.name) return crop.name;
   if (crop.slug) {
     return crop.slug.charAt(0).toUpperCase() + crop.slug.slice(1).replace(/_/g, ' ');
   }

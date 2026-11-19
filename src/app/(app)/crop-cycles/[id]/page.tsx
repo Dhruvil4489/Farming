@@ -23,6 +23,7 @@ import { DataState } from '@/components/ui/DataState';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { CropStageBar } from '@/components/domain/CropStageBar';
+import { useI18n } from '@/providers/I18nProvider';
 
 const STATUS_OPTIONS = [
   { value: 'planned', label: 'Planned' },
@@ -38,6 +39,7 @@ const STATUS_OPTIONS = [
 export default function CropCycleDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { t, locale } = useI18n();
   const id = params.id as string;
 
   const [cycle, setCycle] = useState<any>(null);
@@ -51,7 +53,7 @@ export default function CropCycleDetailPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/v1/crop-cycles/${id}`);
+      const res = await fetch(`/api/v1/crop-cycles/${id}?lang=${locale}`);
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error?.message || 'Crop cycle not found.');
       setCycle(json.data);
@@ -66,7 +68,7 @@ export default function CropCycleDetailPage() {
 
   useEffect(() => {
     loadCycle();
-  }, [id]);
+  }, [id, locale]);
 
   const handleStatusChange = async (newStatus: string) => {
     setUpdatingStatus(true);
@@ -118,7 +120,7 @@ export default function CropCycleDetailPage() {
             href="/crops"
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900"
           >
-            <ArrowLeft size={15} /> Back to Crops &amp; Cycles
+            <ArrowLeft size={15} /> {t('back_to_crops', 'Back to Crops & Cycles')}
           </Link>
 
           {notice && (
@@ -144,13 +146,13 @@ export default function CropCycleDetailPage() {
                     </h1>
                     {cycle.variety?.name && (
                       <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                        Variety: {cycle.variety.name}
+                        {t('variety', 'Variety')}: {cycle.variety.name}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-stone-500 flex items-center gap-1 mt-0.5">
                     <MapPin size={12} className="text-[#2F7D4F]" />
-                    Field: <strong>{cycle.field?.name}</strong>
+                    {t('field', 'Field')}: <strong>{cycle.field?.name}</strong>
                     {cycle.field?.farm?.name ? ` • ${cycle.field.farm.name}` : ''}
                     {cycle.crop?.scientificName ? ` • ${cycle.crop.scientificName}` : ''}
                   </p>
@@ -167,7 +169,7 @@ export default function CropCycleDetailPage() {
                 >
                   {STATUS_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
-                      {opt.label}
+                      {t(`stage_${opt.value}`, opt.label)}
                     </option>
                   ))}
                 </select>
@@ -186,41 +188,41 @@ export default function CropCycleDetailPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#F7F8F5] p-4 rounded-xl border border-stone-200/70 text-xs">
               <div>
                 <span className="text-stone-500 flex items-center gap-1">
-                  <Sparkles size={12} className="text-[#2F7D4F]" /> Crop Age (DAS)
+                  <Sparkles size={12} className="text-[#2F7D4F]" /> {t('crop_age_das', 'Crop Age (DAS)')}
                 </span>
                 <strong className="text-[#143D2A] text-base block mt-0.5">
-                  {lc?.isFutureSowing ? 'Planned' : `Day ${lc?.daysAfterSowing ?? 0}`}
+                  {lc?.isFutureSowing ? t('planned', 'Planned') : `${t('day', 'Day')} ${lc?.daysAfterSowing ?? 0}`}
                 </strong>
                 <span className="text-[10px] text-stone-500">
-                  {lc?.progressPct ?? 0}% of ~{lc?.totalDurationDays ?? 120} days
+                  {lc?.progressPct ?? 0}% {t('of', 'of')} ~{lc?.totalDurationDays ?? 120} {t('days', 'days')}
                 </span>
               </div>
               <div>
                 <span className="text-stone-500 flex items-center gap-1">
-                  <Calendar size={12} /> Sowing Date
+                  <Calendar size={12} /> {t('sowing_date', 'Sowing Date')}
                 </span>
                 <strong className="text-stone-900 text-sm block mt-0.5">
-                  {cycle.sowingDate ? new Date(cycle.sowingDate).toLocaleDateString('en-IN') : 'Not set'}
+                  {cycle.sowingDate ? new Date(cycle.sowingDate).toLocaleDateString(locale === 'hi' ? 'hi-IN' : locale === 'gu' ? 'gu-IN' : 'en-IN') : t('not_set', 'Not set')}
                 </strong>
               </div>
               <div>
                 <span className="text-stone-500 flex items-center gap-1">
-                  <Clock size={12} /> Expected Harvest
+                  <Clock size={12} /> {t('expected_harvest', 'Expected Harvest')}
                 </span>
                 <strong className="text-stone-900 text-sm block mt-0.5">
                   {cycle.expectedHarvestDate
-                    ? new Date(cycle.expectedHarvestDate).toLocaleDateString('en-IN')
-                    : 'Estimated'}
+                    ? new Date(cycle.expectedHarvestDate).toLocaleDateString(locale === 'hi' ? 'hi-IN' : locale === 'gu' ? 'gu-IN' : 'en-IN')
+                    : t('estimated', 'Estimated')}
                 </strong>
               </div>
               <div>
-                <span className="text-stone-500 block">Current Stage</span>
+                <span className="text-stone-500 block">{t('current_stage', 'Current Stage')}</span>
                 <strong className="text-[#2F7D4F] text-sm block mt-0.5">
-                  {activeStage?.name || cycle.status}
+                  {activeStage?.name || t(`stage_${cycle.status}`, cycle.status)}
                 </strong>
                 {lc?.nextStage && (
                   <span className="text-[10px] text-stone-500">
-                    Next: {lc.nextStage.name} ({lc.daysUntilNextStage}d)
+                    {t('next', 'Next')}: {lc.nextStage.name} ({lc.daysUntilNextStage}d)
                   </span>
                 )}
               </div>
@@ -253,7 +255,7 @@ export default function CropCycleDetailPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <span className="text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
-                    Current Active Stage • Days {activeStage.startOffsetDays}–
+                    {t('current_active_stage', 'Current Active Stage • Days')} {activeStage.startOffsetDays}–
                     {activeStage.startOffsetDays + activeStage.durationDays}
                   </span>
                   <h2 className="text-xl font-extrabold mt-1.5">{activeStage.name}</h2>
@@ -264,27 +266,27 @@ export default function CropCycleDetailPage() {
                   )}`}
                 >
                   <Button size="sm" className="bg-white text-[#143D2A] hover:bg-emerald-50 font-bold">
-                    Ask AI Assistant About This Stage →
+                    {t('ask_ai_stage', 'Ask AI Assistant About This Stage →')}
                   </Button>
                 </Link>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div className="p-3.5 rounded-xl bg-white/10 backdrop-blur space-y-1">
-                  <span className="font-bold text-emerald-200 uppercase text-[10px]">What To Do Now</span>
+                  <span className="font-bold text-emerald-200 uppercase text-[10px]">{t('what_to_do_now', 'What To Do Now')}</span>
                   <p className="text-white leading-relaxed">{activeStage.whatToDo}</p>
                 </div>
                 <div className="p-3.5 rounded-xl bg-white/10 backdrop-blur space-y-1">
-                  <span className="font-bold text-emerald-200 uppercase text-[10px]">Why It Matters</span>
+                  <span className="font-bold text-emerald-200 uppercase text-[10px]">{t('why_it_matters', 'Why It Matters')}</span>
                   <p className="text-emerald-50 leading-relaxed">{activeStage.whyImportant}</p>
                 </div>
                 <div className="p-3.5 rounded-xl bg-white/10 backdrop-blur space-y-1">
-                  <span className="font-bold text-emerald-200 uppercase text-[10px]">How To Do It</span>
+                  <span className="font-bold text-emerald-200 uppercase text-[10px]">{t('how_to_do_it', 'How To Do It')}</span>
                   <p className="text-emerald-50 leading-relaxed">{activeStage.howToDo}</p>
                 </div>
                 <div className="p-3.5 rounded-xl bg-amber-500/20 border border-amber-300/30 space-y-1">
                   <span className="font-bold text-amber-200 uppercase text-[10px] flex items-center gap-1">
-                    <AlertTriangle size={12} /> Precautions
+                    <AlertTriangle size={12} /> {t('precautions', 'Precautions')}
                   </span>
                   <p className="text-amber-50 leading-relaxed">{activeStage.precautions}</p>
                 </div>
@@ -293,7 +295,7 @@ export default function CropCycleDetailPage() {
               <div className="flex items-center gap-2 text-xs text-emerald-100 pt-1">
                 <Wrench size={14} className="text-emerald-300 shrink-0" />
                 <span>
-                  <strong>Materials / Inputs:</strong> {activeStage.materials}
+                  <strong>{t('materials_inputs', 'Materials / Inputs:')}</strong> {activeStage.materials}
                 </span>
               </div>
             </Card>
@@ -302,7 +304,7 @@ export default function CropCycleDetailPage() {
           {/* Complete Stage-by-Stage Lifecycle Roadmap */}
           <Card className="p-6 rounded-2xl space-y-4">
             <h2 className="text-base font-extrabold text-[#143D2A]">
-              Complete Crop-Specific Lifecycle Plan ({stages.length} Stages)
+              {t('complete_lifecycle_plan', 'Complete Crop-Specific Lifecycle Plan')} ({stages.length} {t('stages', 'Stages')})
             </h2>
             <div className="space-y-3">
               {stages.map((stage: any, idx: number) => {
@@ -338,9 +340,9 @@ export default function CropCycleDetailPage() {
                         <div>
                           <h3 className="font-bold text-stone-900 text-sm">{stage.name}</h3>
                           <p className="text-[11px] text-stone-500">
-                            Days {stage.startOffsetDays}–{stage.startOffsetDays + stage.durationDays} •{' '}
-                            {stage.startDate ? new Date(stage.startDate).toLocaleDateString('en-IN') : '—'} to{' '}
-                            {stage.endDate ? new Date(stage.endDate).toLocaleDateString('en-IN') : '—'}
+                            {t('day', 'Days')} {stage.startOffsetDays}–{stage.startOffsetDays + stage.durationDays} •{' '}
+                            {stage.startDate ? new Date(stage.startDate).toLocaleDateString(locale === 'hi' ? 'hi-IN' : locale === 'gu' ? 'gu-IN' : 'en-IN') : '—'} to{' '}
+                            {stage.endDate ? new Date(stage.endDate).toLocaleDateString(locale === 'hi' ? 'hi-IN' : locale === 'gu' ? 'gu-IN' : 'en-IN') : '—'}
                           </p>
                         </div>
                       </div>
@@ -354,7 +356,7 @@ export default function CropCycleDetailPage() {
                                 : 'bg-stone-100 text-stone-600'
                           }`}
                         >
-                          {stage.status}
+                          {t(`stage_${stage.status}`, stage.status)}
                         </span>
                       </div>
                     </button>
@@ -362,25 +364,25 @@ export default function CropCycleDetailPage() {
                     {isOpen && (
                       <div className="px-4 pb-4 pt-1 border-t border-stone-200/70 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                         <div>
-                          <span className="font-bold text-[#143D2A] block">What to do:</span>
+                          <span className="font-bold text-[#143D2A] block">{t('what_to_do', 'What to do:')}</span>
                           <p className="text-stone-700 mt-0.5">{stage.whatToDo}</p>
                         </div>
                         <div>
-                          <span className="font-bold text-[#143D2A] block">Why it matters:</span>
+                          <span className="font-bold text-[#143D2A] block">{t('why_it_matters', 'Why it matters:')}</span>
                           <p className="text-stone-700 mt-0.5">{stage.whyImportant}</p>
                         </div>
                         <div>
-                          <span className="font-bold text-[#143D2A] block">How to do it:</span>
+                          <span className="font-bold text-[#143D2A] block">{t('how_to_do_it', 'How to do it:')}</span>
                           <p className="text-stone-700 mt-0.5">{stage.howToDo}</p>
                         </div>
                         <div>
-                          <span className="font-bold text-amber-800 block">Precautions:</span>
+                          <span className="font-bold text-amber-800 block">{t('precautions', 'Precautions:')}</span>
                           <p className="text-amber-900 mt-0.5">{stage.precautions}</p>
                         </div>
                         <div className="md:col-span-2 text-[11px] text-stone-600 bg-white/80 p-2.5 rounded-lg border border-stone-200">
-                          <strong>Materials / Checklist:</strong> {stage.materials} •{' '}
+                          <strong>{t('materials_checklist', 'Materials / Checklist:')}</strong> {stage.materials} •{' '}
                           <span className="font-bold text-[#2F7D4F]">
-                            {stage.isEssential ? 'Essential Stage' : 'Optional Advisory'}
+                            {stage.isEssential ? t('essential_stage', 'Essential Stage') : t('optional_advisory', 'Optional Advisory')}
                           </span>
                         </div>
                       </div>
@@ -396,10 +398,10 @@ export default function CropCycleDetailPage() {
             <Card className="p-6 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-extrabold text-[#143D2A] flex items-center gap-2">
-                  <CheckSquare size={17} className="text-[#2F7D4F]" /> Scheduled Farming Tasks ({cycle.tasks.length})
+                  <CheckSquare size={17} className="text-[#2F7D4F]" /> {t('scheduled_tasks', 'Scheduled Farming Tasks')} ({cycle.tasks.length})
                 </h2>
                 <Link href="/tasks" className="text-xs font-bold text-[#2F7D4F] hover:underline">
-                  All Tasks →
+                  {t('all_tasks', 'All Tasks →')}
                 </Link>
               </div>
               <div className="space-y-2">
@@ -417,17 +419,17 @@ export default function CropCycleDetailPage() {
                         {task.title}
                       </p>
                       <p className="text-[11px] text-stone-500">
-                        Due: {task.dueAt ? new Date(task.dueAt).toLocaleDateString('en-IN') : 'Flexible'} •{' '}
-                        <span className="capitalize">{task.type}</span>
+                        {t('due_date', 'Due')}: {task.dueAt ? new Date(task.dueAt).toLocaleDateString(locale === 'hi' ? 'hi-IN' : locale === 'gu' ? 'gu-IN' : 'en-IN') : t('flexible', 'Flexible')} •{' '}
+                        <span className="capitalize">{t(`activity_types.${task.type}`, task.type)}</span>
                       </p>
                     </div>
                     {task.status !== 'completed' ? (
                       <Button size="sm" variant="outline" onClick={() => handleCompleteTask(task.id)}>
-                        Mark Done
+                        {t('mark_done', 'Mark Done')}
                       </Button>
                     ) : (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                        Completed
+                        {t('completed', 'Completed')}
                       </span>
                     )}
                   </div>
@@ -441,7 +443,7 @@ export default function CropCycleDetailPage() {
             <Card className="p-6 rounded-2xl space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <h2 className="text-base font-extrabold text-[#143D2A] flex items-center gap-2">
-                  <BookOpen size={17} className="text-[#2F7D4F]" /> Verified Crop Agronomy Guide
+                  <BookOpen size={17} className="text-[#2F7D4F]" /> {t('verified_agronomy_guide', 'Verified Crop Agronomy Guide')}
                 </h2>
                 {cycle.crop.sourceAuthority && (
                   <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
@@ -452,30 +454,30 @@ export default function CropCycleDetailPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 {cycle.crop.irrigationGuidance && (
                   <div className="p-3 bg-[#F7F8F5] rounded-xl border border-stone-200">
-                    <strong className="text-[#143D2A] block mb-1">Irrigation Schedule</strong>
+                    <strong className="text-[#143D2A] block mb-1">{t('irrigation_schedule', 'Irrigation Schedule')}</strong>
                     <p className="text-stone-700">{cycle.crop.irrigationGuidance}</p>
                   </div>
                 )}
                 {cycle.crop.nutrientGuidance && (
                   <div className="p-3 bg-[#F7F8F5] rounded-xl border border-stone-200">
-                    <strong className="text-[#143D2A] block mb-1">Nutrient Guidance</strong>
+                    <strong className="text-[#143D2A] block mb-1">{t('nutrient_guidance', 'Nutrient Guidance')}</strong>
                     <p className="text-stone-700">{cycle.crop.nutrientGuidance}</p>
                   </div>
                 )}
                 {cycle.crop.commonDiseases && (
                   <div className="p-3 bg-[#F7F8F5] rounded-xl border border-stone-200">
                     <strong className="text-[#143D2A] block mb-1 flex items-center gap-1">
-                      <ShieldAlert size={13} className="text-amber-700" /> Watch Out: Diseases &amp; Pests
+                      <ShieldAlert size={13} className="text-amber-700" /> {t('watch_out_diseases_pests', 'Watch Out: Diseases & Pests')}
                     </strong>
                     <p className="text-stone-700">
-                      <strong>Diseases:</strong> {cycle.crop.commonDiseases}
-                      {cycle.crop.commonPests ? ` • Pests: ${cycle.crop.commonPests}` : ''}
+                      <strong>{t('diseases', 'Diseases')}:</strong> {cycle.crop.commonDiseases}
+                      {cycle.crop.commonPests ? ` • ${t('pests', 'Pests')}: ${cycle.crop.commonPests}` : ''}
                     </p>
                   </div>
                 )}
                 {cycle.crop.harvestGuidance && (
                   <div className="p-3 bg-[#F7F8F5] rounded-xl border border-stone-200">
-                    <strong className="text-[#143D2A] block mb-1">Harvest &amp; Storage</strong>
+                    <strong className="text-[#143D2A] block mb-1">{t('harvest_storage', 'Harvest & Storage')}</strong>
                     <p className="text-stone-700">
                       {cycle.crop.harvestGuidance} {cycle.crop.storageGuidance || ''}
                     </p>

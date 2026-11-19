@@ -105,20 +105,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Infer crop context from crop cycle, field name, or farm plot details
-    const fieldCropSlug =
-      field?.cropCycles?.[0]?.crop?.slug ||
-      field?.cropCycles?.[0]?.customCropName ||
-      inferCropFromFieldName(field?.name) ||
-      null;
-
     // Save image to private storage directory
     const saved = await saveDiagnosisImage(buffer, file.name);
 
-    // Call inference service with crop and blur checks
+    // Call inference service with independent image evaluation:
+    // If the farmer explicitly selected a crop, pass it as requestedCrop.
+    // If crop selection was left empty (Option B), pass null so AI performs unconstrained botanical species detection.
+    const normalizedRequestedCrop = requestedCrop && requestedCrop.trim() !== '' && requestedCrop !== 'auto'
+      ? requestedCrop.trim()
+      : null;
+
     const prediction = await DiseaseDiagnosisService.predict(buffer, saved.filename, saved.mimeType, {
-      requestedCrop: requestedCrop && requestedCrop !== 'auto' ? requestedCrop : null,
-      fieldCropName: fieldCropSlug,
+      requestedCrop: normalizedRequestedCrop,
+      fieldCropName: null,
     });
 
     // Query matching store medicines from Fertilizer Store

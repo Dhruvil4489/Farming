@@ -7,29 +7,31 @@ import { ArrowLeft, Grid, Plus, Search, Sprout, CheckCircle2, Info } from 'lucid
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-
-const CATEGORY_TABS = [
-  { id: 'all', label: 'All Crops' },
-  { id: 'cereal', label: 'Cereals' },
-  { id: 'pulse', label: 'Pulses' },
-  { id: 'oilseed', label: 'Oilseeds' },
-  { id: 'cash_crop', label: 'Cash Crops' },
-  { id: 'vegetable', label: 'Vegetables' },
-  { id: 'fruit', label: 'Fruits' },
-  { id: 'spice', label: 'Spices' },
-  { id: 'plantation', label: 'Plantation' },
-  { id: 'fodder', label: 'Fodder' },
-  { id: 'regional', label: 'Regional' },
-];
+import { useI18n } from '@/providers/I18nProvider';
 
 export default function NewCropCyclePage() {
   const router = useRouter();
+  const { t, locale } = useI18n();
   const [fields, setFields] = useState<any[]>([]);
   const [crops, setCrops] = useState<any[]>([]);
   const [loadingInit, setLoadingInit] = useState(true);
 
   const [category, setCategory] = useState('all');
   const [cropSearch, setCropSearch] = useState('');
+
+  const categoryTabs = [
+    { id: 'all', label: t('all_crops', 'All Crops') },
+    { id: 'cereal', label: t('crop_categories.cereals', 'Cereals') },
+    { id: 'pulse', label: t('crop_categories.pulses', 'Pulses') },
+    { id: 'oilseed', label: t('crop_categories.oilseeds', 'Oilseeds') },
+    { id: 'cash_crop', label: t('crop_categories.cash_crops', 'Cash Crops') },
+    { id: 'vegetable', label: t('crop_categories.vegetables', 'Vegetables') },
+    { id: 'fruit', label: t('crop_categories.fruits', 'Fruits') },
+    { id: 'spice', label: t('crop_categories.spices', 'Spices') },
+    { id: 'plantation', label: t('crop_categories.plantation', 'Plantation') },
+    { id: 'fodder', label: t('crop_categories.fodder', 'Fodder') },
+    { id: 'regional', label: t('crop_categories.regional', 'Regional') },
+  ];
 
   const [form, setForm] = useState({
     fieldId: '',
@@ -46,7 +48,7 @@ export default function NewCropCyclePage() {
   useEffect(() => {
     Promise.all([
       fetch('/api/v1/fields').then((r) => (r.ok ? r.json() : { data: [] })),
-      fetch('/api/v1/crops').then((r) => (r.ok ? r.json() : { data: [] })),
+      fetch(`/api/v1/crops?lang=${locale}`).then((r) => (r.ok ? r.json() : { data: [] })),
     ])
       .then(([fieldRes, cropRes]) => {
         const fList = Array.isArray(fieldRes?.data) ? fieldRes.data : [];
@@ -58,7 +60,7 @@ export default function NewCropCyclePage() {
       })
       .catch(() => {})
       .finally(() => setLoadingInit(false));
-  }, []);
+  }, [locale]);
 
   const filteredCrops = useMemo(() => {
     const q = cropSearch.trim().toLowerCase();
@@ -131,13 +133,13 @@ export default function NewCropCyclePage() {
         onClick={() => router.back()}
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900 cursor-pointer"
       >
-        <ArrowLeft size={16} /> Back to Crops &amp; Cycles
+        <ArrowLeft size={16} /> {t('back_to_crops', 'Back to Crops & Cycles')}
       </button>
 
       <div className="space-y-1">
-        <h1 className="text-2xl font-extrabold text-[#143D2A]">Start New Crop Cycle</h1>
+        <h1 className="text-2xl font-extrabold text-[#143D2A]">{t('start_crop_cycle', 'Start New Crop Cycle')}</h1>
         <p className="text-xs sm:text-sm text-stone-600">
-          Search 60+ Indian crops in English, Hindi (हिंदी), or Gujarati (ગુજરાતી). SmartFarm AI automatically generates crop-specific growth stages, farming tasks, and email reminders from your sowing date.
+          {t('new_cycle_subtitle', 'Search 60+ Indian crops in English, Hindi, or Gujarati. SmartFarm AI automatically generates crop-specific growth stages, farming tasks, and email reminders.')}
         </p>
       </div>
 
@@ -153,14 +155,14 @@ export default function NewCropCyclePage() {
             <Grid size={26} />
           </div>
           <div className="space-y-1">
-            <h2 className="font-bold text-stone-900 text-base">Add a Field First</h2>
+            <h2 className="font-bold text-stone-900 text-base">{t('add_field_first', 'Add a Field First')}</h2>
             <p className="text-xs text-stone-600 max-w-sm mx-auto">
-              You need at least one field plot before planting a crop cycle.
+              {t('add_field_first_desc', 'You need at least one field plot before planting a crop cycle.')}
             </p>
           </div>
           <Link href="/fields/new">
             <Button size="sm" className="bg-[#2F7D4F] hover:bg-[#143D2A] text-white">
-              <Plus size={15} className="mr-1" /> Add Your First Field
+              <Plus size={15} className="mr-1" /> {t('add_first_field', 'Add Your First Field')}
             </Button>
           </Link>
         </Card>
@@ -170,7 +172,7 @@ export default function NewCropCyclePage() {
             {/* Step 1: Search & Filter Crop Catalogue */}
             <div className="space-y-3">
               <label className="block text-sm font-bold text-stone-900">
-                1. Choose Crop ({crops.length} Indian Crops Available) *
+                1. {t('choose_crop', 'Choose Crop')} ({crops.length} {t('indian_crops_available', 'Indian Crops Available')}) *
               </label>
 
               {/* Search box */}
@@ -180,14 +182,14 @@ export default function NewCropCyclePage() {
                   type="text"
                   value={cropSearch}
                   onChange={(e) => setCropSearch(e.target.value)}
-                  placeholder="Search by English, Hindi, or Gujarati (e.g. Wheat, गेहूं, ઘઉં, કપાસ, જીરું)..."
+                  placeholder={t('search_crop_multilingual_placeholder', 'Search by English, Hindi, or Gujarati (e.g. Wheat, गेहूं, ઘઉં, કપાસ, જીરું)...')}
                   className="w-full pl-9 pr-4 py-2.5 bg-[#F7F8F5] border border-stone-300 rounded-xl text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
                 />
               </div>
 
               {/* Category Filter Pills */}
               <div className="flex flex-wrap gap-1.5">
-                {CATEGORY_TABS.map((tab) => (
+                {categoryTabs.map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
@@ -207,7 +209,7 @@ export default function NewCropCyclePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto p-1 border border-stone-200 rounded-xl bg-stone-50/60">
                 {filteredCrops.length === 0 ? (
                   <div className="col-span-full py-6 text-center text-xs text-stone-500">
-                    No crops match &quot;{cropSearch}&quot;. Try another English, Hindi, or Gujarati crop name.
+                    {t('no_crops_found', 'No crops found matching search.')}
                   </div>
                 ) : (
                   filteredCrops.map((c) => {
@@ -234,7 +236,7 @@ export default function NewCropCyclePage() {
                         </p>
                         <div className="flex items-center justify-between text-[10px] text-stone-400 mt-1">
                           <span className="capitalize">{c.category.replace('_', ' ')}</span>
-                          <span>~{c.typicalDurationDays || 120} days</span>
+                          <span>~{c.typicalDurationDays || 120} {t('days', 'days')}</span>
                         </div>
                       </button>
                     );
@@ -256,13 +258,13 @@ export default function NewCropCyclePage() {
                   </div>
                   {selectedCrop.sowingPeriod && (
                     <p className="text-emerald-900">
-                      <strong>Typical Sowing:</strong> {selectedCrop.sowingPeriod} •{' '}
-                      <strong>Duration:</strong> ~{selectedCrop.typicalDurationDays} days
+                      <strong>{t('typical_sowing', 'Typical Sowing')}:</strong> {selectedCrop.sowingPeriod} •{' '}
+                      <strong>{t('duration', 'Duration')}:</strong> ~{selectedCrop.typicalDurationDays} {t('days', 'days')}
                     </p>
                   )}
                   {selectedCrop.soilSuitability && (
                     <p className="text-stone-700">
-                      <strong>Soil:</strong> {selectedCrop.soilSuitability}
+                      <strong>{t('soil', 'Soil')}:</strong> {selectedCrop.soilSuitability}
                     </p>
                   )}
                 </div>
@@ -272,7 +274,7 @@ export default function NewCropCyclePage() {
             {/* Step 2: Field, Variety, Sowing Date */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="block text-sm font-semibold text-stone-800">2. Select Field *</label>
+                <label className="block text-sm font-semibold text-stone-800">2. {t('select_field', 'Select Field')} *</label>
                 <select
                   value={form.fieldId}
                   onChange={(e) => setForm({ ...form, fieldId: e.target.value })}
@@ -289,14 +291,14 @@ export default function NewCropCyclePage() {
 
               <div className="space-y-1">
                 <label className="block text-sm font-semibold text-stone-800">
-                  Variety (Optional)
+                  {t('variety', 'Variety')} ({t('optional', 'Optional')})
                 </label>
                 <select
                   value={form.varietyId}
                   onChange={(e) => setForm({ ...form, varietyId: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
                 >
-                  <option value="">Not sure / Standard duration estimate</option>
+                  <option value="">{t('variety_standard_estimate', 'Not sure / Standard duration estimate')}</option>
                   {(selectedCrop?.varieties || []).map((v: any) => (
                     <option key={v.id} value={v.id}>
                       {v.name} {v.durationDays ? `(~${v.durationDays}d)` : ''}
@@ -308,7 +310,7 @@ export default function NewCropCyclePage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="3. Sowing / Planting Date *"
+                label={`3. ${t('sowing_date', 'Sowing / Planting Date')} *`}
                 type="date"
                 value={form.sowingDate}
                 onChange={(e) => setForm({ ...form, sowingDate: e.target.value })}
@@ -316,11 +318,11 @@ export default function NewCropCyclePage() {
               />
 
               <Input
-                label="Expected Harvest Date (Optional)"
+                label={`${t('expected_harvest', 'Expected Harvest Date')} (${t('optional', 'Optional')})`}
                 type="date"
                 value={form.expectedHarvestDate}
                 onChange={(e) => setForm({ ...form, expectedHarvestDate: e.target.value })}
-                whyAsk="Leave empty to auto-estimate from your crop duration & sowing date."
+                whyAsk={t('expected_harvest_hint', 'Leave empty to auto-estimate from your crop duration & sowing date.')}
               />
             </div>
 
@@ -328,7 +330,7 @@ export default function NewCropCyclePage() {
               <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
                 <Info size={14} className="shrink-0 mt-0.5 text-amber-700" />
                 <span>
-                  Without a specific variety selected, stage dates will use standard ICAR/SAU approximate timelines (±5–10 days depending on weather &amp; seed variety).
+                  {t('variety_notice', 'Without a specific variety selected, stage dates will use standard ICAR/SAU approximate timelines (±5–10 days depending on weather & seed variety).')}
                 </span>
               </div>
             )}
@@ -338,7 +340,7 @@ export default function NewCropCyclePage() {
               isLoading={loading}
               className="w-full bg-[#2F7D4F] hover:bg-[#143D2A] text-white rounded-xl py-3 font-bold"
             >
-              Generate Crop Lifecycle Plan &amp; Reminders
+              {t('generate_lifecycle_plan', 'Generate Crop Lifecycle Plan & Reminders')}
             </Button>
           </form>
         </Card>

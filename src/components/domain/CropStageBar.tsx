@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle2, Clock } from 'lucide-react';
+import { useI18n } from '@/providers/I18nProvider';
 
 export interface StageItem {
   id: string;
@@ -15,8 +16,10 @@ interface CropStageBarProps {
 }
 
 export const CropStageBar: React.FC<CropStageBarProps> = ({ stages, onSelectStage }) => {
+  const { t } = useI18n();
+
   if (!stages || stages.length === 0) {
-    return <div className="text-xs text-stone-500 italic">No stages defined for this crop cycle.</div>;
+    return <div className="text-xs text-stone-500 italic">{t('no_stages_defined', 'No stages defined for this crop cycle.')}</div>;
   }
 
   return (
@@ -52,7 +55,9 @@ export const CropStageBar: React.FC<CropStageBarProps> = ({ stages, onSelectStag
               <span className={`text-xs font-semibold line-clamp-1 ${isCurrent ? 'text-emerald-950 font-bold' : 'text-stone-700'}`}>
                 {stage.name}
               </span>
-              <span className="text-[10px] text-stone-500 mt-0.5 capitalize">{stage.status}</span>
+              <span className="text-[10px] text-stone-500 mt-0.5 capitalize">
+                {t(`stage_${stage.status}`, stage.status)}
+              </span>
             </div>
           );
         })}
