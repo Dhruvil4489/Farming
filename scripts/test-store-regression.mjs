@@ -48,7 +48,7 @@ async function runSuite() {
   const products = prodJson.data || [];
   report('Store products endpoint returns populated catalog', prodRes.ok && products.length > 0, `Count: ${products.length}`);
 
-  const sampleProduct = products[0];
+  const sampleProduct = products.find((p) => p.stock > 0) || products[0];
   if (sampleProduct?.slug) {
     const detailRes = await fetch(`${BASE_URL}/api/v1/store/products/${sampleProduct.slug}`);
     const detailJson = await detailRes.json();

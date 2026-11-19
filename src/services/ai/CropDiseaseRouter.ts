@@ -20,8 +20,8 @@
  * 7. AI Explanation & Actionable Guidance Generation
  */
 
-import { checkMagicBytes } from '@/lib/image-quality';
-import { CropVisionEngine, LeafVisionFeatures } from '@/lib/crop-vision-engine';
+import { checkMagicBytes } from '../../lib/image-quality';
+import { CropVisionEngine, LeafVisionFeatures } from '../../lib/crop-vision-engine';
 import {
   CropModelRegistry,
   RegisteredModel,
@@ -31,7 +31,7 @@ import {
 import {
   getAgronomicPathology,
   AgronomicDiseaseInfo,
-} from '@/lib/crop-disease-knowledge';
+} from '../../lib/crop-disease-knowledge';
 
 export interface CandidatePrediction {
   label: string;
@@ -110,7 +110,7 @@ export class CropDiseaseRouter {
     // -------------------------------------------------------------------------
     const magicCheck = checkMagicBytes(imageBuffer);
     if (!magicCheck.isValid || !magicCheck.mimeType) {
-      throw new Error('Invalid image binary. Uploaded file is corrupt or not in a supported format (JPEG, PNG, WebP).');
+      throw new Error('Uploaded file is not a valid JPEG/PNG image. Uploaded file is corrupt or not in a supported format (JPEG, PNG, WebP).');
     }
 
     // -------------------------------------------------------------------------

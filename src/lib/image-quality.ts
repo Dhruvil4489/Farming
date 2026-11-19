@@ -20,7 +20,7 @@ export interface ImageQualityResult {
  * Evaluates binary magic bytes for image formats.
  */
 export function checkMagicBytes(buffer: Buffer): { isValid: boolean; mimeType?: string } {
-  if (buffer.length < 12) return { isValid: false };
+  if (!buffer || buffer.length < 3) return { isValid: false };
 
   // JPEG: FF D8 FF
   if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
@@ -29,6 +29,7 @@ export function checkMagicBytes(buffer: Buffer): { isValid: boolean; mimeType?: 
 
   // PNG: 89 50 4E 47 0D 0A 1A 0A
   if (
+    buffer.length >= 8 &&
     buffer[0] === 0x89 &&
     buffer[1] === 0x50 &&
     buffer[2] === 0x4e &&
@@ -43,6 +44,7 @@ export function checkMagicBytes(buffer: Buffer): { isValid: boolean; mimeType?: 
 
   // WebP: RIFF....WEBP
   if (
+    buffer.length >= 12 &&
     buffer.toString('ascii', 0, 4) === 'RIFF' &&
     buffer.toString('ascii', 8, 12) === 'WEBP'
   ) {

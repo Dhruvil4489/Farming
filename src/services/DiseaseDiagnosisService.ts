@@ -5,12 +5,13 @@
  * Multi-Model Crop Disease Router and Model Registry.
  */
 
+import { checkMagicBytes } from '../lib/image-quality';
 import {
   AgronomicDiseaseInfo,
   getAgronomicPathology,
   isCropSupportedByModel,
   SUPPORTED_BENCHMARK_CROPS,
-} from '@/lib/crop-disease-knowledge';
+} from '../lib/crop-disease-knowledge';
 import {
   CropDiseaseRouter,
   CandidatePrediction,
@@ -118,7 +119,8 @@ export class DiseaseDiagnosisService {
   }
 
   /**
-   * Submits an image buffer for multi-model classification via CropDiseaseRouter.
+   * Submits an image buffer for multi-model classification via CropDiseaseRouter,
+   * with fallback to direct Python inference microservice contract handling.
    */
   static async predict(
     imageBuffer: Buffer,
@@ -126,6 +128,95 @@ export class DiseaseDiagnosisService {
     mimeType = 'image/jpeg',
     options?: { requestedCrop?: string | null; fieldCropName?: string | null }
   ): Promise<PredictionResult> {
+    const magicCheck = checkMagicBytes(imageBuffer);
+    if (!magicCheck.isValid || !magicCheck.mimeType) {
+      throw new Error('Uploaded file is not a valid JPEG/PNG image. Uploaded file is corrupt or not in a supported format (JPEG, PNG, WebP).');
+    }
+
+    // Direct microservice contract handling when no specific field crop is selected
+    if (!options?.requestedCrop && !options?.fieldCropName) {
+      const baseUrl = this.getServiceUrl();
+      const fallbackMeta: ModelMetadata = {
+        name: 'agri-plant-disease-resnet50',
+        architecture: 'ResNet-50',
+        version: '1.0.0',
+        license: 'Apache-2.0',
+        preprocessingVersion: 'v1-224-imagenet-norm',
+      };
+
+      const fallbackUncertainty: UncertaintyMetadata = {
+        isUncertain: true,
+        reason: 'Inference service offline',
+        caveat:
+          'Softmax scores represent benchmark category alignment, not clinical certainty. Physical inspection required.',
+      };
+
+      try {
+        const formData = new FormData();
+        const blob = new Blob([new Uint8Array(imageBuffer)], { type: mimeType });
+        formData.append('file', blob, filename);
+
+        const controller = new AbortController();
+        const timeoutMs = parseInt(process.env.DISEASE_SERVICE_TIMEOUT_MS || '4000', 10);
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+        const res = await fetch(`${baseUrl}/predict`, {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+
+        if (res.ok) {
+          const data = await res.json();
+          return {
+            status: data.status,
+            predictedLabel: data.predictedLabel || null,
+            crop: data.crop || null,
+            disease: data.disease || null,
+            isHealthy: data.isHealthy ?? null,
+            confidence: data.confidence ?? null,
+            topK: data.topK || [],
+            model: data.model || fallbackMeta,
+            uncertainty: data.uncertainty || fallbackUncertainty,
+            explanation: data.explanation || '',
+            timestamp: data.timestamp || new Date().toISOString(),
+          };
+        } else if (res.status === 422) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.detail || 'Uploaded file is not a valid JPEG/PNG image');
+        } else if (res.status === 413) {
+          throw new Error('Image exceeds maximum allowed size limit');
+        }
+      } catch (err: any) {
+        const isTimeout = err.name === 'AbortError';
+        const isConnectionRefused =
+          err.cause?.code === 'ECONNREFUSED' ||
+          err.message?.includes('fetch failed') ||
+          err.message?.includes('connect ECONNREFUSED');
+
+        if (isTimeout || isConnectionRefused) {
+          return {
+            status: 'model_not_ready',
+            model: fallbackMeta,
+            uncertainty: {
+              isUncertain: true,
+              reason: isTimeout ? 'Prediction timed out (10s)' : 'Inference service offline',
+              caveat: fallbackUncertainty.caveat,
+            },
+            explanation:
+              'The plant disease classifier service is currently unavailable or busy. Please ensure the Python service is running on port 8000 and try again.',
+            timestamp: new Date().toISOString(),
+            topK: [],
+          };
+        }
+
+        if (err.message?.includes('Uploaded file is not a valid JPEG/PNG image')) {
+          throw err;
+        }
+      }
+    }
+
     const result: RouterDiagnosticResult = await CropDiseaseRouter.routeAndAnalyze(
       imageBuffer,
       filename,

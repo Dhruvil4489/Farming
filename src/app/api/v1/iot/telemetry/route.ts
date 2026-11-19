@@ -47,6 +47,22 @@ export async function POST(request: NextRequest) {
       return apiError('Malformed JSON payload', 'invalid_json', 400);
     }
 
+    // Normalize Arduino hardware aliases if present
+    if (rawJson && typeof rawJson === 'object') {
+      if (rawJson.soilMoistureRaw === undefined && rawJson.moistureRaw !== undefined) {
+        rawJson.soilMoistureRaw = Math.round(Number(rawJson.moistureRaw));
+      }
+      if (rawJson.soilMoisturePct === undefined && rawJson.moisturePct !== undefined) {
+        rawJson.soilMoisturePct = Number(rawJson.moisturePct);
+      }
+      if (!rawJson.measuredAt) {
+        rawJson.measuredAt = new Date().toISOString();
+      }
+      if (!rawJson.eventId) {
+        rawJson.eventId = `uno-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      }
+    }
+
     // 3. Validate Payload Schema (Zod)
     const validationResult = telemetryPayloadSchema.safeParse(rawJson);
     if (!validationResult.success) {

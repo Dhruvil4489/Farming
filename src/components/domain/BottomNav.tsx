@@ -32,9 +32,8 @@ export const BottomNav: React.FC = () => {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl min-w-[56px] transition-colors ${
-                isActive ? 'text-[#143D2A] font-bold bg-emerald-50' : 'text-stone-500'
-              }`}
+              className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl min-w-[56px] transition-colors ${isActive ? 'text-[#143D2A] font-bold bg-emerald-50' : 'text-stone-500'
+                }`}
             >
               <Icon size={19} className={isActive ? 'text-[#2F7D4F]' : 'text-stone-400'} />
               <span className="text-[10px] mt-0.5 truncate max-w-[64px]">
