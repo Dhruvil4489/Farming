@@ -464,6 +464,64 @@ const DOCUMENTS = [
       },
     ],
   },
+  {
+    slug: 'icar-cpri-potato-cultivation-package',
+    title: 'Potato Complete Crop Cultivation Guide — Varieties, Planting, Nutrition, Earthing-Up & Blight IPM',
+    issuingOrg: 'ICAR-CPRI (Central Potato Research Institute) & AAU Anand',
+    sourceUrl: 'https://cpri.icar.gov.in',
+    publicationDate: new Date('2025-09-01'),
+    crop: 'potato',
+    topic: 'crop_cultivation',
+    region: 'Gujarat (Banaskantha, Deesa, Sabarkantha), UP, Punjab, West Bengal, Bihar',
+    language: 'en',
+    license: 'Government Open Data / Public Agricultural Extension',
+    chunks: [
+      {
+        title: 'Potato Sowing, Climate, Soil & Recommended Varieties',
+        keywords: 'potato aloo batata bataka બટાકા બટાટા आलू kufri pukhraj jyoti badshah chipsona deesa sowing season rabi winter soil',
+        content:
+          'Potato (Solanum tuberosum) is a cool-season tuber crop requiring daytime temperatures of 20°C–25°C for vegetative growth and nighttime temperatures of 15°C–20°C for optimal tuberization. Best sowing window in Gujarat (Deesa, Banaskantha) and Northern India is Rabi season: October 15 to November 15. Requires fertile, well-drained, friable sandy loam to loamy soil rich in organic matter with pH 5.5 to 6.8. Heavy clay soils cause misshapen tubers and poor aeration. Top varieties: Kufri Pukhraj (early maturity, 70–80 days, high yielding), Kufri Jyoti (wide adaptability, moderate blight resistance), Kufri Badshah (popular in Gujarat, high yield, 90–100 days), Kufri Chipsona-1/3 (processing & chips, high dry matter, low reducing sugars), and Kufri Khyati.',
+      },
+      {
+        title: 'Potato Seed Rate, Planting Method, Earthing-Up & Nutrition Schedule',
+        keywords: 'potato seed rate spacing earthing up fertilizer npk urea dap mop tuber bulking stolon',
+        content:
+          'Seed Rate & Spacing: Use 25–30 quintals/ha of certified disease-free, well-sprouted seed tubers (each 30–40g with 2–3 active eyes). Treat seed tubers before planting in Trichoderma viride @ 5g/L or approved fungicide. Plant on ridges with 50–60 cm row-to-row and 15–20 cm tuber-to-tuber spacing at 5–7 cm depth. Earthing-Up: Mandatory at 30–35 days after planting (DAP) when plants are 15–20 cm high. Earth up soil around the plant base to cover stolons and prevent developing tubers from exposure to sunlight (which turns tubers green, producing toxic solanine alkaloid). Fertilizer Management: Recommended Dose is 150–180 kg N : 100 kg P2O5 : 120–150 kg K2O per hectare. Apply full Phosphorus (217 kg DAP) and Potash (200–250 kg MOP or SOP for chips) plus half Nitrogen (100 kg Urea) as basal. Top-dress remaining Urea (100 kg) during earthing-up at 30–35 DAP. Potato is a heavy potash consumer; Potassium enhances starch accumulation, tuber sizing, and storage shelf-life.',
+      },
+      {
+        title: 'Potato Irrigation, Late Blight IPM & Harvesting/Storage Guide',
+        keywords: 'potato irrigation water late blight phytophthora dehaulming harvesting cold storage curing',
+        content:
+          'Irrigation Management: Potato is shallow-rooted and highly sensitive to water stress. Total water requirement is 500–600 mm delivered across 8–10 light irrigations (or drip irrigation every 2–3 days). Critical stages: Stolon emergence (20–25 DAP), Tuber initiation (35–45 DAP), and Tuber bulking (50–70 DAP). Never flood the top of ridges; keep water level at two-thirds of furrow height. Stop all irrigation 10–12 days prior to harvest to harden the tuber skin. Late Blight IPM: Scout for water-soaked, dark brown lesions with white fuzzy fungal growth on leaf undersides in humid, foggy weather. Spray Mancozeb 75% WP @ 2.5g/L preventively; use Cymoxanil 8% + Mancozeb 64% WP at early disease confirmation. Harvesting: Cut vines (Dehaulming) 10–12 days before digging to cure tuber periderm. Dig tubers gently without skinning, cure in cool shade for 10–15 days to heal minor scratches, sort diseased tubers, and store in ventilated cold storage at 2°C–4°C and 90–95% relative humidity.',
+      },
+    ],
+  },
+  {
+    slug: 'icar-aau-winter-rabi-crop-selection',
+    title: 'Winter (Rabi Season) Crop Selection Guide — Suitable Crops, Calendars & Agro-Climatic Guidance',
+    issuingOrg: 'ICAR & Anand Agricultural University (AAU) Directorate of Research',
+    sourceUrl: 'https://aau.in',
+    publicationDate: new Date('2025-09-15'),
+    crop: 'all',
+    topic: 'crop_selection',
+    region: 'Gujarat, Central & Western India, Northern Plains',
+    language: 'en',
+    license: 'Government Open Data / Public Agricultural Extension',
+    chunks: [
+      {
+        title: 'Winter (Rabi Season) Sowing Window & Top Recommended Crops',
+        keywords: 'winter season rabi crop sow sowing october november wheat mustard chickpea chana gram potato peas cumin શિયાળુ પાક રવિ પાક गेहूं चना सरसों आलू',
+        content:
+          'Rabi (Winter) season in India starts with the receding monsoon from mid-October to late November when temperatures cool down. Key crops recommended for winter sowing: (1) Wheat (Triticum aestivum): Sowing window November 1–25. Varieties: GW-496, GW-322, GW-366, HD-2967. High yield with 4–5 timely irrigations. (2) Mustard / Rai (Brassica juncea): Sowing window October 15–31. Varieties: Gujarat Mustard 3 (GM-3), Pusa Bold, Varuna. Highly drought tolerant, requires only 2 irrigations. (3) Chickpea / Bengal Gram (Cicer arietinum): Sowing window October 20–November 10. Varieties: Gujarat Gram 1 (GG-1), GG-2, JG-11, JAKI-9218. Conserves moisture, enriches soil nitrogen through Rhizobium nodules. (4) Potato (Solanum tuberosum): Sowing window October 15–November 15. Varieties: Kufri Pukhraj, Kufri Badshah. High profit cash crop in sandy loam soils with drip irrigation. (5) Spices & Seed Crops (Cumin / Jeera & Coriander): Cumin (GC-4) and Coriander (Gujarat Coriander 2) sown in November in well-drained soils. (6) Rabi Vegetables: Green Peas (Arkel, GS-10), Winter Onion (Pilipatti, AGFL-1), Garlic (GG-4), Cabbage, and Cauliflower.',
+      },
+      {
+        title: 'Decision Framework for Winter Crop Selection by Water & Soil Availability',
+        keywords: 'winter rabi crop selection irrigation water sandy loam black soil profit market planning',
+        content:
+          'Winter Crop Selection Criteria for Farmers: (A) Low Water Availability (1–2 irrigations): Choose Mustard, Chickpea, or Cumin. These drought-hardy crops thrive on residual soil moisture. (B) Medium to High Assured Irrigation (4–6 irrigations): Choose Wheat, Potato, or Rabi Onion. Wheat provides food security and guaranteed MSP procurement; Potato generates high commercial returns but requires higher upfront seed and cold storage investment. (C) Soil Considerations: Deep black soils (Vertisols) retain moisture and are ideal for Wheat and Chickpea. Light, porous sandy loam soils (Goradu/Alluvial) are best for Potato, Mustard, and Root Vegetables.',
+      },
+    ],
+  },
 ];
 
 async function seedKB() {

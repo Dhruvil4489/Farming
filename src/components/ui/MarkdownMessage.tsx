@@ -10,8 +10,13 @@ interface MarkdownMessageProps {
 export function MarkdownMessage({ content, className = '' }: MarkdownMessageProps) {
   if (!content) return null;
 
-  // Split content by code blocks or tables or paragraphs
-  const lines = content.split('\n');
+  // Unescape any escaped markdown syntax (e.g. \*\* -> **, \--- -> ---, \# -> #)
+  const normalizedContent = content
+    .replace(/\\(\*\*|\*|#|-|_|`|\[|\]|\(|\)|\|)/g, '$1')
+    .replace(/\\\\(\*\*|\*|#|-|_|`|\[|\]|\(|\)|\|)/g, '$1');
+
+  // Split content by lines
+  const lines = normalizedContent.split('\n');
   const elements: React.ReactNode[] = [];
   let tableBuffer: string[] = [];
   let inTable = false;

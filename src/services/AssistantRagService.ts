@@ -17,7 +17,7 @@ import { prisma } from '@/lib/prisma';
 import { AIProviderFactory } from '@/lib/ai/AIProviderFactory';
 import { AIMessage } from '@/lib/ai/IAIProvider';
 import { AIContextBuilder } from './AIContextBuilder';
-import { KnowledgeRetrievalService, RetrievedChunk } from './KnowledgeRetrievalService';
+import { KnowledgeRetrievalService, RetrievedChunk, CROP_SYNONYMS } from './KnowledgeRetrievalService';
 import {
   SmartFarmAgronomyEngine,
   detectQuestionLanguage,
@@ -175,6 +175,66 @@ export class AssistantRagService {
         modelUsed = aiResult.model;
         providerNameUsed = provider.name;
         isMockUsed = aiResult.isMock;
+
+        // Strict Response Relevance Validation Gate
+        const relevanceCheck = this.validateResponseRelevance(
+          cleanQuestion,
+          parsedContract.markdown || parsedContract.summary,
+          KnowledgeRetrievalService.detectIntent(cleanQuestion)
+        );
+
+        if (!relevanceCheck.isRelevant) {
+          console.warn('[AssistantRagService] LLM output failed relevance check:', relevanceCheck.reason, '— Retrying with correction prompt...');
+          const correctiveMessages: AIMessage[] = [
+            ...messages,
+            { role: 'assistant', content: aiResult.content },
+            {
+              role: 'user',
+              content: `CRITICAL CORRECTION: Your previous answer addressed the wrong subject. The farmer asked: "${cleanQuestion}". You MUST directly answer this question. Do not substitute any unrelated crops, government schemes, or generic IPM articles. Provide a clear, well-formatted ChatGPT-style agricultural response matching the requested schema.`,
+            },
+          ];
+
+          try {
+            const retryResult = await provider.chat(correctiveMessages, {
+              temperature: 0.1,
+              maxTokens: 2048,
+              timeoutMs: 25000,
+              jsonMode: true,
+            });
+            const retryContract = this.parseAndValidateResponse(retryResult.content, retrievedChunks, effectiveLang);
+            const secondCheck = this.validateResponseRelevance(
+              cleanQuestion,
+              retryContract.markdown || retryContract.summary,
+              KnowledgeRetrievalService.detectIntent(cleanQuestion)
+            );
+            if (secondCheck.isRelevant) {
+              parsedContract = retryContract;
+            } else {
+              console.warn('[AssistantRagService] Retry still failed relevance check. Falling back to SmartFarm Grounded Agronomy Engine.');
+              parsedContract = await SmartFarmAgronomyEngine.generate({
+                question: cleanQuestion,
+                language: effectiveLang,
+                farmContext,
+                chunks: retrievedChunks,
+                priorMessages,
+              });
+              modelUsed = 'smartfarm-agronomy-rag-v3';
+              providerNameUsed = 'SmartFarm Grounded Agronomy Engine';
+              isMockUsed = true;
+            }
+          } catch {
+            parsedContract = await SmartFarmAgronomyEngine.generate({
+              question: cleanQuestion,
+              language: effectiveLang,
+              farmContext,
+              chunks: retrievedChunks,
+              priorMessages,
+            });
+            modelUsed = 'smartfarm-agronomy-rag-v3';
+            providerNameUsed = 'SmartFarm Grounded Agronomy Engine';
+            isMockUsed = true;
+          }
+        }
       } catch (err: any) {
         console.warn('[AssistantRagService] External LLM failed, falling back to SmartFarm Grounded Engine:', err.message);
         parsedContract = await SmartFarmAgronomyEngine.generate({
@@ -270,6 +330,52 @@ export class AssistantRagService {
   }
 
   /**
+   * Validates whether generated response actually addresses the question rather than an unrelated topic.
+   */
+  private static validateResponseRelevance(
+    question: string,
+    responseMarkdown: string,
+    intent: string
+  ): { isRelevant: boolean; reason?: string } {
+    const qLower = question.toLowerCase();
+    const respLower = responseMarkdown.toLowerCase();
+
+    // 1. If question is about a specific crop (e.g. potato), response MUST mention that crop!
+    const crop = KnowledgeRetrievalService.detectCrop(question);
+    if (crop) {
+      const synonyms: string[] = CROP_SYNONYMS[crop] || [crop];
+      const mentionsCrop = synonyms.some((s: string) => respLower.includes(s.toLowerCase()));
+      if (!mentionsCrop) {
+        return { isRelevant: false, reason: `Response does not address requested crop: ${crop}` };
+      }
+    }
+
+    // 2. If question is about seasonal crop selection (winter, rabi, sowing season)
+    if (intent === 'crop_selection' || qLower.includes('winter') || qLower.includes('rabi') || qLower.includes('season')) {
+      const mentionsCrops =
+        respLower.includes('wheat') ||
+        respLower.includes('mustard') ||
+        respLower.includes('chickpea') ||
+        respLower.includes('gram') ||
+        respLower.includes('potato') ||
+        respLower.includes('winter') ||
+        respLower.includes('rabi');
+      if (!mentionsCrops) {
+        return { isRelevant: false, reason: 'Response does not provide seasonal crop recommendations' };
+      }
+    }
+
+    // 3. Prevent unsolicited government schemes from being substituted for crop advice
+    if (!qLower.includes('pm-kisan') && !qLower.includes('pmfby') && !qLower.includes('insurance') && !qLower.includes('kcc') && !qLower.includes('yojana')) {
+      if (respLower.includes('pm-kisan') && respLower.includes('kisan credit card') && !crop) {
+        return { isRelevant: false, reason: 'Unsolicited government scheme substituted for crop advice' };
+      }
+    }
+
+    return { isRelevant: true };
+  }
+
+  /**
    * Builds the grounding system prompt with safety constraints and ChatGPT formatting rules.
    */
   private static buildSystemPrompt(params: {
@@ -277,48 +383,75 @@ export class AssistantRagService {
     knowledgeSourcesText: string;
     language: string;
   }): string {
-    return `You are SmartFarm AI, an expert Senior Agricultural Decision-Support Assistant for Indian farmers.
-Your mission is to provide evidence-grounded, practical, transparent, and easy-to-understand farming recommendations.
+    return `You are SmartFarm AI, an intelligent, context-aware agricultural expert.
 
-### RESPONSE FORMATTING RULES (CHATGPT-STYLE FOR FARMERS):
-1. **Dynamic Structure:** Adapt your structure to the question:
-   - For Cultivation & Yield: Use step-by-step numbered sections (Variety, Soil, Sowing, Fertilizers, Irrigation, Pest IPM, Expert Tip, Summary).
-   - For Disease & Pests: Explain Symptoms, Possible Causes, Why it occurs, Preventive measures, Safe treatment options, and suggest uploading a leaf photo.
-   - For Comparisons (e.g. DAP vs NPK): Use clean Markdown comparison tables.
-   - For Fertilizers: Detail nutrient roles, split timing by crop growth stage, and warnings against improper mixing.
-   - For Definitions / Short Queries: Give clear, concise answers without fluff.
-2. **Easy for Ordinary Farmers:** Use simple language. Explain technical terms simply (e.g., CRI stage = Crown Root Initiation / जड़ फूटने की अवस्था / મૂળ ફૂટવાની અવસ્થા).
-3. **Multilingual Fluency:** Respond naturally in ${params.language === 'gu' ? 'Gujarati' : params.language === 'hi' ? 'Hindi' : 'English'}.
+Your primary responsibility is to understand and directly answer the user's actual question.
 
-### CRITICAL SAFETY & GROUNDING RULES:
-1. **ZERO FABRICATED DOSAGES:** Never invent chemical pesticide/herbicide dosages. Cite registered CIB&RC label recommendations or advise consulting the local KVK / Agriculture Officer.
-2. **NO BANNED CHEMICALS:** Never recommend banned or restricted chemicals in India (e.g., Monocrotophos on vegetables, Endosulfan, Benomyl, etc.).
-3. **FERTILIZER COMPATIBILITY:** Never recommend mixing Zinc Sulphate with DAP/SSP or Calcium Nitrate with Phosphates/Sulphates (causes chemical precipitation).
-4. **FACTUAL GROUNDING:** Ground advice in the provided <farm_context> and <knowledge_sources>.
-5. **OUTPUT CONTRACT:** Return a valid JSON object matching this schema:
+### Core Principles:
+1. Answer the exact question first.
+2. Never substitute another agricultural topic.
+3. Never insert unrelated government schemes, diseases, fertilizer advice, or pest management information unless asked.
+4. Never use a fixed answer for different questions. Generate every answer dynamically according to the user's intent.
+5. Use retrieved information from <knowledge_sources> ONLY when it directly relates to the question and crop being discussed. If no relevant sources are available or if they discuss unrelated topics, use your verified general agricultural knowledge and directly answer the user's question.
+6. Never fabricate agricultural facts or dosages.
+7. Explain technical terms in simple language.
+8. Maintain the language of the user's question (${params.language === 'gu' ? 'Gujarati' : params.language === 'hi' ? 'Hindi' : 'English'}).
+9. Understand conversation history and follow-up questions (pronouns like "it", "this fertilizer", "its irrigation").
+
+### Dynamic Question-Adaptive Formatting:
+- When the user asks for CROP DETAILS (e.g. "Can you give me details about potato?"):
+  Use structure:
+  # 🥔 [Crop Name] – Complete Crop Guide
+  **1. About the Crop**
+  **2. Suitable Climate and Soil**
+  **3. Best Sowing Season** (consider user's location)
+  **4. Popular Varieties**
+  **5. Land Preparation**
+  **6. Seed and Planting**
+  **7. Fertilizer Management**
+  **8. Irrigation**
+  **9. Common Diseases and Pests**
+  **10. Harvesting and Storage**
+  **11. Expert Tip**
+  End with a short summary.
+
+- When the user asks about SEASONAL CROP SELECTION (e.g. "In winter season, what type of crop can I sow?"):
+  Use structure:
+  # 🌱 Best Crops to Grow in [Season]
+  **1. Recommended Crops**
+  Include a clean Markdown table:
+  | Crop | Category | Key Considerations |
+  | Wheat | Cereal | Sowing window, temperature |
+  | Mustard | Oilseed | Drought-tolerant, 2 light irrigations |
+  | Chickpea | Pulse | Nitrogen-fixing, residual moisture |
+  | Peas | Vegetable | Cool-season, fast 65-75 days |
+  | Potato | Tuber crop | Sandy loam, earthing up, high yield |
+  | Onion | Vegetable | Regional variety, nursery timing |
+  **2. Which Crop Is Suitable for Your Region?**
+  **3. Important Farming Considerations** (Soil, irrigation, duration)
+  **4. Expert Recommendation**
+
+- When the user asks about PLANT DISEASE:
+  Structure: Possible Disease, Visible Symptoms, Possible Causes, How to Confirm, Preventive Measures, Treatment Options (IPM & safe CIB&RC options), Safety Precautions. Advise uploading a leaf photo if visual confirmation helps.
+
+- When the user asks about FERTILIZER:
+  Structure: Crop and Growth Stage, Nutrients Required, Fertilizer Options (DAP, NPK, Urea, MOP), Timing and Application Method, Soil Testing Considerations, Precautions (never mix Zinc with DAP).
+
+- When the user asks a SIMPLE DEFINITION / SHORT QUESTION:
+  Give a short, clear, direct answer. Do NOT generate an unnecessary 10-section response.
+
+### JSON Output Contract:
+Return a valid JSON object matching this schema:
 {
-  "summary": "Clear, concise direct answer to the farmer in 2-3 sentences",
-  "markdown": "Complete, comprehensive, beautifully formatted ChatGPT-style Markdown answer with emoji headers, bullet points, comparison tables, numbered steps, expert tips, and precautions.",
-  "observations": [
-    { "text": "Specific fact about the field, crop, weather, or market", "provenance": "measured | weather_service | market_data | knowledge_base | user_profile" }
-  ],
-  "recommendations": [
-    { "action": "Clear actionable step", "reason": "Why this step is needed", "evidence_refs": ["Specific fact or rule cited"], "priority": "low | medium | high" }
-  ],
-  "references": [
-    { "title": "Publication title from source_document", "issuingOrg": "Issuing organization", "topic": "topic" }
-  ],
+  "summary": "Direct, concise answer in 2-3 sentences",
+  "markdown": "Complete, beautifully formatted ChatGPT-style Markdown answer matching the adaptive structure above.",
+  "observations": [{ "text": "Specific agricultural fact", "provenance": "measured | weather_service | market_data | knowledge_base | user_profile" }],
+  "recommendations": [{ "action": "Actionable step", "reason": "Why this step is needed", "evidence_refs": ["Authoritative source or rule"], "priority": "high | medium | low" }],
+  "references": [{ "title": "Authoritative publication or university source", "issuingOrg": "Issuing organization", "topic": "topic" }],
   "confidence": "high | medium | low",
-  "limitations": [
-    "Safety caveat: follow registered CIB&RC product labels",
-    "Limitation regarding local soil test verification"
-  ],
+  "limitations": ["Verification or local condition caveat"],
   "language": "${params.language}",
-  "suggestedQuestions": [
-    "Follow-up question 1",
-    "Follow-up question 2",
-    "Follow-up question 3"
-  ]
+  "suggestedQuestions": ["Specific relevant follow-up 1", "Specific relevant follow-up 2", "Specific relevant follow-up 3"]
 }
 
 <farm_context>
@@ -346,9 +479,31 @@ ${params.knowledgeSourcesText}
       clean = clean.replace(/^```\s*/, '').replace(/\s*```$/, '');
     }
 
+    let json: any = null;
     try {
-      const json = JSON.parse(clean);
+      json = JSON.parse(clean);
+    } catch {
+      // Try extracting JSON block if wrapped in comments or text
+      const match = clean.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          json = JSON.parse(match[0]);
+        } catch {
+          // If malformed, extract markdown or summary via regex
+          const mdMatch = clean.match(/"markdown"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"[a-zA-Z]+"|"\s*\}|$)/);
+          const sumMatch = clean.match(/"summary"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"[a-zA-Z]+"|"\s*\}|$)/);
+          if (mdMatch || sumMatch) {
+            const rawMd = mdMatch ? mdMatch[1] : (sumMatch ? sumMatch[1] : '');
+            json = {
+              markdown: rawMd.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\'),
+              summary: sumMatch ? sumMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : undefined,
+            };
+          }
+        }
+      }
+    }
 
+    if (json) {
       const references: AssistantReference[] = (json.references || []).length > 0
         ? json.references
         : chunks.map((c) => ({
@@ -358,8 +513,14 @@ ${params.knowledgeSourcesText}
             topic: c.topic || null,
           }));
 
-      const markdown = json.markdown || json.content || json.summary || 'Agricultural decision-support guidance.';
-      const summary = json.summary || markdown.split('\n\n')[0].replace(/[*#]/g, '').slice(0, 300);
+      let markdown = json.markdown || json.content || json.summary || 'Agricultural decision-support guidance.';
+      // Clean and normalize escaped markdown
+      markdown = markdown
+        .replace(/\\(\*\*|\*|#|-|_|`|\[|\]|\(|\)|\|)/g, '$1')
+        .replace(/\\\\(\*\*|\*|#|-|_|`|\[|\]|\(|\)|\|)/g, '$1');
+
+      let summary = (json.summary || markdown.split('\n\n')[0].replace(/[*#]/g, '').slice(0, 300))
+        .replace(/\\(\*\*|\*|#|-|_|`|\[|\]|\(|\)|\|)/g, '$1');
 
       return {
         summary,
@@ -378,13 +539,27 @@ ${params.knowledgeSourcesText}
         language: json.language || language,
         suggestedQuestions: Array.isArray(json.suggestedQuestions) ? json.suggestedQuestions : undefined,
       };
-    } catch {
-      // If LLM returned direct rich Markdown text rather than JSON
-      const summary = clean.split('\n\n')[0].replace(/[*#]/g, '').trim().slice(0, 300) || clean.slice(0, 300);
+    } else {
+      // If LLM returned direct rich Markdown text rather than valid JSON
+      let cleanMd = clean
+        .replace(/\\(\*\*|\*|#|-|_|`|\[|\]|\(|\)|\|)/g, '$1')
+        .replace(/\\\\(\*\*|\*|#|-|_|`|\[|\]|\(|\)|\|)/g, '$1');
+
+      // Strip any stray outer JSON delimiters if partial
+      if (cleanMd.startsWith('{') && cleanMd.includes('"summary"')) {
+        cleanMd = cleanMd
+          .replace(/^[{\s]*"(summary|markdown|content)"\s*:\s*"/, '')
+          .replace(/"\s*,\s*"[a-zA-Z]+":[\s\S]*$/, '')
+          .replace(/["}\s]*$/, '')
+          .replace(/\\n/g, '\n')
+          .replace(/\\"/g, '"');
+      }
+
+      const summary = cleanMd.split('\n\n')[0].replace(/[*#]/g, '').trim().slice(0, 300) || cleanMd.slice(0, 300);
       return {
         summary,
-        markdown: clean,
-        content: clean,
+        markdown: cleanMd,
+        content: cleanMd,
         observations: [{ text: 'Grounded against current farm profile and extension guidelines.', provenance: 'knowledge_base' }],
         recommendations: [
           {
