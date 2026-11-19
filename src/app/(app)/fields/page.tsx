@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/providers/I18nProvider';
 import { hectaresToAcres } from '@/lib/units';
 import { formatExactArea, validateAreaInput } from '@/lib/area-validation';
+import { CropNameSelect } from '@/components/domain/CropNameSelect';
 
 interface FieldRecord {
   id: string;
@@ -486,16 +487,16 @@ return (
                               )}
 
                               <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
-                                <div>
-                                  <label className="block font-bold text-stone-700 mb-1">Field Name *</label>
-                                  <input
-                                    type="text"
-                                    required
-                                    value={editForm.name}
-                                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                    className="w-full px-3.5 py-2.5 border border-stone-300 rounded-xl text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#2F7D4F]"
-                                  />
-                                </div>
+                                <CropNameSelect
+                                  label="Crop Name *"
+                                  placeholder="Search or select a crop"
+                                  value={editForm.name}
+                                  onChange={(val) => setEditForm((prev) => ({ ...prev, name: val }))}
+                                  existingNames={fields
+                                    .filter((f) => f.id !== editingField?.id && f.farmId === editForm.farmId)
+                                    .map((f) => f.name)}
+                                  required
+                                />
 
                                 {farms.length > 0 && (
                                   <div>

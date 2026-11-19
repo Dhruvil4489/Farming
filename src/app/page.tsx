@@ -18,6 +18,7 @@ import {
   Bell,
   Calendar,
 } from 'lucide-react';
+import { useI18n } from '@/providers/I18nProvider';
 import { SiteHeader } from '@/components/domain/SiteHeader';
 import { CinematicVideoHero } from '@/components/domain/CinematicVideoHero';
 import { MarketSnapshotSection } from '@/components/market/MarketSnapshotSection';
@@ -63,6 +64,7 @@ function ProductImage({
     );
   }
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={alt}
@@ -117,13 +119,14 @@ const capabilities = [
 
 export default function HomePage() {
   const router = useRouter();
+  const { t } = useI18n();
 
   const [storeProducts, setStoreProducts] = useState<StoreProduct[]>([]);
   const [cartAdding, setCartAdding] = useState<string | null>(null);
-  const [cartNotice, setCartNotice] = useState('');
+  const [cartNotice, setCartNotice] = useState<string>('');
   const [liveWeather, setLiveWeather] = useState<LiveWeather | null>(null);
 
-  // Fetch store products preview and weather without blocking other modules
+  // Fetch store products preview and weather safely without blocking other modules
   useEffect(() => {
     let isMounted = true;
 
@@ -196,7 +199,7 @@ export default function HomePage() {
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.08] drop-shadow-sm">
-              Intelligent Farming from Sowing to Harvest.
+              {t('app_tagline', 'Intelligent Farming from Sowing to Harvest.')}
             </h1>
 
             <p className="text-base sm:text-lg text-emerald-50/90 leading-relaxed max-w-2xl">
@@ -210,13 +213,13 @@ export default function HomePage() {
                 href="/register"
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-[#2F7D4F] hover:bg-[#24663F] text-white font-extrabold text-sm shadow-xl transition-all"
               >
-                <Sprout size={18} /> Start Free Farmer Account <ArrowRight size={16} />
+                <Sprout size={18} /> {t('start_free', 'Start Free Farmer Account')} <ArrowRight size={16} />
               </Link>
               <Link
                 href="/login"
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white border border-white/30 font-bold text-sm backdrop-blur-md transition-all"
               >
-                Sign In to Dashboard
+                {t('sign_in', 'Sign In to Dashboard')}
               </Link>
             </div>
 
@@ -341,7 +344,7 @@ export default function HomePage() {
                     onClick={() => handleAddToCart(prod.id, prod.name)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#143D2A] hover:bg-[#2F7D4F] text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
                   >
-                    <ShoppingCart size={13} /> Add
+                    <ShoppingCart size={13} /> {t('add_to_cart', 'Add')}
                   </button>
                 </div>
               </div>
@@ -369,7 +372,7 @@ export default function HomePage() {
             href="/register"
             className="shrink-0 inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-white text-[#143D2A] hover:bg-emerald-50 font-extrabold text-sm shadow-md transition-colors"
           >
-            Create Free Account <ArrowRight size={16} />
+            {t('start_free', 'Create Free Account')} <ArrowRight size={16} />
           </Link>
         </div>
       </section>

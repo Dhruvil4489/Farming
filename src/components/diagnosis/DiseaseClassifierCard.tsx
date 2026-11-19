@@ -50,7 +50,7 @@ import { Button } from '@/components/ui/Button';
 import { ProvenanceChip } from '@/components/ui/ProvenanceChip';
 import { useI18n } from '@/providers/I18nProvider';
 import { AgronomicDiseaseInfo } from '@/lib/crop-disease-knowledge';
-import { UNIVERSAL_CROP_CATALOG, AI_MODEL_REGISTRY, CropCatalogEntry, RegisteredModel } from '@/services/ai/CropModelRegistry';
+import { UNIVERSAL_CROP_CATALOG, AI_MODEL_REGISTRY, CropCatalogEntry } from '@/services/ai/CropModelRegistry';
 import { RecommendedMedicineCard, MatchingResult } from '@/services/DiseaseProductMatchingService';
 
 interface FieldOption {
@@ -141,7 +141,7 @@ const ANALYSIS_STAGES = [
 
 export function DiseaseClassifierCard() {
   const router = useRouter();
-  const { t, formatDate, formatNumber } = useI18n();
+  const { t, formatDate } = useI18n();
 
   const [fields, setFields] = useState<FieldOption[]>([]);
   const [selectedFieldId, setSelectedFieldId] = useState('');
@@ -217,7 +217,6 @@ export function DiseaseClassifierCard() {
 
   // Selected crop info
   const activeCropMeta = selectedCropId !== 'auto' ? UNIVERSAL_CROP_CATALOG.find((c) => c.cropId === selectedCropId) : null;
-  const activeModelMeta = activeCropMeta ? AI_MODEL_REGISTRY[activeCropMeta.primaryModelId] : null;
 
   // Handle file selection
   const handleFile = (file: File) => {

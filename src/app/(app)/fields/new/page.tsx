@@ -7,11 +7,13 @@ import { ArrowLeft, ChevronDown, ChevronUp, Plus, Sprout, Tractor } from 'lucide
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { CropNameSelect } from '@/components/domain/CropNameSelect';
 import { validateAreaInput } from '@/lib/area-validation';
 
 export default function NewFieldPage() {
   const router = useRouter();
   const [farms, setFarms] = useState<any[]>([]);
+  const [existingFields, setExistingFields] = useState<any[]>([]);
   const [loadingInit, setLoadingInit] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -28,13 +30,22 @@ export default function NewFieldPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/api/v1/farms')
-      .then((r) => (r.ok ? r.json() : { data: [] }))
-      .then((farmRes) => {
+    Promise.all([
+      fetch('/api/v1/farms').then((r) => (r.ok ? r.json() : { data: [] })),
+      fetch('/api/v1/fields').then((r) => (r.ok ? r.json() : { data: [] })),
+    ])
+      .then(([farmRes, fieldsRes]) => {
         const farmList = Array.isArray(farmRes?.data) ? farmRes.data : [];
+        const fieldList = Array.isArray(fieldsRes?.data) ? fieldsRes.data : [];
         setFarms(farmList);
+        setExistingFields(fieldList);
+
         if (farmList.length > 0) {
-          setForm((prev) => ({ ...prev, farmId: farmList[0].id }));
+          const defaultFarmId = farmList[0].id;
+          setForm((prev) => ({
+            ...prev,
+            farmId: defaultFarmId,
+          }));
         }
       })
       .catch(() => {})
@@ -47,6 +58,11 @@ export default function NewFieldPage() {
 
     if (!form.farmId) {
       setError('Please add or select a farm first.');
+      return;
+    }
+
+    if (!form.name || !form.name.trim()) {
+      setError('Please select or enter a crop name.');
       return;
     }
 
@@ -64,7 +80,7 @@ export default function NewFieldPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           farmId: form.farmId,
-          name: form.name,
+          name: form.name.trim(),
           areaInputValue: areaCheck.value ?? undefined,
           areaInputUnit: form.areaInputUnit,
           irrigationType: form.irrigationType,
@@ -83,6 +99,10 @@ export default function NewFieldPage() {
       setLoading(false);
     }
   };
+
+  const currentFarmExistingNames = existingFields
+    .filter((f) => f.farmId === form.farmId)
+    .map((f) => f.name);
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
@@ -127,12 +147,13 @@ export default function NewFieldPage() {
       ) : (
         <Card className="p-6 rounded-2xl">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* 1. Field Name */}
-            <Input
-              label="Field Name *"
-              placeholder="e.g. North Plot, Plot A, Behind Borewell"
+            {/* 1. Crop Name Dropdown */}
+            <CropNameSelect
+              label="Crop Name *"
+              placeholder="Search or select a crop"
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(val) => setForm((prev) => ({ ...prev, name: val }))}
+              existingNames={currentFarmExistingNames}
               required
             />
 

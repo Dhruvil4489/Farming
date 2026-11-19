@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 const fieldSchema = z.object({
   farmId: z.string().min(1, 'Please select a farm'),
-  name: z.string().trim().min(2, 'Field name must be at least 2 characters'),
+  name: z.string().trim().min(2, 'Crop name must be at least 2 characters'),
   areaHa: z.number().positive().optional(),
   areaInputValue: areaInputValueSchema,
   areaInputUnit: areaInputUnitSchema,

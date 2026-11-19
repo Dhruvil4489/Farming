@@ -1,0 +1,422 @@
+[
+  {
+    "group": "Cereal Crops",
+    "categoryKey": "cereal",
+    "options": [
+      {
+        "name": "Rice",
+        "category": "Cereal Crops",
+        "aliases": ["Paddy", "Chawal", "Dhan", "Choka", "Oryza sativa"],
+        "scientificName": "Oryza sativa"
+      },
+      {
+        "name": "Wheat",
+        "category": "Cereal Crops",
+        "aliases": ["Gehun", "Gehu", "Ghav", "Ghau", "Kanak", "Triticum aestivum"],
+        "scientificName": "Triticum aestivum"
+      },
+      {
+        "name": "Maize",
+        "category": "Cereal Crops",
+        "aliases": ["Corn", "Makka", "Makai", "Bhutta", "Zea mays"],
+        "scientificName": "Zea mays"
+      },
+      {
+        "name": "Barley",
+        "category": "Cereal Crops",
+        "aliases": ["Jau", "Jav", "Hordeum vulgare"],
+        "scientificName": "Hordeum vulgare"
+      },
+      {
+        "name": "Sorghum (Jowar)",
+        "category": "Cereal Crops",
+        "aliases": ["Sorghum", "Jowar", "Jowari", "Cholam", "Jonna", "Juvar"],
+        "scientificName": "Sorghum bicolor"
+      },
+      {
+        "name": "Pearl Millet (Bajra)",
+        "category": "Cereal Crops",
+        "aliases": ["Pearl Millet", "Bajra", "Bajri", "Sajjey", "Kambu", "Bajro"],
+        "scientificName": "Pennisetum glaucum"
+      },
+      {
+        "name": "Finger Millet (Ragi)",
+        "category": "Cereal Crops",
+        "aliases": ["Finger Millet", "Ragi", "Mandua", "Nachni", "Kezhvaragu", "Bhav"],
+        "scientificName": "Eleusine coracana"
+      },
+      {
+        "name": "Oats",
+        "category": "Cereal Crops",
+        "aliases": ["Oats", "Oat", "Jai", "Javi", "Avena sativa"],
+        "scientificName": "Avena sativa"
+      }
+    ]
+  },
+  {
+    "group": "Pulse Crops",
+    "categoryKey": "pulse",
+    "options": [
+      {
+        "name": "Chickpea (Chana)",
+        "category": "Pulse Crops",
+        "aliases": ["Chickpea", "Chana", "Gram", "Bengal Gram", "Chhola", "Harbara"],
+        "scientificName": "Cicer arietinum"
+      },
+      {
+        "name": "Pigeon Pea (Tur)",
+        "category": "Pulse Crops",
+        "aliases": ["Pigeon Pea", "Tur", "Arhar", "Tuvar", "Red Gram", "Toor"],
+        "scientificName": "Cajanus cajan"
+      },
+      {
+        "name": "Green Gram (Moong)",
+        "category": "Pulse Crops",
+        "aliases": ["Green Gram", "Moong", "Mung", "Mung Bean", "Mag", "Mug"],
+        "scientificName": "Vigna radiata"
+      },
+      {
+        "name": "Black Gram (Urad)",
+        "category": "Pulse Crops",
+        "aliases": ["Black Gram", "Urad", "Udid", "Mash", "Adad"],
+        "scientificName": "Vigna mungo"
+      },
+      {
+        "name": "Lentil (Masoor)",
+        "category": "Pulse Crops",
+        "aliases": ["Lentil", "Masoor", "Masur", "Red Lentil"],
+        "scientificName": "Lens culinaris"
+      },
+      {
+        "name": "Field Pea",
+        "category": "Pulse Crops",
+        "aliases": ["Field Pea", "Dry Pea", "Matar", "Vatana", "Peas"],
+        "scientificName": "Pisum sativum"
+      }
+    ]
+  },
+  {
+    "group": "Cash Crops",
+    "categoryKey": "cash_crop",
+    "options": [
+      {
+        "name": "Cotton",
+        "category": "Cash Crops",
+        "aliases": ["Kapas", "Rui", "Kapasiya", "Cotton Plot"],
+        "scientificName": "Gossypium hirsutum"
+      },
+      {
+        "name": "Sugarcane",
+        "category": "Cash Crops",
+        "aliases": ["Ganna", "Sherdi", "Karumbu", "Cheruku"],
+        "scientificName": "Saccharum officinarum"
+      },
+      {
+        "name": "Tobacco",
+        "category": "Cash Crops",
+        "aliases": ["Tambaku", "Tamaku", "Nicotiana"],
+        "scientificName": "Nicotiana tabacum"
+      },
+      {
+        "name": "Jute",
+        "category": "Cash Crops",
+        "aliases": ["Pat", "Patsan", "Burlap", "Corchorus"],
+        "scientificName": "Corchorus capsularis"
+      },
+      {
+        "name": "Groundnut",
+        "category": "Cash Crops",
+        "aliases": ["Peanut", "Moongphali", "Mungfali", "Singdana", "Magfali"],
+        "scientificName": "Arachis hypogaea"
+      },
+      {
+        "name": "Soybean",
+        "category": "Cash Crops",
+        "aliases": ["Soya", "Soyabean", "Bhat"],
+        "scientificName": "Glycine max"
+      },
+      {
+        "name": "Sunflower",
+        "category": "Cash Crops",
+        "aliases": ["Surajmukhi", "Suryamukhi"],
+        "scientificName": "Helianthus annuus"
+      },
+      {
+        "name": "Mustard",
+        "category": "Cash Crops",
+        "aliases": ["Sarson", "Rai", "Rayda", "Mohari", "Mustard Seed"],
+        "scientificName": "Brassica juncea"
+      },
+      {
+        "name": "Sesame",
+        "category": "Cash Crops",
+        "aliases": ["Til", "Tal", "Gingelly", "Ellu"],
+        "scientificName": "Sesamum indicum"
+      }
+    ]
+  },
+  {
+    "group": "Vegetable Crops",
+    "categoryKey": "vegetable",
+    "options": [
+      {
+        "name": "Tomato",
+        "category": "Vegetable Crops",
+        "aliases": ["Tamatar", "Tameta"],
+        "scientificName": "Solanum lycopersicum"
+      },
+      {
+        "name": "Potato",
+        "category": "Vegetable Crops",
+        "aliases": ["Aloo", "Alu", "Batata"],
+        "scientificName": "Solanum tuberosum"
+      },
+      {
+        "name": "Onion",
+        "category": "Vegetable Crops",
+        "aliases": ["Pyaz", "Piaz", "Dungri", "Kanda"],
+        "scientificName": "Allium cepa"
+      },
+      {
+        "name": "Garlic",
+        "category": "Vegetable Crops",
+        "aliases": ["Lahsun", "Lasan", "Vellulli"],
+        "scientificName": "Allium sativum"
+      },
+      {
+        "name": "Brinjal (Eggplant)",
+        "category": "Vegetable Crops",
+        "aliases": ["Eggplant", "Baingan", "Ringan", "Aubergine", "Vangi"],
+        "scientificName": "Solanum melongena"
+      },
+      {
+        "name": "Cabbage",
+        "category": "Vegetable Crops",
+        "aliases": ["Patta Gobhi", "Kobi", "Bandhkopi"],
+        "scientificName": "Brassica oleracea var. capitata"
+      },
+      {
+        "name": "Cauliflower",
+        "category": "Vegetable Crops",
+        "aliases": ["Phool Gobhi", "Fulaver", "Phulkopi"],
+        "scientificName": "Brassica oleracea var. botrytis"
+      },
+      {
+        "name": "Spinach",
+        "category": "Vegetable Crops",
+        "aliases": ["Palak", "Paalak"],
+        "scientificName": "Spinacia oleracea"
+      },
+      {
+        "name": "Okra (Bhindi)",
+        "category": "Vegetable Crops",
+        "aliases": ["Lady Finger", "Bhindi", "Bhendi", "Bhinda"],
+        "scientificName": "Abelmoschus esculentus"
+      },
+      {
+        "name": "Green Chilli",
+        "category": "Vegetable Crops",
+        "aliases": ["Hari Mirch", "Green Pepper", "Marcha", "Mirchi"],
+        "scientificName": "Capsicum annuum"
+      },
+      {
+        "name": "Capsicum",
+        "category": "Vegetable Crops",
+        "aliases": ["Bell Pepper", "Shimla Mirch", "Sweet Pepper"],
+        "scientificName": "Capsicum annuum var. grossum"
+      },
+      {
+        "name": "Cucumber",
+        "category": "Vegetable Crops",
+        "aliases": ["Kheera", "Kakdi", "Kakari"],
+        "scientificName": "Cucumis sativus"
+      },
+      {
+        "name": "Bottle Gourd",
+        "category": "Vegetable Crops",
+        "aliases": ["Lauki", "Dudhi", "Ghiya", "Kaddu"],
+        "scientificName": "Lagenaria siceraria"
+      },
+      {
+        "name": "Bitter Gourd",
+        "category": "Vegetable Crops",
+        "aliases": ["Karela", "Karle", "Pavakkai"],
+        "scientificName": "Momordica charantia"
+      },
+      {
+        "name": "Pumpkin",
+        "category": "Vegetable Crops",
+        "aliases": ["Kaddu", "Kohla", "Kolu"],
+        "scientificName": "Cucurbita moschata"
+      },
+      {
+        "name": "Carrot",
+        "category": "Vegetable Crops",
+        "aliases": ["Gajar", "Gaajar"],
+        "scientificName": "Daucus carota"
+      },
+      {
+        "name": "Radish",
+        "category": "Vegetable Crops",
+        "aliases": ["Mooli", "Mula"],
+        "scientificName": "Raphanus sativus"
+      }
+    ]
+  },
+  {
+    "group": "Fruit Crops",
+    "categoryKey": "fruit",
+    "options": [
+      {
+        "name": "Mango",
+        "category": "Fruit Crops",
+        "aliases": ["Aam", "Keri", "Mavina"],
+        "scientificName": "Mangifera indica"
+      },
+      {
+        "name": "Banana",
+        "category": "Fruit Crops",
+        "aliases": ["Kela", "Keli", "Vazhaipazham"],
+        "scientificName": "Musa acuminata"
+      },
+      {
+        "name": "Papaya",
+        "category": "Fruit Crops",
+        "aliases": ["Papita", "Papaiyu", "Boppayi"],
+        "scientificName": "Carica papaya"
+      },
+      {
+        "name": "Guava",
+        "category": "Fruit Crops",
+        "aliases": ["Amrood", "Jamfal", "Peru", "Koyya"],
+        "scientificName": "Psidium guajava"
+      },
+      {
+        "name": "Pomegranate",
+        "category": "Fruit Crops",
+        "aliases": ["Anar", "Dadam", "Dalimba"],
+        "scientificName": "Punica granatum"
+      },
+      {
+        "name": "Grapes",
+        "category": "Fruit Crops",
+        "aliases": ["Angoor", "Draksh", "Drakshi"],
+        "scientificName": "Vitis vinifera"
+      },
+      {
+        "name": "Orange",
+        "category": "Fruit Crops",
+        "aliases": ["Santra", "Narangi", "Mosambi", "Mandarin"],
+        "scientificName": "Citrus sinensis"
+      },
+      {
+        "name": "Lemon",
+        "category": "Fruit Crops",
+        "aliases": ["Nimbu", "Limbu", "Lime", "Kagzi Nimbu"],
+        "scientificName": "Citrus limon"
+      },
+      {
+        "name": "Watermelon",
+        "category": "Fruit Crops",
+        "aliases": ["Tarbooz", "Kalingad", "Tarbuch"],
+        "scientificName": "Citrullus lanatus"
+      },
+      {
+        "name": "Muskmelon",
+        "category": "Fruit Crops",
+        "aliases": ["Kharbooja", "Teti", "Shakarteti", "Cantaloupe"],
+        "scientificName": "Cucumis melo"
+      },
+      {
+        "name": "Apple",
+        "category": "Fruit Crops",
+        "aliases": ["Seb", "Safarjan"],
+        "scientificName": "Malus domestica"
+      },
+      {
+        "name": "Coconut",
+        "category": "Fruit Crops",
+        "aliases": ["Nariyal", "Naliyer", "Thengai", "Kobbari"],
+        "scientificName": "Cocos nucifera"
+      },
+      {
+        "name": "Sapota (Chikoo)",
+        "category": "Fruit Crops",
+        "aliases": ["Chiku", "Chikoo", "Sapodilla"],
+        "scientificName": "Manilkara zapota"
+      }
+    ]
+  },
+  {
+    "group": "Spices and Plantation Crops",
+    "categoryKey": "spice_plantation",
+    "options": [
+      {
+        "name": "Turmeric",
+        "category": "Spices and Plantation Crops",
+        "aliases": ["Haldi", "Haldar", "Manjal"],
+        "scientificName": "Curcuma longa"
+      },
+      {
+        "name": "Ginger",
+        "category": "Spices and Plantation Crops",
+        "aliases": ["Adrak", "Aadu", "Inji"],
+        "scientificName": "Zingiber officinale"
+      },
+      {
+        "name": "Coriander",
+        "category": "Spices and Plantation Crops",
+        "aliases": ["Dhaniya", "Dhana", "Kothmir"],
+        "scientificName": "Coriandrum sativum"
+      },
+      {
+        "name": "Cumin (Jeera)",
+        "category": "Spices and Plantation Crops",
+        "aliases": ["Cumin", "Jeera", "Jira", "Jeerakam"],
+        "scientificName": "Cuminum cyminum"
+      },
+      {
+        "name": "Fennel",
+        "category": "Spices and Plantation Crops",
+        "aliases": ["Saunf", "Variyali", "Badi Saunf"],
+        "scientificName": "Foeniculum vulgare"
+      },
+      {
+        "name": "Fenugreek (Methi)",
+        "category": "Spices and Plantation Crops",
+        "aliases": ["Fenugreek", "Methi", "Menthya"],
+        "scientificName": "Trigonella foenum-graecum"
+      },
+      {
+        "name": "Cardamom",
+        "category": "Spices and Plantation Crops",
+        "aliases": ["Elaichi", "Elachi", "Elakkai"],
+        "scientificName": "Elettaria cardamomum"
+      },
+      {
+        "name": "Black Pepper",
+        "category": "Spices and Plantation Crops",
+        "aliases": ["Kali Mirch", "Mari", "Kurumulaku"],
+        "scientificName": "Piper nigrum"
+      },
+      {
+        "name": "Clove",
+        "category": "Spices and Plantation Crops",
+        "aliases": ["Laung", "Lavang", "Kirambu"],
+        "scientificName": "Syzygium aromaticum"
+      },
+      {
+        "name": "Tea",
+        "category": "Spices and Plantation Crops",
+        "aliases": ["Chai", "Chaha", "Tea (Chai)"],
+        "scientificName": "Camellia sinensis"
+      },
+      {
+        "name": "Coffee",
+        "category": "Spices and Plantation Crops",
+        "aliases": ["Coffee", "Kafi"],
+        "scientificName": "Coffea arabica"
+      }
+    ]
+  }
+]

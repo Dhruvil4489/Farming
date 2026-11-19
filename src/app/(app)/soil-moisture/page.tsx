@@ -5,16 +5,11 @@ import Link from 'next/link';
 import {
   Droplets,
   Radio,
-  Clock,
-  Calendar,
   Layers,
-  Info,
   AlertTriangle,
   RefreshCw,
   PlusCircle,
-  ShieldCheck,
   CheckCircle2,
-  HelpCircle,
   TrendingUp,
   TrendingDown,
   Thermometer,
@@ -25,7 +20,6 @@ import {
   X,
   Sparkles,
   ArrowRight,
-  Filter,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';

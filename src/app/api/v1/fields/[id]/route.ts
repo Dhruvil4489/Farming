@@ -8,10 +8,10 @@ import { z } from 'zod';
 
 const updateFieldSchema = z.object({
   farmId: z.string().min(1).optional(),
-  name: z.string().trim().min(2, 'Field name must be at least 2 characters').optional(),
+  name: z.string().trim().min(2, 'Crop name must be at least 2 characters').optional(),
   areaHa: z.number().positive().nullable().optional(),
-  areaInputValue: areaInputValueSchema,
-  areaInputUnit: areaInputUnitSchema,
+  areaInputValue: areaInputValueSchema.optional(),
+  areaInputUnit: areaInputUnitSchema.optional(),
   irrigationType: z.enum(['drip', 'sprinkler', 'flood', 'rainfed', 'other', 'unknown']).optional(),
   soilType: z.enum(['sandy', 'loamy', 'clay', 'black', 'red', 'alluvial', 'other', 'unknown']).optional(),
   status: z.enum(['empty', 'planned', 'active', 'fallow']).optional(),
