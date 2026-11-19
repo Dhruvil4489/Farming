@@ -60,7 +60,7 @@ export function RegisterForm({ onSwitchToSignIn }: RegisterFormProps) {
     nextUrl: string;
   } | null>(null);
   const [resending, setResending] = useState(false);
-  const [resendMsg, setResendMsg] = useState('');
+  const [resendState, setResendState] = useState<{ ok: boolean; message: string } | null>(null);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -224,7 +224,7 @@ export function RegisterForm({ onSwitchToSignIn }: RegisterFormProps) {
   const handleResendVerification = async () => {
     if (!pendingVerification?.email || resending) return;
     setResending(true);
-    setResendMsg('');
+    setResendState(null);
     try {
       const res = await fetch('/api/v1/auth/resend-verification', {
         method: 'POST',
@@ -233,13 +233,27 @@ export function RegisterForm({ onSwitchToSignIn }: RegisterFormProps) {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(
-          json?.error?.message || 'Unable to send verification email right now. Please try again.'
-        );
+        setResendState({
+          ok: false,
+          message:
+            json?.message ||
+            json?.error?.message ||
+            "We couldn't send your verification email right now. Please try again shortly.",
+        });
+        return;
       }
-      setResendMsg(json?.data?.message || 'Verification email sent! Please check your inbox.');
-    } catch (err: any) {
-      setResendMsg(err.message);
+      setResendState({
+        ok: true,
+        message:
+          json?.data?.message ||
+          json?.message ||
+          'Your verification email has been accepted for sending. Please check your inbox.',
+      });
+    } catch {
+      setResendState({
+        ok: false,
+        message: 'Unable to connect to the server. Please check your internet connection and try again.',
+      });
     } finally {
       setResending(false);
     }
@@ -259,11 +273,10 @@ export function RegisterForm({ onSwitchToSignIn }: RegisterFormProps) {
     return (
       <div className="space-y-5 py-2">
         <div
-          className={`p-5 rounded-2xl border space-y-3 ${
-            pendingVerification.emailDeliveryFailed
-              ? 'bg-amber-50 border-amber-200 text-amber-950'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-950'
-          }`}
+          className={`p-5 rounded-2xl border space-y-3 ${pendingVerification.emailDeliveryFailed
+            ? 'bg-amber-50 border-amber-200 text-amber-950'
+            : 'bg-emerald-50 border-emerald-200 text-emerald-950'
+            }`}
         >
           <div className="flex items-start gap-3">
             {pendingVerification.emailDeliveryFailed ? (
@@ -285,9 +298,14 @@ export function RegisterForm({ onSwitchToSignIn }: RegisterFormProps) {
           </div>
         </div>
 
-        {resendMsg && (
-          <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-800">
-            {resendMsg}
+        {resendState && (
+          <div
+            className={`p-3 rounded-xl text-xs font-semibold border ${resendState.ok
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : 'bg-red-50 border-red-200 text-red-800'
+              }`}
+          >
+            {resendState.message}
           </div>
         )}
 
@@ -327,18 +345,16 @@ export function RegisterForm({ onSwitchToSignIn }: RegisterFormProps) {
         <div
           role="alert"
           aria-live="polite"
-          className={`p-3.5 rounded-2xl text-xs font-semibold space-y-2.5 border ${
-            bannerError.code === 'EMAIL_ALREADY_EXISTS'
-              ? 'bg-amber-50 border-amber-300 text-amber-950'
-              : 'bg-red-50 border-red-200 text-red-800'
-          }`}
+          className={`p-3.5 rounded-2xl text-xs font-semibold space-y-2.5 border ${bannerError.code === 'EMAIL_ALREADY_EXISTS'
+            ? 'bg-amber-50 border-amber-300 text-amber-950'
+            : 'bg-red-50 border-red-200 text-red-800'
+            }`}
         >
           <div className="flex items-start gap-2.5">
             <AlertCircle
               size={16}
-              className={`shrink-0 mt-0.5 ${
-                bannerError.code === 'EMAIL_ALREADY_EXISTS' ? 'text-amber-700' : 'text-red-600'
-              }`}
+              className={`shrink-0 mt-0.5 ${bannerError.code === 'EMAIL_ALREADY_EXISTS' ? 'text-amber-700' : 'text-red-600'
+                }`}
             />
             <div className="flex-1 leading-relaxed">{bannerError.message}</div>
           </div>
@@ -457,9 +473,8 @@ export function RegisterForm({ onSwitchToSignIn }: RegisterFormProps) {
               {[1, 2, 3, 4].map((step) => (
                 <div
                   key={step}
-                  className={`rounded-full transition-colors ${
-                    pwdStrength.score >= step ? strengthColor : 'bg-stone-200'
-                  }`}
+                  className={`rounded-full transition-colors ${pwdStrength.score >= step ? strengthColor : 'bg-stone-200'
+                    }`}
                 />
               ))}
             </div>
@@ -545,11 +560,10 @@ export function RegisterForm({ onSwitchToSignIn }: RegisterFormProps) {
         {/* Terms & Conditions with inline error */}
         <div className="space-y-1">
           <label
-            className={`flex items-start gap-2.5 p-3 rounded-xl border text-xs text-stone-700 cursor-pointer select-none ${
-              fieldErrors.acceptedTerms
-                ? 'bg-red-50/60 border-red-300'
-                : 'bg-[#F7F8F5] border-stone-200/80'
-            }`}
+            className={`flex items-start gap-2.5 p-3 rounded-xl border text-xs text-stone-700 cursor-pointer select-none ${fieldErrors.acceptedTerms
+              ? 'bg-red-50/60 border-red-300'
+              : 'bg-[#F7F8F5] border-stone-200/80'
+              }`}
           >
             <input
               id="reg-terms"

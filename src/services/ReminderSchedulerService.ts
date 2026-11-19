@@ -110,7 +110,7 @@ export class ReminderSchedulerService {
         },
       });
 
-      if (result.status === 'sent' || result.status === 'simulated') {
+      if (result.status === 'sent' || result.delivered) {
         await prisma.scheduledReminder.update({
           where: { id: rem.id },
           data: {

@@ -35,9 +35,9 @@ function hasNativeAuthTokenDelegate(db: any): boolean {
   try {
     return Boolean(
       db &&
-        db.authToken &&
-        !db.authToken.isResilientFallback &&
-        typeof db.authToken.create === 'function'
+      db.authToken &&
+      !db.authToken.isResilientFallback &&
+      typeof db.authToken.create === 'function'
     );
   } catch {
     return false;
