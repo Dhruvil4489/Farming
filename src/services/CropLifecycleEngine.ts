@@ -263,7 +263,10 @@ export class CropLifecycleEngine {
             fieldName,
             stageName: st.nameSnapshot,
             whatToDo: tpl?.whatToDo,
+            whyImportant: tpl?.whyImportant,
+            howToDo: tpl?.howToDo,
             precautions: tpl?.precautions,
+            materials: tpl?.materials,
             actionUrl: EmailService.getAppUrl(`/crop-cycles/${cropCycleId}`),
           }),
           status: 'pending',
@@ -290,24 +293,21 @@ export class CropLifecycleEngine {
       },
     });
 
-    // Send lifecycle welcome email if user has an email address
-    if (userEmail && activeStage) {
-      const das = Math.max(0, Math.floor((nowMs - sowingDate.getTime()) / DAY_MS));
+    // Send lifecycle creation & welcome email if user has an email address
+    if (userEmail) {
       await EmailService.sendTemplate({
         userId,
         toEmail: userEmail,
-        templateKey: 'crop_stage',
+        templateKey: 'crop_cycle_created',
         locale: (userLocale as any) || 'en',
         preferenceType: 'crop_stage',
-        dedupeKey: `cycle_start:${cropCycleId}`,
+        dedupeKey: `cycle_created:${cropCycleId}`,
         data: {
           name: userName,
           cropName,
           fieldName,
-          stageName: activeStage.nameSnapshot,
-          das,
-          whatToDo: activeStage.templateStage?.whatToDo,
-          precautions: activeStage.templateStage?.precautions,
+          sowingDate: sowingDate.toLocaleDateString('en-IN'),
+          initialGuidance: activeStage?.templateStage?.whatToDo || 'Follow the growth stages and monitor field moisture.',
           actionUrl: EmailService.getAppUrl(`/crop-cycles/${cropCycleId}`),
         },
       }).catch(() => {});
@@ -317,5 +317,94 @@ export class CropLifecycleEngine {
       tasksCreated: createdTasks.length,
       remindersScheduled: createdReminders.length,
     };
+  }
+
+  /**
+   * Recalculates and reschedules future reminders and tasks when a sowing date is changed.
+   * Preserves all historical sent reminders.
+   */
+  static async rescheduleFutureReminders(params: {
+    cropCycleId: string;
+    newSowingDate: Date;
+    cropName?: string;
+    fieldName?: string;
+  }) {
+    const { cropCycleId, newSowingDate, cropName, fieldName } = params;
+    const nowMs = Date.now();
+
+    const stages = await prisma.cycleStage.findMany({
+      where: { cropCycleId },
+      orderBy: { orderIndex: 'asc' },
+      include: { templateStage: true },
+    });
+
+    for (const st of stages) {
+      const tpl = st.templateStage;
+      const startOffset = tpl?.startOffsetDays ?? 0;
+      const duration = tpl?.durationDays ?? 20;
+
+      const newStart = new Date(newSowingDate.getTime() + startOffset * DAY_MS);
+      const newEnd = new Date(newStart.getTime() + duration * DAY_MS);
+
+      // Update stage start and end dates
+      await prisma.cycleStage.update({
+        where: { id: st.id },
+        data: {
+          startDate: newStart,
+          endDate: newEnd,
+          status: newEnd.getTime() < nowMs ? 'done' : newStart.getTime() <= nowMs ? 'current' : 'pending',
+        },
+      });
+
+      // Update only future pending or failed reminders (preserve already sent reminders)
+      const dedupeKey = `cycle:${cropCycleId}:stage:${st.orderIndex}`;
+      const newReminderTime =
+        newStart.getTime() <= nowMs ? new Date(nowMs) : new Date(newStart.getTime() - DAY_MS);
+
+      await prisma.scheduledReminder.updateMany({
+        where: {
+          dedupeKey,
+          status: { in: ['pending', 'failed'] },
+        },
+        data: {
+          scheduledFor: newReminderTime,
+          updatedAt: new Date(),
+        },
+      });
+    }
+
+    // Update pending tasks due dates
+    const tasks = await prisma.task.findMany({
+      where: { cropCycleId, status: 'pending', deletedAt: null },
+    });
+    for (const t of tasks) {
+      // Find matching stage if any
+      const matchingStage = stages.find((s) => t.title.includes(s.nameSnapshot));
+      if (matchingStage) {
+        const startOffset = matchingStage.templateStage?.startOffsetDays ?? 0;
+        const newDue = new Date(newSowingDate.getTime() + startOffset * DAY_MS);
+        await prisma.task.update({
+          where: { id: t.id },
+          data: { dueAt: newDue < new Date() ? new Date() : newDue },
+        });
+      }
+    }
+  }
+
+  /**
+   * Cancels future pending reminders when a crop cycle is deleted or completed.
+   */
+  static async cancelFutureReminders(cropCycleId: string, reason: string) {
+    await prisma.scheduledReminder.updateMany({
+      where: {
+        cropCycleId,
+        status: { in: ['pending', 'failed'] },
+      },
+      data: {
+        status: 'cancelled',
+        lastError: reason,
+        updatedAt: new Date(),
+      },
+    });
   }
 }

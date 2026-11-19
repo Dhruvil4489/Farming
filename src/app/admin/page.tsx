@@ -18,6 +18,9 @@ import {
   AlertTriangle,
   Clock,
   Lock,
+  Mail,
+  Send,
+  XCircle,
 } from 'lucide-react';
 import { DataState } from '@/components/ui/DataState';
 import { Card } from '@/components/ui/Card';
@@ -38,22 +41,33 @@ export default function AdminPage() {
   const [syncMsg, setSyncMsg] = useState('');
   const [syncError, setSyncError] = useState<string | null>(null);
 
+  const [emailDiag, setEmailDiag] = useState<any>(null);
+  const [retryingLogId, setRetryingLogId] = useState<string | null>(null);
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [emailActionMsg, setEmailActionMsg] = useState<string | null>(null);
+
   const fetchAdminData = async () => {
     setLoading(true);
     setError(null);
     setPermissionDenied(false);
     try {
-      const [overviewRes, mRes, pRes, healthRes] = await Promise.all([
+      const [overviewRes, mRes, pRes, healthRes, emailRes] = await Promise.all([
         fetch('/api/v1/admin/overview'),
         fetch('/api/v1/market/status'),
         fetch('/api/v1/store/products'),
         fetch('/api/v1/admin/market/sync'),
+        fetch('/api/v1/admin/email-diagnostics'),
       ]);
 
       if (overviewRes.status === 401 || overviewRes.status === 403 || healthRes.status === 401 || healthRes.status === 403) {
         setPermissionDenied(true);
         setLoading(false);
         return;
+      }
+
+      if (emailRes.ok) {
+        const eData = await emailRes.json();
+        if (eData?.data) setEmailDiag(eData.data);
       }
 
       if (!overviewRes.ok && !healthRes.ok) {
@@ -121,6 +135,52 @@ export default function AdminPage() {
       setSyncError(`Sync error: ${e.message}`);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleVerifyEmailProvider = async () => {
+    setVerifyingEmail(true);
+    setEmailActionMsg(null);
+    try {
+      const res = await fetch('/api/v1/admin/email-diagnostics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify_provider' }),
+      });
+      const json = await res.json();
+      if (res.ok && json.data?.ok) {
+        setEmailActionMsg(`Success: ${json.data.message} (${json.data.latencyMs}ms)`);
+      } else {
+        setEmailActionMsg(`Provider Check: ${json.data?.message || json.error?.message || 'Verification failed'}`);
+      }
+    } catch (e: any) {
+      setEmailActionMsg(`Connection test error: ${e.message}`);
+    } finally {
+      setVerifyingEmail(false);
+    }
+  };
+
+  const handleRetryEmail = async (logId: string) => {
+    setRetryingLogId(logId);
+    setEmailActionMsg(null);
+    try {
+      const res = await fetch('/api/v1/admin/email-diagnostics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'retry', logId }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setEmailActionMsg(json.data?.message || 'Retry completed.');
+        const fresh = await fetch('/api/v1/admin/email-diagnostics').then((r) => r.json());
+        if (fresh?.data) setEmailDiag(fresh.data);
+      } else {
+        setEmailActionMsg(`Retry failed: ${json.error?.message || 'Delivery error'}`);
+      }
+    } catch (e: any) {
+      setEmailActionMsg(`Retry error: ${e.message}`);
+    } finally {
+      setRetryingLogId(null);
     }
   };
 
@@ -504,6 +564,181 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* Section: Email Delivery & Lifecycle Reminders Diagnostics */}
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-stone-200 space-y-6 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-100">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-stone-900 flex items-center gap-2">
+                  <Mail size={18} className="text-[#2F7D4F]" /> Email Infrastructure &amp; Crop Reminder Delivery
+                </h2>
+                {emailDiag?.provider?.configured ? (
+                  <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold flex items-center gap-1">
+                    <CheckCircle2 size={10} /> {emailDiag.provider.provider.toUpperCase()} Configured
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold flex items-center gap-1">
+                    <AlertTriangle size={10} /> Unconfigured (Local Outbox)
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-stone-500">
+                Truthful delivery telemetry for verification, password resets, crop stages, and farming reminders
+              </p>
+            </div>
+            <button
+              onClick={handleVerifyEmailProvider}
+              disabled={verifyingEmail}
+              className="px-4 py-2 bg-[#143D2A] hover:bg-[#2F7D4F] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 self-start sm:self-auto shadow-xs"
+            >
+              <RefreshCw size={14} className={verifyingEmail ? 'animate-spin' : ''} />
+              {verifyingEmail ? 'Testing Handshake...' : 'Verify Provider Handshake'}
+            </button>
+          </div>
+
+          {emailActionMsg && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 font-medium flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-700 shrink-0" />
+              <span>{emailActionMsg}</span>
+            </div>
+          )}
+
+          {/* Metric Telemetry Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+            <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 text-center">
+              <span className="text-[10px] font-bold uppercase text-stone-500 block">Total Dispatches</span>
+              <span className="text-lg font-extrabold text-stone-900">{emailDiag?.counts?.total ?? 0}</span>
+            </div>
+            <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 text-center">
+              <span className="text-[10px] font-bold uppercase text-emerald-600 block">Accepted</span>
+              <span className="text-lg font-extrabold text-emerald-800">{emailDiag?.counts?.accepted ?? 0}</span>
+            </div>
+            <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 text-center">
+              <span className="text-[10px] font-bold uppercase text-blue-600 block">Delivered</span>
+              <span className="text-lg font-extrabold text-blue-800">{emailDiag?.counts?.delivered ?? 0}</span>
+            </div>
+            <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 text-center">
+              <span className="text-[10px] font-bold uppercase text-amber-600 block">Pending/Queued</span>
+              <span className="text-lg font-extrabold text-amber-800">{emailDiag?.counts?.pending ?? 0}</span>
+            </div>
+            <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 text-center">
+              <span className="text-[10px] font-bold uppercase text-rose-600 block">Failed/Bounced</span>
+              <span className="text-lg font-extrabold text-rose-800">
+                {(emailDiag?.counts?.failed ?? 0) + (emailDiag?.counts?.bounced ?? 0)}
+              </span>
+            </div>
+            <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 text-center">
+              <span className="text-[10px] font-bold uppercase text-stone-500 block">Simulated</span>
+              <span className="text-lg font-extrabold text-stone-700">{emailDiag?.counts?.simulated ?? 0}</span>
+            </div>
+          </div>
+
+          {/* Warnings & Notes */}
+          {emailDiag?.provider?.warnings?.length > 0 && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+              {emailDiag.provider.warnings.map((w: string, idx: number) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <AlertTriangle size={14} className="text-amber-700 shrink-0 mt-0.5" />
+                  <span>{w}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Email Delivery Audit Trail Table */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center justify-between">
+              <span>Recent Email Delivery Logs ({emailDiag?.logs?.length || 0} Records):</span>
+              <span className="text-[11px] text-stone-500 font-normal">Auto-logged with provider Message-IDs</span>
+            </h3>
+
+            {(!emailDiag?.logs || emailDiag.logs.length === 0) ? (
+              <p className="text-stone-500 text-xs italic py-2">No email activity recorded yet.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-stone-100">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-stone-50 text-stone-500 font-bold uppercase text-[10px] border-b border-stone-200">
+                    <tr>
+                      <th className="py-2.5 px-3">Date (IST)</th>
+                      <th className="py-2.5 px-3">Recipient</th>
+                      <th className="py-2.5 px-3">Category</th>
+                      <th className="py-2.5 px-3">Provider</th>
+                      <th className="py-2.5 px-3 text-center">Status</th>
+                      <th className="py-2.5 px-3">Message ID</th>
+                      <th className="py-2.5 px-3">Error / Status Details</th>
+                      <th className="py-2.5 px-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100 font-medium">
+                    {emailDiag.logs.map((log: any) => (
+                      <tr key={log.id} className="hover:bg-stone-50/50">
+                        <td className="py-2.5 px-3 font-semibold text-stone-900 whitespace-nowrap">
+                          {log.createdAt
+                            ? new Date(log.createdAt).toLocaleString('en-IN', {
+                                timeZone: 'Asia/Kolkata',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : '-'}
+                        </td>
+                        <td className="py-2.5 px-3 text-stone-800 font-mono" title={log.toEmail}>
+                          {log.toEmailMasked}
+                        </td>
+                        <td className="py-2.5 px-3 text-stone-700 capitalize">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-stone-100 text-stone-700">
+                            {log.templateKey.replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-stone-600 uppercase font-bold text-[10px]">
+                          {log.provider}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              log.status === 'delivered'
+                                ? 'bg-blue-100 text-blue-800'
+                                : log.status === 'accepted' || log.status === 'sent'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : log.status === 'not_configured'
+                                    ? 'bg-stone-100 text-stone-700'
+                                    : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {log.status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-stone-500 truncate max-w-[140px]" title={log.providerMessageId || 'N/A'}>
+                          {log.providerMessageId ? log.providerMessageId.slice(0, 16) + '...' : '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-stone-500 text-[11px] truncate max-w-[200px]" title={log.errorMessage || 'Clean submission'}>
+                          {log.errorMessage ? (
+                            <span className="text-rose-600 font-medium">{log.errorMessage}</span>
+                          ) : (
+                            <span className="text-emerald-700">OK</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          {log.canRetry && (
+                            <button
+                              onClick={() => handleRetryEmail(log.id)}
+                              disabled={retryingLogId === log.id}
+                              className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold rounded text-[10px] cursor-pointer disabled:opacity-50"
+                            >
+                              {retryingLogId === log.id ? 'Retrying...' : 'Retry'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>

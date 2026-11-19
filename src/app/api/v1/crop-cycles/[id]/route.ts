@@ -4,12 +4,14 @@ import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
 import { resolveCropName } from '@/lib/units';
 import { CropLifecycleEngine } from '@/services/CropLifecycleEngine';
+import { EmailService } from '@/services/EmailService';
 import { z } from 'zod';
 
 const updateCycleSchema = z.object({
   status: z
     .enum(['planned', 'sown', 'growing', 'flowering', 'fruiting', 'harvest_ready', 'harvested', 'completed'])
     .optional(),
+  sowingDate: z.string().optional(),
   expectedHarvestDate: z.string().nullable().optional(),
   actualHarvestDate: z.string().nullable().optional(),
   quantityHarvested: z.number().nonnegative().nullable().optional(),
@@ -102,6 +104,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id },
       data: {
         ...(parsed.status ? { status: parsed.status } : {}),
+        ...(parsed.sowingDate ? { sowingDate: new Date(parsed.sowingDate) } : {}),
         ...(parsed.expectedHarvestDate !== undefined
           ? { expectedHarvestDate: parsed.expectedHarvestDate ? new Date(parsed.expectedHarvestDate) : null }
           : {}),
@@ -112,7 +115,45 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(parsed.quantityUnit ? { quantityUnit: parsed.quantityUnit } : {}),
         ...(parsed.notes !== undefined ? { notes: parsed.notes } : {}),
       },
+      include: {
+        crop: { include: { translations: true } },
+        field: { select: { id: true, name: true } },
+      },
     });
+
+    const cropName = resolveCropName(updated.crop, updated.customCropName, user.preferredLanguage);
+
+    // 1. If sowing date changed: recalculate and reschedule future reminders
+    if (parsed.sowingDate) {
+      await CropLifecycleEngine.rescheduleFutureReminders({
+        cropCycleId: id,
+        newSowingDate: new Date(parsed.sowingDate),
+        cropName,
+        fieldName: updated.field?.name,
+      });
+    }
+
+    // 2. If cycle was completed or harvested: cancel remaining pending reminders & send completion email
+    if (parsed.status === 'completed' || parsed.status === 'harvested') {
+      await CropLifecycleEngine.cancelFutureReminders(id, `Cycle marked as ${parsed.status}`);
+
+      if (user.email) {
+        await EmailService.sendTemplate({
+          userId: user.id,
+          toEmail: user.email,
+          templateKey: 'crop_cycle_completed',
+          locale: (user.preferredLanguage as any) || 'en',
+          preferenceType: 'crop_stage',
+          dedupeKey: `cycle_completed:${id}`,
+          data: {
+            name: user.name,
+            cropName,
+            fieldName: updated.field?.name || 'Field',
+            actionUrl: EmailService.getAppUrl(`/crop-cycles/${id}`),
+          },
+        }).catch(() => {});
+      }
+    }
 
     return apiSuccess(updated);
   } catch (err: any) {
@@ -143,6 +184,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       where: { id },
       data: { deletedAt: new Date() },
     });
+
+    // Cancel all future pending reminders for the deleted crop cycle
+    await CropLifecycleEngine.cancelFutureReminders(id, 'Crop cycle was deleted by farmer');
 
     return apiSuccess({ id, message: 'Crop cycle deleted successfully.' });
   } catch (err) {

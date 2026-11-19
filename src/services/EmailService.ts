@@ -877,6 +877,7 @@ export class EmailService {
       providerResponse,
       attempts,
       maxAttempts,
+      nextRetryAt: !accepted && retryable ? new Date(Date.now() + Math.min(Math.pow(2, attempts) * 60000, 3600000)) : null,
       errorMessage,
       sentAt: accepted ? new Date() : null,
     });
@@ -896,5 +897,94 @@ export class EmailService {
       error: errorMessage || undefined,
       retryable,
     };
+  }
+
+  /**
+   * Retries an eligible failed delivery log entry safely with attempt tracking.
+   */
+  static async retryFailedLog(logId: string): Promise<SendEmailResult> {
+    const sqlite = isSqliteDb();
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT * FROM "EmailDeliveryLog" WHERE "id" = ${sqlite ? '?' : '$1'} LIMIT 1`,
+      logId
+    );
+    const log = rows?.[0];
+    if (!log) {
+      return {
+        accepted: false,
+        delivered: false,
+        status: 'failed',
+        queueStatus: 'failed',
+        submissionStatus: 'failed',
+        providerAcceptanceStatus: 'rejected',
+        deliveryStatus: 'failed',
+        provider: 'unconfigured',
+        error: 'Log entry not found',
+      };
+    }
+
+    if (log.status === 'accepted' || log.status === 'delivered') {
+      return {
+        accepted: true,
+        delivered: true,
+        status: log.status,
+        queueStatus: 'completed',
+        submissionStatus: 'submitted',
+        providerAcceptanceStatus: 'accepted',
+        deliveryStatus: log.deliveryStatus || 'accepted_by_provider',
+        provider: log.provider,
+        providerMessageId: log.providerMessageId,
+        logId: log.id,
+      };
+    }
+
+    return this.sendTemplate({
+      existingLogId: log.id,
+      userId: log.userId,
+      toEmail: log.toEmail,
+      templateKey: log.templateKey as EmailTemplateKey,
+      locale: (log.locale as any) || 'en',
+      attemptNumber: (log.attempts || 1) + 1,
+      maxAttempts: log.maxAttempts || 3,
+      data: {
+        name: 'Farmer',
+        actionUrl: this.getAppUrl('/dashboard'),
+      },
+    });
+  }
+
+  /**
+   * Processes the retry queue for failed or retrying email logs that have reached nextRetryAt.
+   */
+  static async processRetryQueue(limit = 10): Promise<{ processed: number; succeeded: number; failed: number }> {
+    const sqlite = isSqliteDb();
+    const nowIso = new Date().toISOString();
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT "id" FROM "EmailDeliveryLog"
+       WHERE "status" IN ('failed', 'retrying')
+         AND "attempts" < "maxAttempts"
+         AND ("nextRetryAt" IS NULL OR "nextRetryAt" <= ${sqlite ? '?' : '$1'})
+       ORDER BY "createdAt" ASC
+       LIMIT ${limit}`,
+      nowIso
+    ).catch(() => [] as any[]);
+
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const row of rows) {
+      try {
+        const res = await this.retryFailedLog(row.id);
+        if (res.accepted) {
+          succeeded++;
+        } else {
+          failed++;
+        }
+      } catch {
+        failed++;
+      }
+    }
+
+    return { processed: rows.length, succeeded, failed };
   }
 }

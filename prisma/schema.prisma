@@ -675,22 +675,31 @@ model ScheduledReminder {
 }
 
 model EmailDeliveryLog {
-  id                String    @id @default(uuid())
-  userId            String?
-  toEmail           String
-  templateKey       String    // verification | password_reset | security_login | crop_stage | task_reminder | weather_alert | disease_alert | order_confirmation | order_status
-  subject           String
-  locale            String    @default("en")
-  dedupeKey         String?
-  status            String    @default("queued") // queued | sent | simulated | failed | retrying
-  provider          String    @default("local_outbox")
-  providerMessageId String?
-  attempts          Int       @default(1)
-  errorMessage      String?
-  sentAt            DateTime?
-  createdAt         DateTime  @default(now())
+  id                       String    @id @default(uuid())
+  userId                   String?
+  toEmail                  String
+  templateKey              String    // verification | password_reset | security_login | crop_stage | task_reminder | weather_alert | disease_alert | order_confirmation | order_status
+  subject                  String
+  locale                   String    @default("en")
+  dedupeKey                String?
+  status                   String    @default("queued") // queued | accepted | sent | delivered | rejected | bounced | failed | not_configured | skipped_duplicate | skipped_preference
+  queueStatus              String    @default("immediate")
+  submissionStatus         String    @default("pending")
+  providerAcceptanceStatus String    @default("pending")
+  deliveryStatus           String    @default("unknown")
+  bounceStatus             String    @default("none")
+  provider                 String    @default("local_outbox")
+  providerMessageId        String?
+  providerResponse         String?
+  attempts                 Int       @default(1)
+  maxAttempts              Int       @default(3)
+  nextRetryAt              DateTime?
+  errorMessage             String?
+  sentAt                   DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime? @updatedAt
 
-  user              User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user                     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([dedupeKey])

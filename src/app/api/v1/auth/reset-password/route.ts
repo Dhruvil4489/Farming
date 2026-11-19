@@ -5,6 +5,7 @@ import { evaluatePasswordStrength } from '@/lib/password-policy';
 import { apiSuccess, apiError } from '@/lib/api-envelope';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { AuthTokenService } from '@/services/AuthTokenService';
+import { EmailService } from '@/services/EmailService';
 import { z } from 'zod';
 
 const resetSchema = z.object({
@@ -60,6 +61,21 @@ export async function POST(req: NextRequest) {
       where: { id: consumed.user.id },
       data: { passwordHash },
     });
+
+    if (consumed.user.email) {
+      EmailService.sendTemplate({
+        userId: consumed.user.id,
+        toEmail: consumed.user.email,
+        templateKey: 'password_changed',
+        locale: (consumed.user.preferredLanguage as any) || 'en',
+        preferenceType: 'security',
+        isTransactional: true,
+        data: {
+          name: consumed.user.name,
+          loginUrl: EmailService.getAppUrl('/login'),
+        },
+      }).catch(() => {});
+    }
 
     return apiSuccess({
       reset: true,

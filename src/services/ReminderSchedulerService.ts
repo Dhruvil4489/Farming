@@ -84,14 +84,21 @@ export class ReminderSchedulerService {
         continue;
       }
 
-      const templateKey =
+      const templateKey: any =
         rem.category === 'crop_stage'
           ? 'crop_stage'
-          : rem.category === 'weather'
-            ? 'weather_alert'
-            : rem.category === 'disease'
-              ? 'disease_alert'
-              : 'task_reminder';
+          : rem.category === 'irrigation'
+            ? 'irrigation_alert'
+            : rem.category === 'weather'
+              ? 'weather_alert'
+              : rem.category === 'disease' || rem.category === 'pest'
+                ? 'disease_alert'
+                : rem.category === 'task_overdue'
+                  ? 'task_overdue'
+                  : 'task_reminder';
+
+      const userTz = rem.user?.timezone || 'Asia/Kolkata';
+      const dueDate = rem.scheduledFor.toLocaleDateString('en-IN', { timeZone: userTz });
 
       const result = await EmailService.sendTemplate({
         userId: rem.userId,
@@ -104,7 +111,7 @@ export class ReminderSchedulerService {
           name: rem.user.name,
           title: rem.title,
           body: rem.body,
-          dueDate: rem.scheduledFor.toLocaleDateString('en-IN'),
+          dueDate,
           ...payload,
           actionUrl: payload.actionUrl || EmailService.getAppUrl('/tasks'),
         },

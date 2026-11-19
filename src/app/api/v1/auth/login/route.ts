@@ -106,18 +106,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!user.emailVerifiedAt) {
-      return authErrorResponse({
-        code: 'EMAIL_NOT_VERIFIED',
-        message:
-          'Please verify your email address before signing in. Check your inbox or click Resend Verification Email.',
-        status: 403,
-        field: 'email',
-        fieldErrors: { email: 'Email address is pending verification.' },
-        requestId,
-      });
-    }
-
     resetRateLimit(rateLimitKey);
     resetRateLimit(ipRateLimitKey);
 
@@ -125,22 +113,6 @@ export async function POST(req: NextRequest) {
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
-
-    EmailService.sendTemplate({
-      userId: user.id,
-      toEmail: email,
-      templateKey: 'security_login',
-      locale: (user.preferredLanguage as any) || 'en',
-      preferenceType: 'security',
-      data: {
-        name: user.name,
-        loginTime: new Date().toLocaleString('en-IN', {
-          timeZone: (user as any).timezone || 'Asia/Kolkata',
-        }),
-        ip: clientIp,
-        settingsUrl: EmailService.getAppUrl('/settings'),
-      },
-    }).catch(() => {});
 
     const roleNames = user.roles.map((r) => r.role.name);
     const token = signToken(
@@ -162,7 +134,7 @@ export async function POST(req: NextRequest) {
       id: user.id,
       name: user.name,
       email,
-      emailVerified: true,
+      emailVerified: Boolean(user.emailVerifiedAt),
       preferredLanguage: user.preferredLanguage,
       roles: roleNames,
     };

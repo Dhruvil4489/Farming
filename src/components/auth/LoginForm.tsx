@@ -9,8 +9,6 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
-  MailCheck,
-  RefreshCw,
   CheckCircle2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
@@ -37,9 +35,6 @@ export function LoginForm({ initialEmail = '', onSwitchToSignUp }: LoginFormProp
 
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [error, setError] = useState('');
-  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
-  const [resending, setResending] = useState(false);
-  const [resendMessage, setResendMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -55,8 +50,6 @@ export function LoginForm({ initialEmail = '', onSwitchToSignUp }: LoginFormProp
     if (loading) return;
 
     setError('');
-    setUnverifiedEmail(null);
-    setResendMessage('');
 
     const trimmedEmail = email.trim().toLowerCase();
     const errs: { email?: string; password?: string } = {};
@@ -88,7 +81,6 @@ export function LoginForm({ initialEmail = '', onSwitchToSignUp }: LoginFormProp
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        const errCode = data?.code || data?.error?.code;
         const errMessage =
           data?.message ||
           data?.error?.message ||
@@ -96,13 +88,6 @@ export function LoginForm({ initialEmail = '', onSwitchToSignUp }: LoginFormProp
 
         if (data?.fieldErrors) {
           setFieldErrors(data.fieldErrors);
-        }
-
-        if (errCode === 'EMAIL_NOT_VERIFIED' || errCode === 'email_not_verified') {
-          setUnverifiedEmail(trimmedEmail);
-          setError(errMessage);
-          setLoading(false);
-          return;
         }
 
         setError(errMessage);
@@ -123,26 +108,6 @@ export function LoginForm({ initialEmail = '', onSwitchToSignUp }: LoginFormProp
           : 'Unable to sign in right now. Please try again later.'
       );
       setLoading(false);
-    }
-  };
-
-  const handleResendVerification = async () => {
-    if (!unverifiedEmail) return;
-    setResending(true);
-    setResendMessage('');
-    try {
-      const res = await fetch('/api/v1/auth/resend-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: unverifiedEmail }),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(json?.error?.message || 'Unable to resend verification email.');
-      setResendMessage(json?.data?.message || 'Verification email resent. Please check your inbox.');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setResending(false);
     }
   };
 
@@ -187,33 +152,6 @@ export function LoginForm({ initialEmail = '', onSwitchToSignUp }: LoginFormProp
             <AlertCircle size={16} className="text-red-600 shrink-0 mt-0.5" />
             <div className="flex-1 leading-relaxed">{error}</div>
           </div>
-
-          {unverifiedEmail && (
-            <div className="flex flex-wrap items-center gap-2 pt-1 pl-6">
-              <button
-                type="button"
-                disabled={resending}
-                onClick={handleResendVerification}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-red-300 text-red-900 hover:bg-red-100 text-xs font-bold cursor-pointer disabled:opacity-50"
-              >
-                <RefreshCw size={12} className={resending ? 'animate-spin' : ''} />
-                Resend Verification Email
-              </button>
-              <Link
-                href={`/verify-email?email=${encodeURIComponent(unverifiedEmail)}`}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#143D2A] text-white text-xs font-bold hover:bg-[#2F7D4F]"
-              >
-                <MailCheck size={12} /> Enter Verification Code
-              </Link>
-            </div>
-          )}
-        </div>
-      )}
-
-      {resendMessage && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-900 flex items-center gap-2">
-          <CheckCircle2 size={15} className="text-[#2F7D4F] shrink-0" />
-          <span>{resendMessage}</span>
         </div>
       )}
 
