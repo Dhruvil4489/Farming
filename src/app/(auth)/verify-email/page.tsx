@@ -38,7 +38,7 @@ function VerifyEmailInner() {
           setVerifiedEmail(j?.data?.user?.email || emailParam);
           setMessage(
             j?.data?.message ||
-              'Your email address has been verified and your account is now active!'
+            'Your email address has been verified and your account is now active!'
           );
         } else {
           setStatus('error');
@@ -134,11 +134,10 @@ function VerifyEmailInner() {
         <>
           {message && (
             <div
-              className={`p-3.5 rounded-2xl text-xs font-semibold flex items-start gap-2 ${
-                status === 'error'
-                  ? 'bg-red-50 border border-red-200 text-red-800'
-                  : 'bg-emerald-50 border border-emerald-200 text-emerald-900'
-              }`}
+              className={`p-3.5 rounded-2xl text-xs font-semibold flex items-start gap-2 ${status === 'error'
+                ? 'bg-red-50 border border-red-200 text-red-800'
+                : 'bg-emerald-50 border border-emerald-200 text-emerald-900'
+                }`}
             >
               <AlertCircle size={16} className="shrink-0 mt-0.5" />
               <span>{message}</span>
